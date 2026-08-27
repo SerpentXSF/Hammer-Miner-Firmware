@@ -1,4 +1,4 @@
-﻿idf_component_register(
+idf_component_register(
 SRCS 
     #"eeprom.c"
     "TMP75.c"
@@ -17,7 +17,8 @@ INCLUDE_DIRS
     "../asic/include"
     "../stratum/include"
 
-REQUIRES 
+REQUIRES
+    "esp_adc" 
     "freertos"
     "driver"
     "esp_eth"

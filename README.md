@@ -1,7 +1,7 @@
-# Hammer Miner Firmware
+﻿# Hammer Miner Firmware
 
-Open-source firmware for Hammer BC-series Bitcoin miners — BC01, BC02,
-BC04, BC06, and BC08 — built on the ESP32-S3.
+Open-source firmware for Hammer BC-series Bitcoin miners â€” BC01, BC02,
+BC04, BC06, and BC08 â€” built on the ESP32-S3.
 
 This is a continuation of the BC04 firmware source that Chengdu Baichuan
 published for Hammer under GPL obligation, restored to something that is
@@ -17,7 +17,7 @@ that the vendor release omitted put back.
 > **Security.** Stock Hammer firmware has **no authentication on any HTTP
 > endpoint**. Any host on your network can read the configuration, change
 > the payout address, or start a firmware update. If you own one of these
-> miners, read [docs/SECURITY.md](docs/SECURITY.md) — the mitigations
+> miners, read [docs/SECURITY.md](docs/SECURITY.md) â€” the mitigations
 > apply whether or not you ever flash this firmware.
 
 ---
@@ -38,7 +38,7 @@ That release does not finish the job:
   product code, compiled and linked into the firmware, with only a header
   published. GPL-3.0 section 6 means all of the corresponding source.
 - **The BC01 release is empty.** `BC01-APP-2.0.3-20260625.zip` is 392
-  bytes containing a two-line README and nothing else — while the BC01
+  bytes containing a two-line README and nothing else â€” while the BC01
   ships the same codebase, as its own firmware binary proves.
 - **Explicitly unmaintained.** The vendor states they will provide no
   support or further development.
@@ -54,9 +54,9 @@ two archives they published and from a shipping firmware binary.
 | | |
 |---|---|
 | **Licensing** | Full GPL-3.0 text, upstream attribution, and a documented provenance chain. |
-| **Blob removal** | BM1370 builds — every BC board — no longer link the `liba.a` binary blob. The rest of it serves the LT0051 scrypt ASIC and is still required for those builds; see [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md). |
+| **Blob removal** | BM1370 builds â€” every BC board â€” no longer link the `liba.a` binary blob. The rest of it serves the LT0051 scrypt ASIC and is still required for those builds; see [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md). |
 | **Security** | Real authentication, the OTA error-path bug fixed, shipped credentials removed. See [docs/SECURITY.md](docs/SECURITY.md). |
-| **BC01 support** | The stripped BC01 and BC02 code paths restored. Builds clean; not yet run on hardware — see [Status](#status). |
+| **BC01 support** | The stripped BC01 and BC02 code paths restored. Builds clean; not yet run on hardware â€” see [Status](#status). |
 | **Tooling** | OTA image pack/unpack, upstream diffing, provisioning. |
 
 The first commit in this repository is the vendor's tree, unmodified.
@@ -72,10 +72,10 @@ released.
 | Builds from source | Yes, ESP-IDF 5.5.1, no warnings from project sources |
 | Web UI builds | Yes, typechecked |
 | GPL compliance restored | Yes |
-| OTA tooling verified | Yes — round-trips the vendor's own image byte for byte |
+| OTA tooling verified | Yes â€” round-trips the vendor's own image byte for byte |
 | BM1370 path free of the binary blob | Yes |
-| LT0051 path free of the binary blob | No — see [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md) |
-| **Run on real hardware** | **Not yet.** Retail units enforce Secure Boot on the stock module, but the ESP32-S3 is a socketed LilyGO T-Display-S3 — fitting a fresh one runs this firmware with no exploit. See [docs/HARDWARE-SWAP.md](docs/HARDWARE-SWAP.md) |
+| LT0051 path free of the binary blob | No â€” see [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md) |
+| **Run on real hardware** | **Not yet.** Retail units enforce Secure Boot on the stock module, but the ESP32-S3 is a socketed LilyGO T-Display-S3 â€” fitting a fresh one runs this firmware with no exploit. See [docs/HARDWARE-SWAP.md](docs/HARDWARE-SWAP.md) |
 
 Treat this as reviewed and building, not as field-tested.
 
@@ -86,13 +86,13 @@ one-way. The one-line check is in [docs/SECURE-BOOT.md](docs/SECURE-BOOT.md).
 
 That does not put this firmware out of reach. The ESP32-S3 is a socketed,
 off-the-shelf **LilyGO T-Display-S3**, and Secure Boot lives in that
-module's eFuses — so a fresh module runs this firmware with no exploit
+module's eFuses â€” so a fresh module runs this firmware with no exploit
 involved. The per-unit ASIC calibration sits in the hashboard EEPROM, not
 on the module, so it survives the swap. It is reversible: keep the original
 and the miner goes back to stock in a minute.
 [docs/HARDWARE-SWAP.md](docs/HARDWARE-SWAP.md) covers it.
 
-Either way, [docs/SECURITY.md](docs/SECURITY.md) applies — the missing
+Either way, [docs/SECURITY.md](docs/SECURITY.md) applies â€” the missing
 authentication affects locked-down units exactly as much as open ones.
 
 ---
@@ -108,7 +108,7 @@ authentication affects locked-down units exactly as much as open ones.
 | BC08 | 8 | BM1370 | Dual thermal sensor |
 
 Common to the family: ESP32-S3 host, TPS546 buck converter for the ASIC
-core domain, TMP75 I²C thermal sensing, EMC2302 fan control, and an LVGL
+core domain, TMP75 IÂ²C thermal sensing, EMC2302 fan control, and an LVGL
 display. An LT0051 scrypt ASIC path also exists in the tree.
 
 ---
@@ -135,7 +135,7 @@ npm run build
 ### Provisioning
 
 `config.cvs` is a template. It contains no credentials and no payout
-address — fill in your own before flashing, or the build will stop.
+address â€” fill in your own before flashing, or the build will stop.
 
 ```bash
 cp config.cvs.example config.cvs
@@ -147,7 +147,7 @@ $EDITOR config.cvs           # set stratumuser to YOUR address
 
 > **Check your device first.** Signing an image and enforcing that
 > signature are different things. If Secure Boot eFuses were burned at
-> manufacture, this firmware **will not boot and cannot be recovered** —
+> manufacture, this firmware **will not boot and cannot be recovered** â€”
 > eFuses are permanent and USB access does not help. Ask the device:
 >
 > ```bash
@@ -203,13 +203,13 @@ python tools/ota_tool.py inspect update.bin
 
 ## Documentation
 
-- [docs/PROVENANCE.md](docs/PROVENANCE.md) — where this code came from, with evidence
-- [docs/SECURITY.md](docs/SECURITY.md) — findings, fixes, and mitigations for stock firmware
-- [docs/OTA-FORMAT.md](docs/OTA-FORMAT.md) — the update container, and why its obfuscation is not encryption
-- [docs/AUTH.md](docs/AUTH.md) — how API authentication works, and what it does not cover
-- [docs/SECURE-BOOT.md](docs/SECURE-BOOT.md) — check before flashing; some of it is irreversible
-- [docs/HARDWARE-SWAP.md](docs/HARDWARE-SWAP.md) — running this on a locked-down retail miner, without an exploit
-- [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md) — the withheld blob, and what replaced it
+- [docs/PROVENANCE.md](docs/PROVENANCE.md) â€” where this code came from, with evidence
+- [docs/SECURITY.md](docs/SECURITY.md) â€” findings, fixes, and mitigations for stock firmware
+- [docs/OTA-FORMAT.md](docs/OTA-FORMAT.md) â€” the update container, and why its obfuscation is not encryption
+- [docs/AUTH.md](docs/AUTH.md) â€” how API authentication works, and what it does not cover
+- [docs/SECURE-BOOT.md](docs/SECURE-BOOT.md) â€” check before flashing; some of it is irreversible
+- [docs/HARDWARE-SWAP.md](docs/HARDWARE-SWAP.md) â€” running this on a locked-down retail miner, without an exploit
+- [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md) â€” the withheld blob, and what replaced it
 
 ---
 
@@ -217,7 +217,7 @@ python tools/ota_tool.py inspect update.bin
 
 None. This is an independent continuation by owners of the hardware,
 not affiliated with or endorsed by Hammer or Chengdu Baichuan. It is not
-related to Hammer's own later firmware — THOR OS, NORN OS, or GLOD OS —
+related to Hammer's own later firmware â€” THOR OS, NORN OS, or GLOD OS â€”
 which the vendor states were developed separately.
 
 Use of the Hammer and BC model names is descriptive, to identify the
@@ -229,7 +229,7 @@ Issues and pull requests welcome. Contributions are accepted under
 GPL-3.0.
 
 If you find further upstream code that is still unattributed, please open
-an issue — getting the credit right is the point of this repository.
+an issue â€” getting the credit right is the point of this repository.
 
 ## License
 

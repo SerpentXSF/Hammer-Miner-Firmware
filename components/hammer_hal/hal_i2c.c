@@ -2,6 +2,11 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_check.h"
+#include "esp_rom_sys.h"
+#include "esp_adc/adc_oneshot.h"
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
+#include "driver/gpio.h"
 
 #include "miner.h"
 #include "hal_i2c.h"
@@ -33,8 +38,158 @@ static esp_err_t log_on_error(esp_err_t err, i2c_master_dev_handle_t handle)
     return err;
 }
 
+/*
+ * Find pins that carry an external pull-up, without driving anything.
+ *
+ * The BC boards do not all put their sensors on one bus. This
+ * configuration inherits the BC04's single bus on 43/44 and leaves bus 1
+ * disabled, so a device on a second bus is invisible no matter how the
+ * scan is run. An I2C line always has a pull-up on it; a floating pin does
+ * not.
+ *
+ * Reading each candidate twice, once with the internal pull-up and once
+ * with the internal pull-down, separates them: a pin held high against our
+ * own pull-down has something external holding it up. This only ever
+ * configures inputs, so it cannot contend with an output on the carrier.
+ */
+void hammer_gpio_pullup_survey(void)
+{
+    /* Every GPIO broken out on the module that this firmware does not
+     * already claim for the display, UART or bus 0. */
+    static const int candidates[] = { 2, 3, 10, 11, 12, 13, 14, 16, 21, 43, 44 };
+
+    ESP_LOGI(TAG, "GPIO pull-up survey (external pull-up implies a bus line)");
+
+    for (size_t i = 0; i < sizeof(candidates) / sizeof(candidates[0]); i++) {
+        int pin = candidates[i];
+        gpio_config_t up = {
+            .pin_bit_mask = (1ULL << pin),
+            .mode = GPIO_MODE_INPUT,
+            .pull_up_en = GPIO_PULLUP_ENABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        };
+        gpio_config(&up);
+        esp_rom_delay_us(2000);
+        int with_pullup = gpio_get_level(pin);
+
+        gpio_config_t down = {
+            .pin_bit_mask = (1ULL << pin),
+            .mode = GPIO_MODE_INPUT,
+            .pull_up_en = GPIO_PULLUP_DISABLE,
+            .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        };
+        gpio_config(&down);
+        esp_rom_delay_us(2000);
+        int with_pulldown = gpio_get_level(pin);
+
+        /* Leave the pin floating again. */
+        gpio_config_t off = {
+            .pin_bit_mask = (1ULL << pin),
+            .mode = GPIO_MODE_INPUT,
+            .pull_up_en = GPIO_PULLUP_DISABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        };
+        gpio_config(&off);
+
+        const char *verdict = "floating";
+        if (with_pullup && with_pulldown) {
+            verdict = "EXTERNAL PULL-UP  <-- candidate bus line";
+        } else if (!with_pullup && !with_pulldown) {
+            verdict = "driven low externally";
+        }
+
+        ESP_LOGW(TAG, "  GPIO%-2d  pu=%d pd=%d  %s", pin, with_pullup, with_pulldown, verdict);
+    }
+}
+
+/*
+ * Measure a pin's resting voltage with the internal pull-up engaged.
+ *
+ * The digital survey can tell that something holds a pin low, but not
+ * what. A pull-down resistor forms a divider against the chip's ~45k
+ * internal pull-up and settles at a few hundred millivolts; an actively
+ * driven output holds near zero. That distinction decides whether the pin
+ * is an input we may drive or an output we must not fight, so it is worth
+ * measuring rather than assuming. ADC1 covers GPIO1..GPIO10.
+ */
+void hammer_gpio_measure(int pin)
+{
+    if (pin < 1 || pin > 10) {
+        ESP_LOGW(TAG, "  GPIO%d is outside ADC1, cannot measure", pin);
+        return;
+    }
+
+    gpio_config_t up = {
+        .pin_bit_mask = (1ULL << pin),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    };
+    gpio_config(&up);
+    esp_rom_delay_us(5000);
+
+    adc_oneshot_unit_handle_t adc = NULL;
+    adc_oneshot_unit_init_cfg_t unit_cfg = { .unit_id = ADC_UNIT_1 };
+    if (adc_oneshot_new_unit(&unit_cfg, &adc) != ESP_OK) {
+        return;
+    }
+
+    adc_oneshot_chan_cfg_t chan_cfg = {
+        .atten = ADC_ATTEN_DB_12,
+        .bitwidth = ADC_BITWIDTH_DEFAULT,
+    };
+    adc_channel_t channel = (adc_channel_t)(pin - 1);   /* GPIO1 -> CH0 */
+    if (adc_oneshot_config_channel(adc, channel, &chan_cfg) == ESP_OK) {
+        int raw = 0, mv = 0;
+        adc_cali_handle_t cali = NULL;
+        adc_cali_curve_fitting_config_t cali_cfg = {
+            .unit_id = ADC_UNIT_1,
+            .atten = ADC_ATTEN_DB_12,
+            .bitwidth = ADC_BITWIDTH_DEFAULT,
+        };
+        bool have_cali = (adc_cali_create_scheme_curve_fitting(&cali_cfg, &cali) == ESP_OK);
+
+        if (adc_oneshot_read(adc, channel, &raw) == ESP_OK) {
+            if (have_cali) {
+                adc_cali_raw_to_voltage(cali, raw, &mv);
+            }
+            ESP_LOGW(TAG, "  GPIO%d with internal pull-up: raw=%d  %d mV  -> %s",
+                     pin, raw, mv,
+                     mv > 250 ? "resistor pull-down (an input; safe to drive)"
+                              : "held near ground (likely a driven output; do not drive)");
+        }
+        if (have_cali) {
+            adc_cali_delete_scheme_curve_fitting(cali);
+        }
+    }
+    adc_oneshot_del_unit(adc);
+
+    gpio_config_t off = {
+        .pin_bit_mask = (1ULL << pin),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    };
+    gpio_config(&off);
+}
+
 esp_err_t hammer_i2c_init(void)
 {   
+    hammer_gpio_pullup_survey();
+    hammer_gpio_measure(10);
+
+    /*
+     * Two candidate explanations for the missing regulator were tested here
+     * on a BC01 and both were disproved, so neither is left in the code:
+     *
+     *   - Driving GPIO10 high, on the theory that its ~7.5k pull-down made
+     *     it a hashboard enable defaulted off. No effect on the bus.
+     *   - Releasing the chain 0 reset on GPIO1 before scanning, in case
+     *     hashboard devices were held in reset. No effect either.
+     *
+     * See docs/BC01-BRINGUP.md for the full set of measurements.
+     */
+
     i2c_master_bus_config_t i2c_bus_config = {
         .clk_source = I2C_CLK_SRC_DEFAULT,
         .i2c_port = I2C_MASTER_NUM,
