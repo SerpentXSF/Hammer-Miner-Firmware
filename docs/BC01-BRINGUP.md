@@ -69,8 +69,6 @@ good, and the fault is on the replacement module's side of the connector.
 
 ---
 
-## Ruled out, with the measurement that ruled it out
-
 Recording the dead ends, because each cost a hardware cycle.
 
 **Insufficient supply current.** A PC USB port genuinely cannot run this
@@ -121,24 +119,87 @@ reading an unconnected pin.
 
 ---
 
-## What would settle it
+## Root cause: the BC01 is USB-PD powered, and this firmware does not negotiate
 
-Software probing from the module has been exhausted. What remains needs
-either a meter or the vendor's source:
+Found by reading the strings in the decrypted stock 2.0.3 image. Its
+`./main/device.c` contains a subsystem the BC04 release has no trace of:
 
-1. **Measure the hashboard rail** with each module fitted. That separates
-   "the module fails to enable the rail" from "the module fails to connect
-   to it", which no amount of firmware probing can distinguish.
-2. **Check header continuity** on the replacement module. I²C on 43/44 and
-   the display work, so it is seated and oriented correctly, but a single
-   pin not making contact would produce exactly this.
-3. **The BC01 source.** The pin map and power sequencing are in firmware
-   that was never released — `BC01-APP-2.0.3-20260625.zip` is 392 bytes
-   containing a two-line README. Had the vendor published the BC01 source
-   as the GPL requires, this would be a five-minute fix rather than an open
-   question. See [PROVENANCE.md](PROVENANCE.md#4-the-bc01-release-is-empty).
+```
+0x0071d4  husb238a_init()
+0x0071e4  ./main/device.c
+0x0071f4  PD Negotiation: Read adapter capability first, 5-15V
+0x007238  attached=%d, ready=%d, volt=%dV, fault=%d, target=%dV
+0x0072a8  Adapter supported voltages:
+0x0072e8  Negotiation success: %dV
+0x0073ac  CONTRACT CURRENT %d.
+0x0073d0  VBUS output enabled
+0x007430  VBUS output disabled
+```
+
+with this driver, recovered from the `__func__` strings the error macros
+leave behind:
+
+```
+husb238a_init          husb238a_get_connect_status
+husb238a_set_voltage   husb238a_get_negotiated_voltage
+husb238a_gate_open     husb238a_gate_close
+husb_soft_enable
+```
+
+and an I²C device registered under the tag `HUSB238A`.
+
+The HUSB238A is a USB Power Delivery sink controller. **It is the
+unidentified device at 0x42** — which is why it ignored the PMBus register
+pointer and returned a rolling byte stream: it is not a regulator and does
+not implement that access pattern.
+
+The BC01 therefore powers its hashboard like this:
+
+1. Read the adapter's advertised capabilities over I²C
+2. Negotiate a higher supply voltage, somewhere in 5–15 V
+3. Call `husb238a_gate_open()` to switch VBUS through
+4. Only now do the TPS546 and EMC2302 have power and appear on the bus
+
+This firmware performs none of that, so VBUS is never gated on and the
+hashboard is dead no matter what is plugged in.
+
+Every earlier observation follows from it:
+
+| Observation | Explanation |
+|---|---|
+| TPS546 and EMC2302 never acknowledge | VBUS is off |
+| TMP75 and 0x42 always answer | Both sit on the always-on rail, and 0x42 is the PD controller itself |
+| A proper PSU changed nothing | Without negotiation the gate stays shut regardless of supply |
+| A PC USB port changed nothing | A PC port cannot do PD negotiation at all |
+| Stock reports `voltage: 14875`, `nominalVoltage: 12` | That is the negotiated PD voltage, about 15 V |
+| Stock draws 24 W | ~1.6 A at 15 V, consistent |
+
+It also explains why driving GPIO10 and releasing the chain reset did
+nothing: the gate is opened over I²C, not by a GPIO.
+
+### What is still needed
+
+The register-level sequence. The HUSB238A has a published datasheet, but
+the values this board expects — which PDO to select, what to write to open
+the gate, and the order — should be read out of the shipping binary rather
+than assumed, because writing the wrong register on a PD sink controller
+can request a voltage the hardware is not built for.
+
+That means locating `husb238a_init`, `husb238a_set_voltage` and
+`husb238a_gate_open` in the image and reading their constants. The
+`__func__` strings above give an anchor for each.
+
+### The point worth keeping
+
+None of this required reverse engineering to know. It is in the BC01
+source that was never published. A single file describing a PD sink
+controller stands between this firmware and a working miner, and
+recovering it from a binary is the direct, measurable cost of the
+compliance gap in [PROVENANCE.md](PROVENANCE.md#4-the-bc01-source-was-never-published).
 
 ---
+
+## Also ruled out, with the measurement that ruled it out
 
 ## Diagnostics left in the tree
 
