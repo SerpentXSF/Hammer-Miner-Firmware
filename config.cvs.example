@@ -1,0 +1,103 @@
+key,type,encoding,value
+main,namespace,,
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Copy this file to config.cvs and fill in the marked values before flashing.
+#
+#   cp config.cvs.example config.cvs
+#
+# config.cvs is gitignored. Never commit one with real credentials: it is
+# flashed verbatim into the NVS partition and is readable from any device
+# image.
+#
+# The vendor's released config.cvs shipped factory WiFi credentials
+# (GOKJ / GOKJ666888), an InfluxDB token, and payout addresses belonging to
+# a third party, with telemetry enabled by default. See docs/SECURITY.md
+# finding 3. Everything below is either a placeholder or a technical default
+# carried over unchanged.
+# ─────────────────────────────────────────────────────────────────────────────
+
+hostname,data,string,hammer
+
+# ── REQUIRED: your network ───────────────────────────────────────────────────
+# Leave blank to have the miner start its own access point for setup.
+wifissid,data,string,
+wifipass,data,string,
+
+isStaticIP,data,u16,0
+staticIP,data,string,192.168.1.100
+subnetMask,data,string,255.255.255.0
+gateway,data,string,192.168.1.1
+dns,data,string,192.168.1.1
+
+# ── REQUIRED: your pool and YOUR OWN payout address ──────────────────────────
+# stratumuser must be an address you control. A miner left on a placeholder
+# mines for whoever owns that address, not for you.
+stratumurl,data,string,solo.ckpool.org
+stratumport,data,u16,3333
+stratumuser,data,string,REPLACE-WITH-YOUR-BTC-ADDRESS.hammer
+stratumpass,data,string,x
+stratumdiff,data,u64,10000
+stratumtls,data,u16,0
+stratumcert,data,string,
+stratumxnsub,data,u16,0
+
+fbstratumurl,data,string,solo.ckpool.org
+fbstratumport,data,u16,3333
+fbstratumuser,data,string,REPLACE-WITH-YOUR-BTC-ADDRESS.hammer
+fbstratumpass,data,string,x
+fbstratumdiff,data,u64,10000
+stratumfbtls,data,u16,0
+stratumfbcert,data,string,
+stratumfbxnsub,data,u16,0
+
+# ── REQUIRED: API password ───────────────────────────────────────────────────
+# Gates every HTTP endpoint. Leave blank ONLY on a fully isolated network:
+# blank disables authentication, which is how the vendor firmware shipped.
+# See docs/AUTH.md.
+apipassword,data,string,
+
+# ── Device identity ──────────────────────────────────────────────────────────
+# devicemodel selects the hardware profile: BC01, BC02, BC04, BC06, BC08.
+devicemodel,data,string,BC01
+boardversion,data,string,V02
+asicmodel,data,string,BM1370
+sn_str,data,string,AL
+
+# ── ASIC tuning (vendor defaults, unchanged) ─────────────────────────────────
+asicfrequency,data,u16,750
+asicvoltage,data,u16,470
+asicnormalf,data,u16,640
+asicnormalvol,data,u16,460
+asicoverf,data,u16,750
+asicovervol,data,u16,470
+asicovervdef,data,u16,480
+oc_enabled,data,u16,1
+
+# ── Thermal and display ──────────────────────────────────────────────────────
+flipscreen,data,u16,1
+backlight,data,u16,1
+invertfanpol,data,u16,0
+autofanspeed,data,u16,1
+fanspeed,data,u16,80
+overheat_mode,data,u16,0
+
+selftest,data,u16,0
+boot_mode,data,u16,1
+
+# ── Time ─────────────────────────────────────────────────────────────────────
+ntp_main,data,string,pool.ntp.org
+ntp_backup,data,string,time.cloudflare.com
+time_zone,data,string,UTC0
+
+# ── InfluxDB telemetry (off by default) ──────────────────────────────────────
+# The vendor shipped this enabled, pointing at a hardcoded private address
+# with a plaintext token. Set influx_enable to 1 and fill in your own server
+# if you want it.
+influx_enable,data,u16,0
+influx_url,data,string,
+influx_port,data,u16,8086
+influx_token,data,string,
+influx_bucket,data,string,
+influx_org,data,string,
+influx_prefix,data,string,mainnet_stats

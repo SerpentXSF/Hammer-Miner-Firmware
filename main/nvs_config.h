@@ -8,6 +8,10 @@
 #define NVS_CONFIG_WIFI_SSID "wifissid"
 #define NVS_CONFIG_WIFI_PASS "wifipass"
 #define NVS_CONFIG_HOSTNAME "hostname"
+
+/* Shared secret for the HTTP API. Empty means authentication is disabled,
+ * which is how the vendor firmware behaved. See main/http_server/api_auth.c. */
+#define NVS_CONFIG_API_PASSWORD "apipassword"
 #define NVS_CONFIG_STRATUM_URL "stratumurl"
 #define NVS_CONFIG_STRATUM_PORT "stratumport"
 #define NVS_CONFIG_FALLBACK_STRATUM_URL "fbstratumurl"

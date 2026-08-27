@@ -39,6 +39,22 @@ menu "hammer Configuration"
         default 100
         help
             The TPS546 VOUT MIN
+
+    config HAMMER_OTA_OBFUSCATED
+        bool "Use the obfuscated OTA update container"
+        default y
+        help
+            Accept update images in the shipping container format: a 0xAA
+            type byte, a 48-byte header, and a payload, all XORed with a
+            repeating 16-byte pad. See docs/OTA-FORMAT.md.
+
+            Leave this on to stay compatible with existing update files.
+
+            The pad is not a security boundary; it is recoverable from any
+            published image without the key. Update integrity comes from
+            the Secure Boot v2 signature in the payload, and access control
+            from HAMMER_API_AUTH. Turn this off to accept plain,
+            unobfuscated application images instead.
 endmenu
 
 menu "Stratum Configuration"

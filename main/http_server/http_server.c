@@ -32,6 +32,7 @@
 #include "cJSON.h"
 #include "global_state.h"
 #include "nvs_config.h"
+#include "api_auth.h"
 //#include "vcore.h"
 #include "connect.h"
 #include "asic.h"
@@ -234,6 +235,10 @@ static esp_err_t GET_log_download(httpd_req_t *req)
 {
     if (is_network_allowed(req) != ESP_OK) {
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    }
+
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
     }
     if (set_cors_headers(req) != ESP_OK) {
         httpd_resp_send_500(req);
@@ -456,52 +461,43 @@ static esp_err_t is_network_allowed(httpd_req_t * req)
     return ESP_FAIL;
 }
 
-// AES解密函数
-static int aes_decrypt(const unsigned char *key, const unsigned char *input, size_t input_len, unsigned char *output, size_t start_byte_offset)
-{
-    // 简化版AES-ECB解密实现
-    // 与Python代码中的加密实现兼容
-    size_t i;
-    
-    // 直接使用密钥生成伪随机数，不使用块索引
-    unsigned char hash_val[32];
-    mbedtls_sha256_context sha256;
-    mbedtls_sha256_init(&sha256);
-    mbedtls_sha256_starts(&sha256, 0);
-    mbedtls_sha256_update(&sha256, key, 32);
-    mbedtls_sha256_finish(&sha256, hash_val);
-    mbedtls_sha256_free(&sha256);
-    
-    // 与Python工具完全一致的解密逻辑
-    // 注意：start_byte_offset是整个数据流中的起始位置，用于计算正确的块内索引
-    for (i = 0; i < input_len; i++) {
-        // 计算当前字节在整个数据流中的位置
-        size_t global_byte_pos = start_byte_offset + i;
-        // 计算当前字节在块中的索引（与Python工具一致）
-        size_t j = global_byte_pos % 16;
-        
-        // XOR操作模拟解密（与Python工具完全一致）
-        output[i] = input[i] ^ hash_val[j % 32];
-    }
-    
-    return 0;
-}
+/*
+ * OTA update images are obfuscated with a repeating 16-byte pad.
+ *
+ * This was previously written as aes_decrypt() and commented as a
+ * "simplified AES-ECB" implementation, deriving the pad as SHA-256 of an
+ * embedded 32-byte key and indexing it with hash_val[(pos % 16) % 32].
+ * That second modulo could never do anything, so only the first 16 bytes
+ * of the digest were ever used.
+ *
+ * It is a Vigenere cipher, not AES, and it is not a security boundary:
+ * the pad is recoverable from any published image by frequency analysis,
+ * with no key. It is kept solely for compatibility with existing update
+ * files and with the vendor's packaging tool.
+ *
+ * Update integrity comes from the Secure Boot v2 signature inside the
+ * payload, which esp_ota_set_boot_partition() verifies. Access control
+ * comes from require_authenticated(). See docs/OTA-FORMAT.md.
+ *
+ * The pad is now a build-time constant rather than a derived value. The
+ * key file it used to be computed from was never part of the source
+ * release, so the tree could not be built without it.
+ */
+#define OTA_PAD_LEN 16
 
-// 读取加密密钥
-static esp_err_t read_encryption_key(unsigned char *key, size_t key_size)
+static const uint8_t ota_obfuscation_pad[OTA_PAD_LEN] = {
+    0x69, 0xcc, 0x74, 0xae, 0xaf, 0x0c, 0xe6, 0x83,
+    0x22, 0x9d, 0x42, 0x2f, 0x54, 0x42, 0x8a, 0x54,
+};
+
+/* Deobfuscate `input_len` bytes, continuing the pad from `stream_offset`
+ * bytes into the update file. In-place use (input == output) is safe. */
+static void ota_deobfuscate(const unsigned char *input, size_t input_len,
+                            unsigned char *output, size_t stream_offset)
 {
-    // 使用嵌入式二进制数据
-    extern const uint8_t flash_encryption_key_bin_start[] asm("_binary_flash_encryption_key_bin_start");
-    extern const uint8_t flash_encryption_key_bin_end[]   asm("_binary_flash_encryption_key_bin_end");
-    
-    size_t embedded_key_size = flash_encryption_key_bin_end - flash_encryption_key_bin_start;
-    if (embedded_key_size != key_size) {
-        ESP_LOGE(TAG, "Encryption key size mismatch: expected %zu, got %zu", key_size, embedded_key_size);
-        return ESP_FAIL;
+    for (size_t i = 0; i < input_len; i++) {
+        output[i] = input[i] ^ ota_obfuscation_pad[(stream_offset + i) % OTA_PAD_LEN];
     }
-    
-    memcpy(key, flash_encryption_key_bin_start, key_size);
-    return ESP_OK;
 }
 
 static void readWWWVersion(void) {
@@ -740,6 +736,10 @@ static esp_err_t PATCH_update_settings(httpd_req_t * req)
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
     }
 
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
+    }
+
     // Set CORS headers
     if (set_cors_headers(req) != ESP_OK) {
         httpd_resp_send_500(req);
@@ -808,6 +808,13 @@ static esp_err_t PATCH_update_settings(httpd_req_t * req)
             GLOBAL_STATE->SYSTEM_MODULE.pool_user = strdup(item->valuestring);
         }
     }
+    if (cJSON_IsString(item = cJSON_GetObjectItem(root, "apiPassword"))) {
+        nvs_config_set_string(NVS_CONFIG_API_PASSWORD, item->valuestring);
+        /* Existing tokens were issued against the old secret. */
+        api_auth_revoke_all();
+        ESP_LOGI(TAG, "API password changed; all sessions revoked");
+    }
+
     if (cJSON_IsString(item = cJSON_GetObjectItem(root, "stratumPassword"))) {
         nvs_config_set_string(NVS_CONFIG_STRATUM_PASS, item->valuestring);
         if(NULL != GLOBAL_STATE->SYSTEM_MODULE.pool_pass){
@@ -1161,6 +1168,10 @@ static esp_err_t POST_restart(httpd_req_t * req)
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
     }
 
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
+    }
+
     // Set CORS headers
     if (set_cors_headers(req) != ESP_OK) {
         httpd_resp_send_500(req);
@@ -1361,6 +1372,10 @@ static esp_err_t get_miner_conf_handler(httpd_req_t * req)
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
     }
 
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
+    }
+
     // Set CORS headers
     if (set_cors_headers(req) != ESP_OK) {
         httpd_resp_send_500(req);
@@ -1395,6 +1410,10 @@ static esp_err_t GET_system_info(httpd_req_t * req)
 {
     if (is_network_allowed(req) != ESP_OK) {
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    }
+
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
     }
 
     // Set CORS headers
@@ -1468,6 +1487,7 @@ static esp_err_t GET_system_info(httpd_req_t * req)
     cJSON_AddStringToObject(root, "ssid", ssid);
     cJSON_AddStringToObject(root, "macAddr", formattedMac);
     cJSON_AddStringToObject(root, "hostname", hostname);
+    cJSON_AddBoolToObject(root, "authEnabled", !api_auth_is_disabled());
     cJSON_AddStringToObject(root, "wifiStatus", GLOBAL_STATE->SYSTEM_MODULE.wifi_status);
     cJSON_AddNumberToObject(root, "wifiRSSI", wifi_rssi);
 
@@ -1575,6 +1595,10 @@ static esp_err_t GET_influx_info(httpd_req_t * req)
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
     }
 
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
+    }
+
     // Set CORS headers
     if (set_cors_headers(req) != ESP_OK) {
         httpd_resp_send_500(req);
@@ -1615,6 +1639,10 @@ static esp_err_t PATCH_update_influx(httpd_req_t * req)
 {
     if (is_network_allowed(req) != ESP_OK) {
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    }
+
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
     }
 
     // Set CORS headers
@@ -1678,11 +1706,21 @@ static esp_err_t PATCH_update_influx(httpd_req_t * req)
 }
 
 #endif
-#ifdef CONFIG_SECURE_FLASH_ENC_ENABLED
+/* Selects the obfuscated OTA container (docs/OTA-FORMAT.md) over the
+ * plain one. This was keyed off CONFIG_SECURE_FLASH_ENC_ENABLED, which
+ * conflated the update format with flash encryption: you could not build
+ * a device that speaks the shipping update format without also turning on
+ * flash encryption, whose RELEASE mode is irreversible once booted. The
+ * two are unrelated and are now configured independently. */
+#ifdef CONFIG_HAMMER_OTA_OBFUSCATED
 esp_err_t POST_WWW_update(httpd_req_t * req)
 {
     if (is_network_allowed(req) != ESP_OK) {
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    }
+
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
     }
 
     // Set CORS headers
@@ -1730,14 +1768,6 @@ esp_err_t POST_WWW_update(httpd_req_t * req)
     }
     remaining -= 1;
 
-    unsigned char key[32];
-    if (read_encryption_key(key, sizeof(key)) != ESP_OK) {
-        ESP_LOGW(TAG, "WWW update: Failed to read encryption key");
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Encryption key error");
-        GLOBAL_STATE->SYSTEM_MODULE.is_firmware_update = false;
-        return ESP_OK;
-    }
-
     size_t encrypted_header_size = 48;
     unsigned char encrypted_header[48];
     unsigned char decrypted_header[48];
@@ -1756,12 +1786,7 @@ esp_err_t POST_WWW_update(httpd_req_t * req)
         remaining -= recv_len;
     }
     
-    if (aes_decrypt(key, encrypted_header, encrypted_header_size, decrypted_header, 0) != 0) {
-        ESP_LOGW(TAG, "WWW update: Header decryption error");
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Firmware error");
-        GLOBAL_STATE->SYSTEM_MODULE.is_firmware_update = false;
-        return ESP_OK;
-    }
+    ota_deobfuscate(encrypted_header, encrypted_header_size, decrypted_header, 0);
     
     char project_id[11];
     memcpy(project_id, decrypted_header + 32, 10);
@@ -1883,6 +1908,10 @@ esp_err_t POST_OTA_update(httpd_req_t * req)
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
     }
 
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
+    }
+
     // Set CORS headers
     if (set_cors_headers(req) != ESP_OK) {
         ESP_LOGW(TAG, "OTA update: Failed to set CORS headers");
@@ -1905,7 +1934,9 @@ esp_err_t POST_OTA_update(httpd_req_t * req)
 
     char buf[640];
     unsigned char decrypt_buf[656];
-    esp_ota_handle_t ota_handle;
+    /* Zero-initialised: the error paths below run before esp_ota_begin()
+     * assigns this, and must never abort an indeterminate handle. */
+    esp_ota_handle_t ota_handle = 0;
     int remaining = req->content_len;
 
     if (remaining < 1) {
@@ -1932,14 +1963,6 @@ esp_err_t POST_OTA_update(httpd_req_t * req)
     }
     remaining -= 1;
 
-    unsigned char key[32];
-    if (read_encryption_key(key, sizeof(key)) != ESP_OK) {
-        ESP_LOGW(TAG, "OTA update: Failed to read encryption key");
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Encryption key error");
-        GLOBAL_STATE->SYSTEM_MODULE.is_firmware_update = false;
-        return ESP_OK;
-    }
-
     mbedtls_sha256_context sha256_ctx;
     mbedtls_sha256_init(&sha256_ctx);
     mbedtls_sha256_starts(&sha256_ctx, 0);
@@ -1958,7 +1981,6 @@ esp_err_t POST_OTA_update(httpd_req_t * req)
         if (recv_len <= 0) {
             ESP_LOGW(TAG, "OTA update: Failed to receive header");
             mbedtls_sha256_free(&sha256_ctx);
-            esp_ota_abort(ota_handle);
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Protocol Error");
             GLOBAL_STATE->SYSTEM_MODULE.is_firmware_update = false;
             return ESP_OK;
@@ -1967,14 +1989,7 @@ esp_err_t POST_OTA_update(httpd_req_t * req)
         remaining -= recv_len;
     }
     
-    if (aes_decrypt(key, encrypted_header, encrypted_header_size, decrypted_header, 0) != 0) {
-        ESP_LOGW(TAG, "OTA update: Header decryption error");
-        mbedtls_sha256_free(&sha256_ctx);
-        esp_ota_abort(ota_handle);
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Firmware error");
-        GLOBAL_STATE->SYSTEM_MODULE.is_firmware_update = false;
-        return ESP_OK;
-    }
+    ota_deobfuscate(encrypted_header, encrypted_header_size, decrypted_header, 0);
     
     char project_id[11];
     memcpy(project_id, decrypted_header + 32, 10);
@@ -1982,7 +1997,6 @@ esp_err_t POST_OTA_update(httpd_req_t * req)
     if (strcmp(project_id, "GULLPOWER") != 0) {
         ESP_LOGW(TAG, "OTA update: Invalid project");
         mbedtls_sha256_free(&sha256_ctx);
-        esp_ota_abort(ota_handle);
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Firmware error");
         GLOBAL_STATE->SYSTEM_MODULE.is_firmware_update = false;
         return ESP_OK;
@@ -2064,14 +2078,8 @@ esp_err_t POST_OTA_update(httpd_req_t * req)
             return ESP_OK;
         }
         
-        if (aes_decrypt(key, decrypt_buf, decrypt_size, decrypt_buf, content_start_offset + current_content_offset) != 0) {
-            ESP_LOGW(TAG, "OTA update: Content decryption error");
-            mbedtls_sha256_free(&sha256_ctx);
-            esp_ota_abort(ota_handle);
-            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Firmware error");
-            GLOBAL_STATE->SYSTEM_MODULE.is_firmware_update = false;
-            return ESP_OK;
-        }
+        ota_deobfuscate(decrypt_buf, decrypt_size, decrypt_buf,
+                        content_start_offset + current_content_offset);
         
         current_content_offset += input_size;
         
@@ -2155,6 +2163,10 @@ esp_err_t POST_WWW_update(httpd_req_t * req)
 {
     if (is_network_allowed(req) != ESP_OK) {
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    }
+
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
     }
 
     // Set CORS headers
@@ -2283,6 +2295,10 @@ esp_err_t POST_OTA_update(httpd_req_t * req)
 {
     if (is_network_allowed(req) != ESP_OK) {
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    }
+
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
     }
 
     // Set CORS headers
@@ -2438,6 +2454,10 @@ esp_err_t echo_handler(httpd_req_t * req)
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
     }
 
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
+    }
+
     // Set CORS headers
     if (set_cors_headers(req) != ESP_OK) {
         httpd_resp_send_500(req);
@@ -2469,6 +2489,10 @@ esp_err_t sync_time_handler(httpd_req_t *req)
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
     }
 
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
+    }
+
     // Set CORS headers
     if (set_cors_headers(req) != ESP_OK) {
         httpd_resp_send_500(req);
@@ -2487,6 +2511,10 @@ esp_err_t get_fw_type_handler(httpd_req_t *req)
 
     if (is_network_allowed(req) != ESP_OK) {
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    }
+
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
     }
 
     // Set CORS headers
@@ -2509,6 +2537,10 @@ esp_err_t get_errLog_handler(httpd_req_t *req)
 
     if (is_network_allowed(req) != ESP_OK) {
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    }
+
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
     }
 
     // Set CORS headers
@@ -2536,6 +2568,10 @@ esp_err_t get_network_info_handler(httpd_req_t *req)
 
     if (is_network_allowed(req) != ESP_OK) {
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    }
+
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
     }
 
     // Set CORS headers
@@ -2569,6 +2605,10 @@ esp_err_t set_network_conf_handler(httpd_req_t *req)
 
     if (is_network_allowed(req) != ESP_OK) {
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    }
+
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
     }
 
     // Set CORS headers
@@ -2671,6 +2711,10 @@ esp_err_t get_system_info_cgi_handler(httpd_req_t *req)
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
     }
 
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
+    }
+
     // Set CORS headers
     if (set_cors_headers(req) != ESP_OK) {
         httpd_resp_send_500(req);
@@ -2701,6 +2745,10 @@ esp_err_t get_voltage_cgi_handler(httpd_req_t *req)
 
     if (is_network_allowed(req) != ESP_OK) {
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    }
+
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
     }
 
     // Set CORS headers
@@ -2796,11 +2844,13 @@ esp_err_t start_rest_server(void * pvParameters)
     config.recv_wait_timeout = 30;
     config.send_wait_timeout = 30;
     config.max_open_sockets = 8;
-    config.max_uri_handlers = 45;
+    config.max_uri_handlers = 48;
 
     esp_log_level_set("httpd_txrx", ESP_LOG_ERROR);
 
     ESP_LOGI(TAG, "Starting HTTP Server");
+    api_auth_init();
+
     REST_CHECK(httpd_start(&server, &config) == ESP_OK, "Start server failed", err_start);
 
 	/* URI handler for recovery */
@@ -2859,6 +2909,24 @@ esp_err_t start_rest_server(void * pvParameters)
         .user_ctx = rest_context
     };
     httpd_register_uri_handler(server, &system_restart_uri);
+
+    /* The vendor web UI already posted here; the route never existed.
+     * See docs/SECURITY.md finding 1. */
+    httpd_uri_t system_login_uri = {
+        .uri = "/api/system/login",
+        .method = HTTP_POST,
+        .handler = POST_api_login,
+        .user_ctx = rest_context
+    };
+    httpd_register_uri_handler(server, &system_login_uri);
+
+    httpd_uri_t system_login_options_uri = {
+        .uri = "/api/system/login",
+        .method = HTTP_OPTIONS,
+        .handler = handle_options_request,
+        .user_ctx = NULL
+    };
+    httpd_register_uri_handler(server, &system_login_options_uri);
 
     httpd_uri_t system_restart_options_uri = {
         .uri = "/api/system/restart",
