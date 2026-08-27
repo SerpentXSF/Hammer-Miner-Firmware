@@ -57,14 +57,26 @@ Every escape route is closed, deliberately:
 - JTAG is permanently disabled, so there is no debug path in.
 - eFuses cannot be un-burned.
 
-A device in this state runs Hammer's firmware or nothing. That is a
-reasonable security posture on the vendor's part; it simply also means
-owners cannot replace software on hardware they own, on a product the
-vendor has said it will not maintain.
+That ESP32-S3 runs Hammer's firmware or nothing. As a posture on the
+vendor's part it is defensible; it does also mean owners cannot replace
+software on hardware they own, on a product the vendor has said it will
+not maintain.
 
-Use this repository for its analysis, tooling and provenance record
-instead. [SECURITY.md](SECURITY.md) still applies in full — the missing
-authentication is in NVS-backed configuration that no signature covers.
+### It does not have to be the end of it
+
+Secure Boot is enforced by the **chip**, and on these miners the chip is on
+a **socketed, off-the-shelf LilyGO T-Display-S3**. Fitting a fresh module
+gives you an ESP32-S3 with unburned eFuses, which runs this firmware
+normally. No exploit, no glitching, nothing irreversible — and the original
+module goes back in if you change your mind.
+
+The per-unit ASIC calibration lives in the hashboard EEPROM rather than on
+the module, so it survives the swap.
+
+See [HARDWARE-SWAP.md](HARDWARE-SWAP.md).
+
+[SECURITY.md](SECURITY.md) applies either way — the missing authentication
+is in NVS-backed configuration that no signature covers.
 
 ---
 

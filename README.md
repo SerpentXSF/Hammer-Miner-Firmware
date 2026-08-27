@@ -75,21 +75,25 @@ released.
 | OTA tooling verified | Yes — round-trips the vendor's own image byte for byte |
 | BM1370 path free of the binary blob | Yes |
 | LT0051 path free of the binary blob | No — see [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md) |
-| **Run on real hardware** | **No, and on retail units it cannot be.** A retail BC01 was measured with Secure Boot enforced and both spare key slots revoked, so only Hammer-signed images boot. See [docs/SECURE-BOOT.md](docs/SECURE-BOOT.md) |
+| **Run on real hardware** | **Not yet.** Retail units enforce Secure Boot on the stock module, but the ESP32-S3 is a socketed LilyGO T-Display-S3 — fitting a fresh one runs this firmware with no exploit. See [docs/HARDWARE-SWAP.md](docs/HARDWARE-SWAP.md) |
 
 Treat this as reviewed and building, not as field-tested.
 
 **Check your device before flashing anything.** On a retail BC01 measured
-here, Secure Boot is enforced and the two spare key slots are revoked, so
-no firmware but Hammer's will boot and that cannot be changed — eFuses are
-one-way. Units whose eFuses were never burned, such as development or
-pre-production samples, can run this. The one-line check is in
-[docs/SECURE-BOOT.md](docs/SECURE-BOOT.md).
+here, Secure Boot is enforced and both spare key slots are revoked, so the
+stock module will only ever boot Hammer-signed firmware. eFuses are
+one-way. The one-line check is in [docs/SECURE-BOOT.md](docs/SECURE-BOOT.md).
 
-If that rules your hardware out, the analysis, the provenance record and
-the tooling still apply — and so does
-[docs/SECURITY.md](docs/SECURITY.md), because the missing authentication
-affects locked-down units exactly as much as open ones.
+That does not put this firmware out of reach. The ESP32-S3 is a socketed,
+off-the-shelf **LilyGO T-Display-S3**, and Secure Boot lives in that
+module's eFuses — so a fresh module runs this firmware with no exploit
+involved. The per-unit ASIC calibration sits in the hashboard EEPROM, not
+on the module, so it survives the swap. It is reversible: keep the original
+and the miner goes back to stock in a minute.
+[docs/HARDWARE-SWAP.md](docs/HARDWARE-SWAP.md) covers it.
+
+Either way, [docs/SECURITY.md](docs/SECURITY.md) applies — the missing
+authentication affects locked-down units exactly as much as open ones.
 
 ---
 
@@ -204,6 +208,7 @@ python tools/ota_tool.py inspect update.bin
 - [docs/OTA-FORMAT.md](docs/OTA-FORMAT.md) — the update container, and why its obfuscation is not encryption
 - [docs/AUTH.md](docs/AUTH.md) — how API authentication works, and what it does not cover
 - [docs/SECURE-BOOT.md](docs/SECURE-BOOT.md) — check before flashing; some of it is irreversible
+- [docs/HARDWARE-SWAP.md](docs/HARDWARE-SWAP.md) — running this on a locked-down retail miner, without an exploit
 - [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md) — the withheld blob, and what replaced it
 
 ---
