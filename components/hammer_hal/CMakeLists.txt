@@ -6,6 +6,7 @@ SRCS
     "internal_sensor.c"
     "EMC2302.c"
     "hal_i2c.c"
+    "husb238a.c"
     "TPS546.c"
     "pwm_fan.c"
     "vcore.c"
