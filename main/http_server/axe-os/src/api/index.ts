@@ -342,17 +342,16 @@ const setTheme = async (data?: {}) => {
     return post<any>({ url: URL.setTheme, data });
 }
 
-const login = async (username: string, password: string) => {
+// The device has a single shared password, not user accounts.
+const login = async (password: string) => {
     if (USE_MOCK) {
-        console.log(`[Mock] login: ${username} / ${password}`);
         await new Promise(resolve => setTimeout(resolve, 500));
-        if (username === 'root' && password === 'root') {
+        if (password === 'mock') {
             return Promise.resolve({ token: 'mock-token-12345' });
-        } else {
-            return Promise.reject({ response: { status: 401 } });
         }
+        return Promise.reject({ response: { status: 401 } });
     }
-    return post<LoginResponse>({ url: URL.login, data: { username, password } });
+    return post<LoginResponse>({ url: URL.login, data: { password } });
 }
 // --- 新增内容结束 ---
 

@@ -7,17 +7,6 @@
       </div>
       
       <div class="form-container">
-        <a-input
-          v-model:value="username"
-          placeholder="Username"
-          size="large"
-          @keyup.enter="handleLogin"
-        >
-           <template #prefix>
-            <UserOutlined />
-          </template>
-        </a-input>
-
         <a-input-password
           v-model:value="password"
           placeholder="Password"
@@ -60,13 +49,12 @@
 import { ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAppStore } from '@/store/modules/app';
-import { LockOutlined, UserOutlined } from '@ant-design/icons-vue';
+import { LockOutlined } from '@ant-design/icons-vue';
 import ThemeSwitcher from "@/components/ThemeSwitcher.vue";
 import Lang from "@/components/Lang.vue";
 import Restart from "@/components/Restart.vue";
 
-const username = ref('root');
-const password = ref('root');
+const password = ref('');
 const loading = ref(false);
 const error = ref('');
 const router = useRouter();
@@ -74,8 +62,8 @@ const route = useRoute();
 const appStore = useAppStore();
 
 const handleLogin = async () => {
-  if (!username.value || !password.value) {
-    error.value = 'Please enter username and password';
+  if (!password.value) {
+    error.value = 'Please enter the device password';
     return;
   }
   
@@ -83,7 +71,7 @@ const handleLogin = async () => {
   error.value = '';
   
   try {
-    const success = await appStore.login(username.value, password.value);
+    const success = await appStore.login(password.value);
     if (success) {
       const redirect = route.query.redirect as string || '/dashboard';
       router.push(redirect);

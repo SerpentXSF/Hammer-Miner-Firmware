@@ -135,9 +135,9 @@ export const useAppStore = defineStore("app", {
             this.token = '';
             localStorage.removeItem('auth_token');
         },
-        async login(username: string, password: string) { // [新增] login action
+        async login(password: string) {
             try {
-                const res = await login(username, password);
+                const res = await login(password);
                 if (res && res.token) {
                     this.setToken(res.token);
                     return true;
