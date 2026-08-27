@@ -1582,11 +1582,15 @@ static esp_err_t GET_system_info(httpd_req_t * req)
 #if 0
 
 #define CONFIG_INFLUX_ENABLE 0
-#define CONFIG_INFLUX_URL "http://10.98.18.79"
-#define CONFIG_INFLUX_TOKEN "f37fh783hf8hq"
+/* Empty by default. These carried the vendor's own telemetry endpoint and
+ * a plaintext token, so any device that enabled reporting without setting
+ * its own destination would have reported to them. Telemetry is opt-in and
+ * has nowhere to go until the owner supplies a server. */
+#define CONFIG_INFLUX_URL ""
+#define CONFIG_INFLUX_TOKEN ""
 #define CONFIG_INFLUX_PORT 8086
-#define CONFIG_INFLUX_BUCKET "nerdqaxeplus"
-#define CONFIG_INFLUX_ORG "nerdqaxeplus"
+#define CONFIG_INFLUX_BUCKET ""
+#define CONFIG_INFLUX_ORG ""
 #define CONFIG_INFLUX_PREFIX "mainnet_stats"
 
 static esp_err_t GET_influx_info(httpd_req_t * req)

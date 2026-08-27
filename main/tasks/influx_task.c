@@ -23,11 +23,15 @@ static Influx *influxdb = NULL;
 bool last_block_found = false;
 
 #define CONFIG_INFLUX_ENABLE 0
-#define CONFIG_INFLUX_URL "http://10.98.18.79"
-#define CONFIG_INFLUX_TOKEN "f37fh783hf8hq"
+/* Empty by default. These carried the vendor's own telemetry endpoint and
+ * a plaintext token, so any device that enabled reporting without setting
+ * its own destination would have reported to them. Telemetry is opt-in and
+ * has nowhere to go until the owner supplies a server. */
+#define CONFIG_INFLUX_URL ""
+#define CONFIG_INFLUX_TOKEN ""
 #define CONFIG_INFLUX_PORT 8086
-#define CONFIG_INFLUX_BUCKET "nerdqaxeplus"
-#define CONFIG_INFLUX_ORG "nerdqaxeplus"
+#define CONFIG_INFLUX_BUCKET ""
+#define CONFIG_INFLUX_ORG ""
 #define CONFIG_INFLUX_PREFIX "mainnet_stats"
 
 
@@ -133,6 +137,15 @@ void influx_task(void *pvParameters)
     char *influxBucket = nvs_config_get_string(NVS_CONFIG_INFLUX_BUCKET, CONFIG_INFLUX_BUCKET);
     char *influxOrg = nvs_config_get_string(NVS_CONFIG_INFLUX_ORG, CONFIG_INFLUX_ORG);
     char *influxPrefix = nvs_config_get_string(NVS_CONFIG_INFLUX_PREFIX, CONFIG_INFLUX_PREFIX);
+
+    /* Telemetry has no default destination any more, so it is possible to
+     * enable reporting without having said where to. Stop here rather than
+     * retrying against an empty host for the lifetime of the device. */
+    if (NULL == influxURL || '\0' == influxURL[0]) {
+        ESP_LOGW(TAG, "InfluxDB is enabled but no server URL is configured; "
+                      "reporting disabled. Set influx_url to use it.");
+        forever();
+    }
 
     ESP_LOGI(TAG, "URL: %s, port: %d, bucket: %s, org: %s, prefix: %s", influxURL, influxPort, influxBucket, influxOrg,
              influxPrefix);
