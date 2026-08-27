@@ -15,10 +15,10 @@ that the vendor release omitted put back.
 > [LICENSE](LICENSE) for terms.
 
 > **Security.** Stock Hammer firmware has **no authentication on any HTTP
-> endpoint** and accepts **unsigned firmware from any host on your LAN**.
-> If you own one of these miners, read
-> [docs/SECURITY.md](docs/SECURITY.md) — the mitigations apply whether or
-> not you flash this firmware.
+> endpoint**. Any host on your network can read the configuration, change
+> the payout address, or start a firmware update. If you own one of these
+> miners, read [docs/SECURITY.md](docs/SECURITY.md) — the mitigations
+> apply whether or not you ever flash this firmware.
 
 ---
 
@@ -54,14 +54,32 @@ two archives they published and from a shipping firmware binary.
 | | |
 |---|---|
 | **Licensing** | Full GPL-3.0 text, upstream attribution, and a documented provenance chain. |
-| **Blob removal** | `liba.a` reconstructed from source so the tree builds with no binary components — see [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md). |
+| **Blob removal** | BM1370 builds — every BC board — no longer link the `liba.a` binary blob. The rest of it serves the LT0051 scrypt ASIC and is still required for those builds; see [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md). |
 | **Security** | Real authentication, the OTA error-path bug fixed, shipped credentials removed. See [docs/SECURITY.md](docs/SECURITY.md). |
-| **BC01 support** | The stripped BC01 code paths restored and verified on hardware. |
+| **BC01 support** | The stripped BC01 and BC02 code paths restored. Builds clean; not yet run on hardware — see [Status](#status). |
 | **Tooling** | OTA image pack/unpack, upstream diffing, provisioning. |
 
 The first commit in this repository is the vendor's tree, unmodified.
 Every change since is visible as a diff against exactly what they
 released.
+
+---
+
+## Status
+
+| | |
+|---|---|
+| Builds from source | Yes, ESP-IDF 5.5.1, no warnings from project sources |
+| Web UI builds | Yes, typechecked |
+| GPL compliance restored | Yes |
+| OTA tooling verified | Yes — round-trips the vendor's own image byte for byte |
+| BM1370 path free of the binary blob | Yes |
+| LT0051 path free of the binary blob | No — see [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md) |
+| **Run on real hardware** | **Not yet.** Whether a given unit can run it at all depends on Secure Boot eFuses; see [docs/SECURE-BOOT.md](docs/SECURE-BOOT.md) |
+
+Treat this as reviewed and building, not as field-tested. If you flash it,
+do so on a unit you can recover over USB, and read
+[docs/SECURE-BOOT.md](docs/SECURE-BOOT.md) first.
 
 ---
 
@@ -113,17 +131,48 @@ $EDITOR config.cvs           # set stratumuser to YOUR address
 
 ### Flashing
 
-Full image over USB, for a blank or bricked device:
+> **Check your device first.** Signing an image and enforcing that
+> signature are different things. If Secure Boot eFuses were burned at
+> manufacture, this firmware **will not boot and cannot be recovered** —
+> eFuses are permanent and USB access does not help. Ask the device:
+>
+> ```bash
+> esptool.py --port COM3 get_security_info
+> ```
+>
+> If `secure_boot_en` is set, do not flash. See
+> [docs/SECURE-BOOT.md](docs/SECURE-BOOT.md).
+
+Full image over USB, for a blank device or one you want to start clean:
 
 ```bash
 esptool.py --chip esp32s3 write_flash 0x0 hammer-miner-all.bin
 ```
 
-Update over the network, for a working device:
+Update over the network, for a working device. The container format is
+unchanged, so this installs the same way vendor images do:
 
 ```bash
-python tools/ota_tool.py pack build/hammer-miner.bin -o update.bin --key key.bin
-curl -X POST --data-binary @update.bin http://<miner>/api/system/OTA
+python tools/ota_tool.py pack build/hammer-miner.bin -o update.bin \
+    --pad 69cc74aeaf0ce683229d422f54428a54
+curl -X POST --data-binary @update.bin \
+     -H "Authorization: Bearer $TOKEN" \
+     http://<miner>/api/system/OTA
+```
+
+Get `$TOKEN` from the login endpoint, or omit the header on a device with
+no password set:
+
+```bash
+curl -s -X POST http://<miner>/api/system/login \
+     -H 'Content-Type: application/json' \
+     -d '{"password":"your-password"}'
+```
+
+Inspect any image, vendor or your own, before installing it:
+
+```bash
+python tools/ota_tool.py inspect update.bin
 ```
 
 ---
@@ -134,6 +183,7 @@ curl -X POST --data-binary @update.bin http://<miner>/api/system/OTA
 |---|---|
 | [`tools/ota_tool.py`](tools/ota_tool.py) | Inspect, unpack, and build OTA update images. |
 | [`tools/compare_upstream.py`](tools/compare_upstream.py) | Measure how much of this tree is still ESP-Miner. |
+| [`tools/dwarf_dump.py`](tools/dwarf_dump.py) | Read the debug information left in `components/a/liba.a`. |
 
 ---
 
@@ -142,7 +192,9 @@ curl -X POST --data-binary @update.bin http://<miner>/api/system/OTA
 - [docs/PROVENANCE.md](docs/PROVENANCE.md) — where this code came from, with evidence
 - [docs/SECURITY.md](docs/SECURITY.md) — findings, fixes, and mitigations for stock firmware
 - [docs/OTA-FORMAT.md](docs/OTA-FORMAT.md) — the update container, and why its obfuscation is not encryption
-- [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md) — reconstructing the withheld blob
+- [docs/AUTH.md](docs/AUTH.md) — how API authentication works, and what it does not cover
+- [docs/SECURE-BOOT.md](docs/SECURE-BOOT.md) — check before flashing; some of it is irreversible
+- [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md) — the withheld blob, and what replaced it
 
 ---
 
