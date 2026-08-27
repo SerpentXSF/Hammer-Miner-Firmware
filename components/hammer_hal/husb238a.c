@@ -94,19 +94,18 @@ void husb238a_dump(void)
      * from the binary, so read the plausible ranges and let the device say
      * what state it is actually in.
      */
-    ESP_LOGW(TAG, "  registers 0x00-0x0f:");
-    for (uint8_t reg = 0x00; reg <= 0x0F; reg++) {
-        if (husb238a_read(reg, &value) == ESP_OK) {
+    /* Full sweep, non-zero registers only. The stock driver touches at
+     * least 0x88, well outside the ranges first guessed at, so read
+     * everything rather than assume where the control bits live. */
+    ESP_LOGW(TAG, "  non-zero registers across 0x00-0xff:");
+    int shown = 0;
+    for (int reg = 0x00; reg <= 0xFF; reg++) {
+        if (husb238a_read((uint8_t)reg, &value) == ESP_OK && value != 0x00) {
             ESP_LOGW(TAG, "    0x%02x = 0x%02x", reg, value);
+            shown++;
         }
     }
-
-    ESP_LOGW(TAG, "  registers 0x60-0x70:");
-    for (uint8_t reg = 0x60; reg <= 0x70; reg++) {
-        if (husb238a_read(reg, &value) == ESP_OK) {
-            ESP_LOGW(TAG, "    0x%02x = 0x%02x", reg, value);
-        }
-    }
+    ESP_LOGW(TAG, "  (%d non-zero)", shown);
 
     ESP_LOGW(TAG, "-------------------------------------------");
 }

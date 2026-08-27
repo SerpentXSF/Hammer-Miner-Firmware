@@ -116,21 +116,78 @@ sequence:
 A running BC01 reports `voltage: 14875` against `nominalVoltage: 12`, so
 this board negotiates roughly 15 V and draws about 24 W, near 1.6 A.
 
-## What is not yet established
+## Measured on hardware
 
-- **The register `husb_soft_enable` touches.** The bit (0x08) and the
-  read-modify-write are read directly; the register number is held in `a5`
-  from earlier in the function and was not traced.
-- **`husb238a_set_voltage`'s encoding.** The function branches over
-  constants 0x08, 0x1C, 0x30, 0x60 to select a PDO, but the mapping from
-  those to volts was not resolved.
-- **The capability decode.** A `code * 20 + 500` calculation appears near
-  the `"CONTRACT CURRENT %d."` log, which looks like a current decode, but
-  the units were not confirmed.
+The driver above was run on a BC01 and the predictions held. The gate
+register read `0x27` with the disable bit set, clearing it gave `0x07`, and
+the new value survived a reset, so the part keeps its own retained state.
 
-None of these block opening the gate. They matter for choosing a voltage
-deliberately rather than accepting whatever the adapter defaults to, so
-they should be resolved before `set_voltage` is implemented.
+It was not sufficient. The same read shows why:
+
+```
+0x63 connect status     = 0x00      nothing attached
+0x66..0x6d PDOs         = 0x00      no capabilities read
+```
+
+There is no contract for the gate to pass through. The adapter is the same
+PD supply the miner mines on with its stock module, so this is a missing
+negotiation, not a supply problem.
+
+### Full register state, gate open, nothing negotiated
+
+```
+0x00=40 0x01=47 0x02=13 0x04=20 0x0a=90 0x0c=a8 0x0d=40 0x0e=07
+0x1f=6c 0x38=e0 0x39=20 0x3a=c0 0x3d=ea 0x40=f8 0x41=7e
+0x46=78 0x47=b8 0x48=40 0x49=80 0x4a=e0 0x4b=91 0x4c=af 0x4d=99
+0x4e=2e 0x4f=90 0x50=23
+0x51..0x5f = a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 aa ab ac ad ae
+0x60=a1 0x61=e2 0x64=80
+0x90=01 0x97=23
+everything else reads 0x00
+```
+
+**0x88 reads 0x00 and is written by a helper in the stock driver**
+(`movi a8, -120` then `s8i a8, a1, 0` at `0x4205d1a0`), which is the shape
+of a self-clearing command register. Triggering negotiation most likely
+means writing a command byte there.
+
+This also explains an earlier misreading recorded elsewhere in this
+repository: the "rolling byte stream" at 0x42 was register auto-increment
+on multi-byte reads. `0x00=0x40, 0x01=0x47, 0x02=0x13` reproduces the
+observed `40 47 / 47 13 / 13 00` exactly. It is an ordinary register file.
+
+## What is still missing
+
+**The command that starts negotiation.** Without it the controller never
+attaches, never reads the adapter's PDOs, and never forms a contract, so
+the gate has nothing to switch through.
+
+Two candidates, neither confirmed:
+
+- The command byte written to **0x88**.
+- The register `husb_soft_enable` ORs 0x08 into. It is held in `a5` and
+  never written inside that function, so it arrives as a parameter on a
+  path a linear disassembler does not reach. A brute-force scan for
+  branches into that block found none, which means the function boundary
+  taken from the `ENTRY` prologue is wrong somewhere.
+
+Also unresolved: `husb238a_set_voltage` branches over 0x08, 0x1C, 0x30 and
+0x60 to pick a PDO, and a `code * 20 + 500` calculation sits near the
+`"CONTRACT CURRENT %d."` log. Neither mapping was established.
+
+### The cheapest way to finish this
+
+The HUSB238A has a published datasheet. With the register map measured
+above -- 0x88 as a command register, 0x63 status, 0x0E gate, 0x67
+negotiated voltage, 0x66-0x6D capability PDOs -- anyone holding that
+datasheet can complete this quickly and correctly.
+
+That is a far better route than more disassembly. The remaining code is
+branch-heavy and defeated the small decoder in `tools/xtensa_dis.py`, which
+follows a linear stream and does not chase control flow.
+
+Best of all would be the vendor releasing the BC01 source, where this is
+one file.
 
 ## Implementing this safely
 
