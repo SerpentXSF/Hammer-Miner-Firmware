@@ -1,0 +1,3 @@
+# Preserve upstream bytes exactly. This tree is evidence of what the
+# vendor shipped; git must not rewrite line endings in either direction.
+* -text

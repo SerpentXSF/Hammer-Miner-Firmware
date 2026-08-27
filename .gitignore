@@ -1,0 +1,29 @@
+# ESP-IDF build output
+build/
+sdkconfig.old
+managed_components/
+dependencies.lock
+
+# Component manager cache
+.component_hash
+
+# Node / web UI
+node_modules/
+dist/
+main/http_server/axe-os/dist/
+main/http_server/axe-os/node_modules/
+main/http_server/axe-os/test-results/
+main/http_server/axe-os/playwright-report/
+
+# Generated flash images
+*.bin
+!main/http_server/axe-os/public/**/*.bin
+www.bin
+config.bin
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp

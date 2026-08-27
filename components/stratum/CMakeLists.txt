@@ -1,0 +1,16 @@
+idf_component_register(
+SRCS
+    "utils.c"
+    "mining.c"
+    "stratum_api.c"
+    "scrypt.c"
+                    
+INCLUDE_DIRS
+    "include"
+
+REQUIRES
+    "json"
+    "mbedtls"
+    "app_update"
+    "tcp_transport"
+)

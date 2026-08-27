@@ -1,0 +1,34 @@
+#ifndef _DEVICE_H
+#define _DEVICE_H
+
+#include "global_state.h"
+
+#include "gpio_input_output.h"
+#include "internal_sensor.h"
+#include "hal_i2c.h"
+#include "EMC2302.h"
+#include "TMP75.h"
+#include "TPS546.h"
+#include "pwm_fan.h"
+#include "ethernet_init.h"
+
+
+esp_err_t read_hash_board_temperature(GlobalState *GLOBAL_STATE);
+int       read_power_temp(void);
+esp_err_t read_power_information(GlobalState *GLOBAL_STATE);
+esp_err_t power_on_hashboard(GlobalState *GLOBAL_STATE);
+esp_err_t power_off_hashboard(GlobalState *GLOBAL_STATE);
+void      reset_hash_board(GlobalState *GLOBAL_STATE);
+
+esp_err_t set_fan_pwm(GlobalState *GLOBAL_STATE, uint8_t pwm_percent);
+esp_err_t read_fan_rpm(GlobalState *GLOBAL_STATE);
+
+esp_err_t init_all_peripherals(GlobalState *GLOBAL_STATE);
+
+void dev_display_init(GlobalState *GLOBAL_STATE);
+
+#ifdef STATISTIC_SYSTEM_FEATURE
+esp_err_t statistic_init_system_by_device(GlobalState *GLOBAL_STATE);
+#endif
+
+#endif

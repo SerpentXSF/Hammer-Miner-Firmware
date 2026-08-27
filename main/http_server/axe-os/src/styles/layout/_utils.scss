@@ -1,0 +1,13 @@
+/* 步骤 2.3: 更新 .card 全局样式 */
+.card {
+    background: var(--surface-card, var(--surface-overlay)); /* 使用 CSS 变量 */
+    border: 1px solid var(--surface-border); /* (新增) 使用 CSS 变量 */
+    border-radius: var(--card-border-radius, 14px); /* (修改) 使用 CSS 变量 */
+    box-shadow: none; /* (移除) 移除旧的 box-shadow */
+    padding: 14px 16px; /* (修改) 匹配 HammerUI Mock */
+    margin-bottom: 1rem; /* (修改) 统一间距 */
+
+    &:last-child {
+        margin-bottom: 0;
+    }
+}

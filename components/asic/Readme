@@ -1,0 +1,93 @@
+Readme
+
+asic.h 头文件.
+为了适配系统，仿照可参考NerdOCTAXE (https://github.com/Patsch91/NerdOCTAXE-Plus) 系统封装的相关接口，具体功能可参考原工程文件相关接口。
+其中最终调用 lt0051.h 中 相关接口。
+
+lt0051.h
+asic 芯片的核心库，与芯片相关的 最后调用的接口。
+
+
+esp_err_t ASIC_detect(GlobalState * GLOBAL_STATE);
+初始化 UART, 并初始化，探测asic芯片。
+在 project中， main.c 使用其做初始化 ESP_ERROR_CHECK(ASIC_detect(&GLOBAL_STATE)); 
+
+
+uint8_t ASIC_init(GlobalState * GLOBAL_STATE);
+ASIC_detect 中调用了 ASIC_init()函数。
+其最后调用 LT0051_init_by_chain()。
+LT0051_init_by_chain(GLOBAL_STATE, 0, VOLCMINER_LOTTO_INIT_FREQUENCY, VOLCMINER_LOTTO_ASIC_COUNT))
+
+
+uint8_t ASIC_get_asic_count(GlobalState * GLOBAL_STATE);
+返回asic 芯片的个数。
+
+
+uint16_t ASIC_get_small_core_count(GlobalState * GLOBAL_STATE);
+返回固定值。
+
+
+task_result * ASIC_process_work(GlobalState * GLOBAL_STATE, uint32_t chain_num);
+最终调用 LT0051_process_work()
+LT0051_process_work(GLOBAL_STATE, chain_num);
+组装数据格式，可参考NerdOCTAXE 系统中。
+
+
+int ASIC_set_max_baud(GlobalState * GLOBAL_STATE);
+设置 波特率 最终 调用LT0051_set_max_baud_by_chain(state, chain_num);
+初始化过程中会设置默认值。
+
+
+void ASIC_set_job_difficulty_mask(GlobalState * GLOBAL_STATE, uint8_t mask);
+此处未做处理， 使用全局配置 GLOBAL_STATE. tmmusk  默认值 0xFFFE0000.
+
+
+void ASIC_send_work(GlobalState * GLOBAL_STATE, void * next_job, uint32_t chain_num, uint8_t workid);
+最终调用 LT0051_send_work(GLOBAL_STATE, next_job, chain_num, workid);
+可参考 可参考NerdOCTAXE 中，发送job到asic芯片。
+next_job 结构体：
+typedef struct
+{
+    uint32_t version;
+    uint32_t version_mask;
+    uint8_t prev_block_hash[32];
+    uint8_t prev_block_hash_be[32];
+    uint8_t merkle_root[32];
+    uint8_t merkle_root_be[32];
+    uint32_t ntime;
+    uint32_t target;  // aka difficulty, aka nbits
+    uint32_t starting_nonce;
+
+    uint8_t num_midstates;
+    uint8_t midstate[32];
+    uint8_t midstate1[32];
+    uint8_t midstate2[32];
+    uint8_t midstate3[32];
+    uint32_t pool_diff;
+    char *jobid;
+    char *extranonce2;
+} bm_job;
+
+
+
+void ASIC_set_version_mask(GlobalState * GLOBAL_STATE, uint32_t mask);
+未实现，不可用。
+
+bool ASIC_set_frequency(GlobalState * GLOBAL_STATE, float target_frequency);
+最终调用 LT0051_send_hash_frequency(GLOBAL_STATE, target_frequency);
+可设置芯片频率。
+
+
+esp_err_t LT0051_init(GlobalState *state, uint64_t frequency, uint16_t asic_count);
+暂未使用。
+
+esp_err_t LT0051_init_by_chain(GlobalState *state, int chain_num, uint64_t frequency, uint16_t asic_count);
+当前硬件使用参数 
+chain_num = 0;
+asic_count = 2;
+frequency = 1000; （可调）
+
+
+int switch_by_chain(GlobalState *state, uint32_t chain_num);
+调整芯片频率，根据全局配置.  GlobalState.asic_freqency
+

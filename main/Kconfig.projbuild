@@ -1,0 +1,310 @@
+menu "hammer Configuration"
+
+    config DEVICE_MODULE
+        string "device module"
+        default "mini"
+        help
+            mini or tiny
+    
+    config ASIC_MODULE
+        string "asic module"
+        default "LT0051"
+        help
+            LT0051
+
+    config ASIC_VOLTAGE
+        int "ASIC Core Voltage (10mV)"
+        range 105 140
+        default 125
+        help
+            The core voltage to set the ASIC to.
+
+    config ASIC_FREQUENCY
+        int "ASIC Hash Frequency (MHz)"
+        range 500 2600
+        default 2000
+        help
+            The LT0051 hash frequency
+
+    config TPS546_VOUT_MAX
+        int "TPS546_VOUT_MAX (10mV)"
+        range 100 650
+        default 150
+        help
+            The TPS546 VOUT MAX
+
+    config TPS546_VOUT_MIN
+        int "TPS546_VOUT_MIN (10mV)"
+        range 100 150
+        default 100
+        help
+            The TPS546 VOUT MIN
+endmenu
+
+menu "Stratum Configuration"
+
+    config STRATUM_URL
+        string "Stratum Address"
+        default "public-pool.io"
+        help
+            The example will connect to this Stratum pool address.
+
+    config STRATUM_PORT
+        int "Stratum Port"
+        range 0 65535
+        default 21496
+        help
+            The stratum server port to connect to.
+
+    config STRATUM_TLS
+        int "Pool TLS mode (0=off, 1=bundle, 2=custom)"
+        range 0 2
+        default 0
+        help
+            0: TLS disabled (plain TCP)
+            1: TLS with built-in CA certificate bundle
+            2: TLS with custom certificate
+
+    config STRATUM_CERT
+        string "Pool TLS custom certificate (PEM)"
+        default ""
+        depends on STRATUM_TLS = 2
+
+    config EXTRANONCE_SUBSCRIBE
+        bool "Pool extranonce subscribe"
+        default n
+        help
+            Enable stratum extranonce subscribe.
+
+    config FALLBACK_STRATUM_URL
+        string "Fallback Stratum Address"
+        default "solo.ckpool.org"
+        help
+            The example will connect to this Stratum pool address if the primary fails.
+
+    config FALLBACK_STRATUM_PORT
+        int "Fallback Stratum Port"
+        range 0 65535
+        default 3333
+        help
+            The stratum server port to connect to if the primary fails.
+
+    config FALLBACK_STRATUM_TLS
+        int "Fallback pool TLS mode (0=off, 1=bundle, 2=custom)"
+        range 0 2
+        default 0
+        help
+            TLS mode for the fallback pool.
+
+    config FALLBACK_STRATUM_CERT
+        string "Fallback pool TLS custom certificate (PEM)"
+        default ""
+        depends on FALLBACK_STRATUM_TLS = 2
+
+    config FALLBACK_EXTRANONCE_SUBSCRIBE
+        bool "Fallback pool extranonce subscribe"
+        default n
+        help
+            Enable fallback pool extranonce subscribe.
+
+    config STRATUM_USER
+        string "Stratum username"
+        default "replace-this-with-your-btc-address.bitaxe"
+        help
+            Stratum user to use with pool
+
+    config STRATUM_PW
+        string "Stratum password"
+        default "x"
+        help
+            Stratum password to use with pool
+
+    config FALLBACK_STRATUM_USER
+        string "Fallback Stratum username"
+        default "replace-this-with-your-btc-address.bitaxe"
+        help
+            Fallback Stratum user to use with pool
+
+    config FALLBACK_STRATUM_PW
+        string "Fallback Stratum password"
+        default "x"
+        help
+            Fallback Stratum password to use with pool
+
+    config STRATUM_DIFFICULTY
+        int "Stratum default difficulty"
+        range 0 4294967296
+        default 1000
+        help
+            A starting difficulty to use with the pool.
+
+    config FALLBACK_STRATUM_DIFFICULTY
+        int "Fallback stratum default difficulty"
+        range 0 4294967296
+        default 1000
+        help
+            A starting difficulty to use with the fallback pool.            
+
+endmenu
+
+menu "Example Configuration"
+
+    config EXAMPLE_LCD_I80_COLOR_IN_PSRAM
+        bool "Allocate color data from PSRAM"
+        depends on SOC_PSRAM_DMA_CAPABLE
+        default y
+        help
+            Enable this option if you want to allocate the LVGL draw buffer from PSRAM.
+
+    config EXAMPLE_LCD_PIXEL_CLOCK_HZ
+        int "Pixel clock frequency (Hz)"
+        default 2000000 if EXAMPLE_LCD_I80_COLOR_IN_PSRAM && IDF_TARGET_ESP32S3
+        default 10000000
+        help
+            Set the pixel clock frequency in Hz.
+
+    choice EXAMPLE_LCD_I80_CONTROLLER_MODEL
+        prompt "i80 LCD controller model"
+        default EXAMPLE_LCD_I80_CONTROLLER_ST7789
+        help
+            Select LCD controller model
+
+        config EXAMPLE_LCD_I80_CONTROLLER_ST7789
+            bool "ST7789"
+
+        config EXAMPLE_LCD_I80_CONTROLLER_NT35510
+            bool "NT35510"
+
+        config EXAMPLE_LCD_I80_CONTROLLER_ILI9341
+            bool "ILI9341"
+    endchoice
+
+    if EXAMPLE_LCD_I80_CONTROLLER_NT35510
+        choice EXAMPLE_LCD_NT35510_DATA_WIDTH
+            prompt "NT35510 Data Width"
+            default EXAMPLE_LCD_NT35510_DATA_WIDTH_8
+            help
+                Select NT35510 Data Width (8 or 16), a.k.a, the number of data lines.
+
+            config EXAMPLE_LCD_NT35510_DATA_WIDTH_8
+                bool "8"
+
+            config EXAMPLE_LCD_NT35510_DATA_WIDTH_16
+                bool "16"
+        endchoice
+
+    endif
+
+    config EXAMPLE_LCD_I80_BUS_WIDTH
+        int
+        default 16 if EXAMPLE_LCD_NT35510_DATA_WIDTH_16
+        default 8
+
+    choice EXAMPLE_LCD_IMAGE_SOURCE
+        prompt "LCD image source from"
+        default EXAMPLE_LCD_IMAGE_FROM_EMBEDDED_BINARY
+        help
+            Select LCD image source
+
+        config EXAMPLE_LCD_IMAGE_FROM_FILE_SYSTEM
+            bool "File system"
+
+        config EXAMPLE_LCD_IMAGE_FROM_EMBEDDED_BINARY
+            bool "Embedded binary"
+    endchoice
+
+    menu "LCD GPIO Configuration"
+        config EXAMPLE_PIN_NUM_PCLK
+            int "PCLK Pin"
+            default 5
+
+        config EXAMPLE_PIN_NUM_CS
+            int "CS Pin"
+            default 3
+
+        config EXAMPLE_PIN_NUM_DC
+            int "DC Pin"
+            default 4
+
+        config EXAMPLE_PIN_NUM_RST
+            int "RST Pin"
+            default 2
+
+        config EXAMPLE_PIN_NUM_BK_LIGHT
+            int "Backlight Pin"
+            default 1
+
+        config EXAMPLE_PIN_NUM_DATA0
+            int "Data Pin 0"
+            default 6
+
+        config EXAMPLE_PIN_NUM_DATA1
+            int "Data Pin 1"
+            default 7
+
+        config EXAMPLE_PIN_NUM_DATA2
+            int "Data Pin 2"
+            default 8
+
+        config EXAMPLE_PIN_NUM_DATA3
+            int "Data Pin 3"
+            default 9
+
+        config EXAMPLE_PIN_NUM_DATA4
+            int "Data Pin 4"
+            default 10
+
+        config EXAMPLE_PIN_NUM_DATA5
+            int "Data Pin 5"
+            default 11
+
+        config EXAMPLE_PIN_NUM_DATA6
+            int "Data Pin 6"
+            default 12
+
+        config EXAMPLE_PIN_NUM_DATA7
+            int "Data Pin 7"
+            default 13
+
+        config EXAMPLE_PIN_NUM_DATA8
+            int "Data Pin 8"
+            depends on EXAMPLE_LCD_I80_BUS_WIDTH > 8
+            default 14
+
+        config EXAMPLE_PIN_NUM_DATA9
+            int "Data Pin 9"
+            depends on EXAMPLE_LCD_I80_BUS_WIDTH > 8
+            default 15
+
+        config EXAMPLE_PIN_NUM_DATA10
+            int "Data Pin 10"
+            depends on EXAMPLE_LCD_I80_BUS_WIDTH > 8
+            default 16
+
+        config EXAMPLE_PIN_NUM_DATA11
+            int "Data Pin 11"
+            depends on EXAMPLE_LCD_I80_BUS_WIDTH > 8
+            default 17
+
+        config EXAMPLE_PIN_NUM_DATA12
+            int "Data Pin 12"
+            depends on EXAMPLE_LCD_I80_BUS_WIDTH > 8
+            default 18
+
+        config EXAMPLE_PIN_NUM_DATA13
+            int "Data Pin 13"
+            depends on EXAMPLE_LCD_I80_BUS_WIDTH > 8
+            default 19
+
+        config EXAMPLE_PIN_NUM_DATA14
+            int "Data Pin 14"
+            depends on EXAMPLE_LCD_I80_BUS_WIDTH > 8
+            default 20
+
+        config EXAMPLE_PIN_NUM_DATA15
+            int "Data Pin 15"
+            depends on EXAMPLE_LCD_I80_BUS_WIDTH > 8
+            default 21
+    endmenu
+
+endmenu

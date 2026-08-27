@@ -1,0 +1,9 @@
+{
+  "devDependencies": {
+    "terser": "^5.44.1",
+    "vite-plugin-css-injected-by-js": "^3.5.2"
+  },
+  "dependencies": {
+    "uplot": "^1.6.32"
+  }
+}

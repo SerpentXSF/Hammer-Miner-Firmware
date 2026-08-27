@@ -1,0 +1,114 @@
+#ifndef ASIC_H_
+#define ASIC_H_
+
+#include <esp_err.h>
+#include "global_state.h"
+#include "common.h"
+#include "serial.h"
+
+#define VOLCMINER_TINY_ASIC_COUNT                   1
+#define VOLCMINER_TINY_TM_DEFINE                    0xFFFE0000
+#define VOLCMINER_TINY_TM_CACULATE_DEFINE           0x7FFFFFull
+#define VOLCMINER_TINY_TM_CACULATE_DEFINE_ULL       0x7FFFFFull
+#define VOLCMINER_TINY_ASIC_DIFFICULTY              128
+#define VOLCMINER_TINY_INIT_FREQUENCY               1000
+#define VOLCMINER_TINY_SWITCH_STEP                  25
+
+#define VOLCMINER_MINI_ASIC_COUNT                   40
+#define VOLCMINER_MINI_TM_DEFINE                    0xFFFFc000
+#define VOLCMINER_MINI_TM_CACULATE_DEFINE           0x3FFFFFFull
+#define VOLCMINER_MINI_TM_CACULATE_DEFINE_ULL       0x3FFFFFFull
+#define VOLCMINER_MINI_ASIC_DIFFICULTY              1024
+#define VOLCMINER_MINI_INIT_FREQUENCY               750
+#define VOLCMINER_MINI_SWITCH_STEP                  25
+
+#define VOLCMINER_LOTTO_ASIC_COUNT                  2
+#define VOLCMINER_LOTTO_TM_DEFINE                   VOLCMINER_TINY_TM_DEFINE
+#define VOLCMINER_LOTTO_TM_CACULATE_DEFINE          VOLCMINER_TINY_TM_CACULATE_DEFINE
+#define VOLCMINER_LOTTO_TM_CACULATE_DEFINE_ULL      VOLCMINER_TINY_TM_CACULATE_DEFINE_ULL
+#define VOLCMINER_LOTTO_ASIC_DIFFICULTY             VOLCMINER_TINY_ASIC_DIFFICULTY
+#define VOLCMINER_LOTTO_INIT_FREQUENCY              VOLCMINER_TINY_INIT_FREQUENCY
+#define VOLCMINER_LOTTO_SWITCH_STEP                 VOLCMINER_TINY_SWITCH_STEP
+
+#define DC02_LOTTO_ASIC_COUNT                       2
+#define DC02_LOTTO_TM_DEFINE                        VOLCMINER_TINY_TM_DEFINE
+#define DC02_LOTTO_TM_CACULATE_DEFINE               VOLCMINER_TINY_TM_CACULATE_DEFINE
+#define DC02_LOTTO_TM_CACULATE_DEFINE_ULL           VOLCMINER_TINY_TM_CACULATE_DEFINE_ULL
+#define DC02_LOTTO_ASIC_DIFFICULTY                  VOLCMINER_TINY_ASIC_DIFFICULTY
+#define DC02_LOTTO_INIT_FREQUENCY                   VOLCMINER_TINY_INIT_FREQUENCY
+#define DC02_LOTTO_SWITCH_STEP                      VOLCMINER_TINY_SWITCH_STEP
+
+#define DC04_LOTTO_ASIC_COUNT                       4
+#define DC04_LOTTO_TM_DEFINE                        VOLCMINER_TINY_TM_DEFINE
+#define DC04_LOTTO_TM_CACULATE_DEFINE               VOLCMINER_TINY_TM_CACULATE_DEFINE
+#define DC04_LOTTO_TM_CACULATE_DEFINE_ULL           VOLCMINER_TINY_TM_CACULATE_DEFINE_ULL
+#define DC04_LOTTO_ASIC_DIFFICULTY                  VOLCMINER_TINY_ASIC_DIFFICULTY
+#define DC04_LOTTO_INIT_FREQUENCY                   VOLCMINER_TINY_INIT_FREQUENCY
+#define DC04_LOTTO_SWITCH_STEP                      VOLCMINER_TINY_SWITCH_STEP
+
+#define DC06_LOTTO_ASIC_COUNT                       6
+#define DC06_LOTTO_TM_DEFINE                        VOLCMINER_TINY_TM_DEFINE
+#define DC06_LOTTO_TM_CACULATE_DEFINE               VOLCMINER_TINY_TM_CACULATE_DEFINE
+#define DC06_LOTTO_TM_CACULATE_DEFINE_ULL           VOLCMINER_TINY_TM_CACULATE_DEFINE_ULL
+#define DC06_LOTTO_ASIC_DIFFICULTY                  VOLCMINER_TINY_ASIC_DIFFICULTY
+#define DC06_LOTTO_INIT_FREQUENCY                   VOLCMINER_TINY_INIT_FREQUENCY
+#define DC06_LOTTO_SWITCH_STEP                      VOLCMINER_TINY_SWITCH_STEP
+
+#define BC04_LOTTO_ASIC_COUNT                       4
+#define BC04_LOTTO_ASIC_DIFFICULTY                  256
+
+#define BC08_LOTTO_ASIC_COUNT                       8
+#define BC08_LOTTO_ASIC_DIFFICULTY                  (256*2)
+
+#define BC06_LOTTO_ASIC_COUNT                       6
+#define BC06_LOTTO_ASIC_DIFFICULTY                  256
+
+#define BC01_LOTTO_ASIC_COUNT                       1
+#define BC01_LOTTO_ASIC_DIFFICULTY                  256
+
+#define BC02_LOTTO_ASIC_COUNT                       2
+#define BC02_LOTTO_ASIC_DIFFICULTY                  256
+
+#define VOLCMINER_MINI_PRE_ASIC_COUNT               24
+#define VOLCMINER_MINI_PRO_20_ASIC_COUNT            20
+#define VOLCMINER_MINI_PRO_18_ASIC_COUNT            18
+#define VOLCMINER_DEFINE_9CORE_ASIC_COUNT            2
+
+
+#define VOLCMINER_DEFINE_9CORE_TM_DEFINE            VOLCMINER_TINY_TM_DEFINE
+#define VOLCMINER_DEFINE_9CORE_ASIC_DIFFICULTY      512
+#define VOLCMINER_DEFINE_9CORE_FREQUENCY            VOLCMINER_TINY_INIT_FREQUENCY
+#define VOLCMINER_DEFINE_9CORE_SWITCH_STEP          VOLCMINER_TINY_SWITCH_STEP
+
+#if 1
+#define VOLCMINER_MINI_PRE_TM_DEFINE                VOLCMINER_MINI_TM_DEFINE
+#define VOLCMINER_MINI_PRE_TM_CACULATE_DEFINE       VOLCMINER_MINI_TM_CACULATE_DEFINE
+#define VOLCMINER_MINI_PRE_TM_CACULATE_DEFINE_ULL   VOLCMINER_MINI_TM_CACULATE_DEFINE_ULL
+#define VOLCMINER_MINI_PRE_ASIC_DIFFICULTY          VOLCMINER_MINI_ASIC_DIFFICULTY
+#else  /*ok for 5.0v 1200M, no switch.*/
+#define VOLCMINER_MINI_PRE_TM_DEFINE                0xFFFFF800
+#define VOLCMINER_MINI_PRE_TM_CACULATE_DEFINE       0x1FFFFFFFull
+#define VOLCMINER_MINI_PRE_TM_CACULATE_DEFINE_ULL   0x1FFFFFFFull
+#define VOLCMINER_MINI_PRE_ASIC_DIFFICULTY          8192
+#endif
+#define VOLCMINER_MINI_PRE_INIT_FREQUENCY           300
+#define VOLCMINER_MINI_PRE_SWITCH_STEP              VOLCMINER_MINI_SWITCH_STEP
+
+esp_err_t ASIC_detect(GlobalState * GLOBAL_STATE);
+uint8_t ASIC_init(GlobalState * GLOBAL_STATE);
+uint8_t ASIC_get_asic_count(GlobalState * GLOBAL_STATE);
+uint16_t ASIC_get_small_core_count(GlobalState * GLOBAL_STATE);
+task_result * ASIC_process_work(GlobalState * GLOBAL_STATE, uint32_t chain_num);
+
+int ASIC_set_max_baud(GlobalState * GLOBAL_STATE);
+void ASIC_set_job_difficulty_mask(GlobalState * GLOBAL_STATE, uint8_t mask);
+void ASIC_send_work(GlobalState * GLOBAL_STATE, void * next_job, uint32_t chain_num, uint8_t workid);
+void ASIC_set_version_mask(GlobalState * GLOBAL_STATE, uint32_t mask);
+bool ASIC_set_frequency(GlobalState * GLOBAL_STATE, float target_frequency);
+esp_err_t ASIC_set_device_model(GlobalState * GLOBAL_STATE);
+
+int ASIC_switch_by_chain(GlobalState *state, uint32_t chain_num);
+
+void ASIC_read_registers(GlobalState * GLOBAL_STATE);
+
+#endif

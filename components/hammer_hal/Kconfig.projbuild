@@ -1,0 +1,195 @@
+menu "hammer GPIO Pin Configuration"
+
+    config GPIO_BOOT_MODE_0
+        int "Boot mode pin 0"
+        default 0
+        help
+            GPIO pin for boot mode .
+    
+    config GPIO_BOOT_MODE_46
+        int "Boot mode pin 46"
+        default 46
+        help
+            GPIO pin for boot mode .
+           
+    config GPIO_SELF_TEST_MODE_SELECTED
+        int "self test mode pin"
+        default 45
+        help
+            GPIO pin for self-test mode .
+    
+    config GPIO_INPUT_PIN_0
+        int "input pin 0"
+        default 45
+        help
+            GPIO input pin 0 .
+        
+    config GPIO_INPUT_PIN_1
+        int "input pin 1"
+        default 45
+        help
+            GPIO input pin 1 .
+
+    config GPIO_RESET_PIN_0
+        int "ASIC reset GPIO pin 0"
+        default 1
+        help
+            control by the fw.
+
+    config GPIO_RESET_PIN_1
+        int "ASIC reset GPIO pin 1"
+        default 1
+        help
+            control by the fw.
+
+    config GPIO_RED_LED
+        int "RED LED pin"
+        default 1
+        help
+            gpio output pin for red led.
+
+    config GPIO_GREEN_LED
+        int "GREEN LED pin"
+        default 1
+        help
+            gpio output pin for green led.
+    
+    config GPIO_YELLOW_LED
+        int "Yellow LED pin"
+        default 255
+        help
+            gpio output pin for yellow led.
+    
+    config GPIO_BLUE_LED
+        int "Blue LED pin"
+        default 255
+        help
+            gpio output pin for blue led.
+    
+    config GPIO_EEPROM_WRITE_EN_0
+        int "EEPROM WRITE ENABLE of Hash Board 0."
+        default 255
+        help
+            gpio eeprom write enable pin.
+    
+    config GPIO_EEPROM_WRITE_EN_1
+        int "EEPROM WRITE ENABLE of Hash Board 1."
+        default 255
+        help
+            gpio eeprom write enable pin.
+    
+    config GPIO_OVERHEATE_ALERT_0
+        int "Over heat alert of Hash Borad 0."
+        default 255
+        help
+            Over heat alert of Hash Borad 0.
+    
+    config GPIO_OVERHEATE_ALERT_1
+        int "Over heat alert of Hash Borad 1."
+        default 255
+        help
+            Over heat alert of Hash Borad 1.
+    
+    config GPIO_OVERHEATE_CONTROL
+        int "Over heat alert of Control board."
+        default 255
+        help
+            Over heat alert of Control board.
+    
+    config GPIO_I2C_SDA_0
+        int "I2C SDA Pin of Hash Board"
+        default 47
+        help
+            GPIO pin for I2C clock line (SDA) of hashboard 0.
+        
+    config GPIO_I2C_SCL_0
+        int "I2C SCL Pin of Hash Board"
+        default 48
+        help
+            GPIO pin for I2C clock line (SCL) of hashboard 0.
+
+    config GPIO_I2C_SDA_1
+        int "I2C SDA Pin of Power"
+        default 20
+        help
+            GPIO pin for I2C clock line (SDA) of hashboard 1.
+        
+    config GPIO_I2C_SCL_1
+        int "I2C SCL Pin of Power"
+        default 21
+        help
+            GPIO pin for I2C clock line (SCL) of hashboard 1.
+
+    config GPIO_PWM_0
+        int "pwm output pin 0"
+        default 10
+        help
+            pwm output 
+
+    config GPIO_PWM_1
+        int "pwm output pin 1"
+        default 12
+        help
+            pwm output 
+
+    config GPIO_PULSE_COUNTER_0
+        int "pulse counter of fan 0"
+        default 11
+        help
+            pulse counter of fan.
+
+    config GPIO_PULSE_COUNTER_1
+        int "pulse counter of fan 1"
+        default 13
+        help
+            pulse counter of fan.
+    
+    config GPIO_UART_CHAIN_0_TXD0
+        int "txd gpio of chain0"
+        default 17
+        help
+            txd0 of chain 0.
+
+    config GPIO_UART_CHAIN_0_RXD0
+        int "rxd gpio of chain0"
+        default 18
+        help
+            rxd0 of chain 0.                    
+
+    config GPIO_UART_CHAIN_0_TXD1
+        int "txd gpio of chain1"
+        default 13
+        help
+            txd0 of chain 1.
+
+    config GPIO_UART_CHAIN_0_RXD1
+        int "rxd gpio of chain1"
+        default 14
+        help
+            rxd0 of chain 1.
+    
+    config GPIO_IP_GET
+        int "ip reporter gpio"
+        default 4
+        help
+            gpio of ip reporter.
+    
+    config GPIO_HASHBOARD_3V3_CTRL
+        int "gpio for eeprom and temperature sensor."
+        default 39
+        help
+            GPIO for eeprom and temperature sensor.   
+    
+    config GPIO_CHAIN_0_PLUG
+        int "gpio for chain 0 plug"
+        default 255
+        help
+            GPIO for plug pin of chain 0.
+    
+    config GPIO_CHAIN_1_PLUG
+        int "gpio for chain 1 plug"
+        default 255
+        help
+            GPIO for plug pin of chain 1.
+    
+endmenu

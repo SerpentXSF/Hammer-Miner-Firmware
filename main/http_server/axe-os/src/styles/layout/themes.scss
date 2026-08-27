@@ -1,0 +1,42 @@
+/* * 步骤 2.1: 重新定义所有主题变量
+ * 所有主题现在都包含形状（--card-border-radius）和颜色。
+*/
+
+:root {
+  /* 默认主题: HammerUI Dark (dark-black) - 匹配 HammerUIMock.html */
+  color-scheme: dark;
+  --theme: 'dark-black';
+
+  /* 基础 (来自 HammerUI Mock) */
+  --surface-ground: #050910;
+  --surface-overlay: #05070d;
+  --surface-card: #050b16;
+  --surface-border: #1f2937;
+  --text-color: #f5f7fb;
+  --text-color-secondary: #9ca3af;
+
+  /* Antd 适配 (来自 HammerUI) */
+  --ant-primary-color: #19e1a5;
+  --ant-primary-color-hover: #2fedb6;
+  --ant-primary-color-active: #14b889;
+  --ant-primary-color-text: #020617;
+
+  /* 形状 (来自 HammerUI) */
+  --card-border-radius: 14px;
+  --button-border-radius: 999px;
+  --input-border-radius: 8px;
+
+  /* 自定义组件 */
+  --primary-color: #19e1a5;
+  --primary-color-text: #020617;
+  --highlight-bg: #19e1a5;
+  --highlight-text-color: #020617;
+  --focus-ring: 0 0 0 0.2rem rgba(25, 225, 165, 0.2);
+
+  /* 其他 */
+  --hashrate-color: var(--ant-primary-color);
+  --input-field-color: var(--surface-ground);
+  --ant-menu-item-selected-bg: linear-gradient(90deg, #111827, #0f172a); /* 匹配 Mock */
+  --ant-menu-item-selected-color: var(--ant-primary-color);
+  --chart-bg-color: var(--surface-card);
+}

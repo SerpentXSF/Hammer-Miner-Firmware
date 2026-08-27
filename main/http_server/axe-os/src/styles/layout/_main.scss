@@ -1,0 +1,98 @@
+* {
+    box-sizing: border-box;
+}
+
+html {
+    height: 100%;
+    font-size: $scale;
+}
+
+// body {
+//     font-family: var(--font-family);
+//     color: var(--text-color);
+//     background-color: var(--surface-ground);
+//     margin: 0;
+//     padding: 0;
+//     min-height: 100%;
+//     -webkit-font-smoothing: antialiased;
+//     -moz-osx-font-smoothing: grayscale;
+// }
+body {
+// ... (样式不变) ...
+    color: var(--text-color);
+    background-color: var(--surface-ground); /* (修改) 使用 CSS 变量 */
+    margin: 0;
+// ... (样式不变) ...
+}
+
+a {
+    text-decoration: none;
+    color: var(--primary-color);
+}
+
+.layout-wrapper {
+    min-height: 100vh;
+    background-color: var(--surface-ground); /* (修改) 使用 CSS 变量 */
+}
+/* --- 步骤 2.3: 全局组件样式 (Button, Input) --- */
+
+/* 按钮 (Button) */
+:deep(.ant-btn-primary) {
+  background: var(--ant-primary-color) !important;
+  color: var(--ant-primary-color-text) !important;
+  border-radius: var(--button-border-radius, 999px) !important;
+  border: none !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  height: 32px !important; /* 匹配 Mock .btn-primary */
+  padding: 6px 14px !important;
+
+  &:hover, &:focus {
+    filter: brightness(1.1);
+  }
+}
+
+:deep(.ant-btn-default) {
+  border-radius: var(--button-border-radius, 999px) !important;
+  height: 32px !important;
+  padding: 6px 14px !important;
+  font-size: 12px !important;
+}
+
+/* 输入框 (Input) & 下拉框 (Select) */
+:deep(.ant-input),
+:deep(.ant-input-number),
+:deep(.ant-input-password),
+:deep(.ant-select-selector) {
+  background-color: var(--surface-ground) !important;
+  border-color: var(--surface-border) !important;
+  color: var(--text-color) !important;
+  border-radius: var(--input-border-radius, 8px) !important;
+}
+
+:deep(.ant-input-affix-wrapper),
+:deep(.ant-input-number-wrapper) {
+  background-color: var(--surface-ground) !important;
+  border-color: var(--surface-border) !important;
+  color: var(--text-color) !important;
+  border-radius: var(--input-border-radius, 8px) !important;
+}
+
+:deep(.ant-input::placeholder) {
+  color: var(--text-color-secondary) !important;
+  opacity: 0.7;
+}
+
+:deep(.ant-input-number-handler-wrap) {
+  background: var(--surface-ground) !important;
+  border-color: var(--surface-border) !important;
+}
+:deep(.ant-input-number-handler) {
+  color: var(--text-color-secondary) !important;
+  &:hover {
+    background: var(--surface-border) !important;
+  }
+}
+:deep(.ant-select-arrow) {
+  color: var(--text-color-secondary);
+}
