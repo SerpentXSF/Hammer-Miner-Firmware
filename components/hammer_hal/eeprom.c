@@ -8,6 +8,7 @@
 #include "miner.h"
 #include "hal_i2c.h"
 #include "gpio_input_output.h"
+#include "crc.h"
 
 static const char *TAG = "eeprom";
 
@@ -142,7 +143,7 @@ esp_err_t eeprom_page_read(uint8_t eeprom_index, uint8_t* read_buf)
 
 int crc_check(eprom_data* data)
 {
-	return data->crc==CRC5((unsigned char *) data, 63);
+	return data->crc==crc5_bits((unsigned char *) data, 63);
 }
 
 /*update the local eeprom data.*/
@@ -272,7 +273,7 @@ int32_t update_sn_to_eeprom(uint8_t eeprom_index, uint8_t* sn)
     ESP_LOG_BUFFER_HEX(TAG, eeprom_tmp_data+eeprom_index, 64);
 
     memcpy(write_buf, eeprom_tmp_data+eeprom_index, 64);
-    write_buf[63] = CRC5(write_buf, 63);
+    write_buf[63] = crc5_bits(write_buf, 63);
     x_encode((uint32_t *)write_buf, 64/4, x_key);
     eeprom_page_write(eeprom_index, write_buf);
     
@@ -339,7 +340,7 @@ esp_err_t eeprom_write_data(uint8_t eeprom_index,
     eeprom_tmp_data[eeprom_index].rsv7_1=0;
     eeprom_tmp_data[eeprom_index].rsv7_2=0;
     eeprom_tmp_data[eeprom_index].rsv7_3=0;
-    eeprom_tmp_data[eeprom_index].crc=CRC5((unsigned char *)(eeprom_tmp_data+eeprom_index), 63);
+    eeprom_tmp_data[eeprom_index].crc=crc5_bits((unsigned char *)(eeprom_tmp_data+eeprom_index), 63);
     
     ESP_LOG_BUFFER_HEX(TAG, (uint8_t*)(eeprom_tmp_data+eeprom_index), 64);
     ESP_LOGI(TAG,  "Encode.");
@@ -427,7 +428,7 @@ int testWriteEpromData(int chain){
 	data.rsv7_1=0;
 	data.rsv7_2=0;
 	data.rsv7_3=0;
-	data.crc=CRC5((unsigned char *) &data, 63);
+	data.crc=crc5_bits((unsigned char *) &data, 63);
 
 	x_encode((uint32_t *) &data, 64/4, x_key );
 

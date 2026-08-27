@@ -39,6 +39,10 @@ static const uint16_t crc16_table[256] = {
 };
 
 uint8_t crc5(uint8_t *data, uint8_t len);
+
+/* CRC-5 over a bit count rather than a byte count. Replaces the CRC5()
+ * previously supplied only by the components/a binary blob. */
+uint8_t crc5_bits(const uint8_t *data, uint8_t bit_len);
 uint16_t crc16(uint8_t *data, uint16_t len);
 uint16_t crc16_false(uint8_t *data, uint16_t len);
 

@@ -58,6 +58,7 @@ void factory_set_bin_type(uint8_t bin_class);
 uint8_t factory_get_bin_type();
 
 int testWriteEpromData(int chain);
-extern unsigned char CRC5(unsigned char *ptr, unsigned char len);
+/* CRC5() came from the components/a binary blob; eeprom.c now uses
+ * crc5_bits() from components/asic/crc.c instead. */
 
 #endif

@@ -144,7 +144,7 @@ esp_err_t receive_work(uint8_t * buffer, int buffer_size, uint32_t chain_num)
         return ESP_FAIL;
     }
 
-    if (CRC5(buffer + 2, 64) != buffer[buffer_size - 1]) {
+    if (crc5_bits(buffer + 2, 64) != buffer[buffer_size - 1]) {
         ESP_LOGE(TAG, "Checksum failed on response");        
         ESP_LOG_BUFFER_HEX(TAG, buffer, received);
         SERIAL_clear_buffer(chain_num);
@@ -225,7 +225,7 @@ esp_err_t receive_work_with_large_buffer(uint8_t * buffer, int buffer_size, uint
         return ESP_FAIL;
     }
 
-    if (CRC5(buffer + 2, 64) != buffer[buffer_size - 1]) {
+    if (crc5_bits(buffer + 2, 64) != buffer[buffer_size - 1]) {
         ESP_LOGE(TAG, "Checksum failed on response");        
         ESP_LOG_BUFFER_HEX(TAG, buffer, received);
         SERIAL_clear_buffer(chain_num);
