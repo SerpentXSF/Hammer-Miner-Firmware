@@ -22,7 +22,11 @@ import struct
 import sys
 import zlib
 
-TYPE_FLAG = 0xAA
+# Application images are tagged 0xAA and web-UI images 0x55; the firmware
+# rejects the wrong one outright. The APP payload is obfuscated with the
+# pad, the WWW payload is not -- see docs/OTA-FORMAT.md.
+TYPE_APP = 0xAA
+TYPE_WWW = 0x55
 HEADER_SIZE = 48
 PAD_SIZE = 16
 PROJECT_ID = b"GULLPOWER"
@@ -61,8 +65,9 @@ def split(blob):
     """Split a container into (header_ciphertext, payload_ciphertext)."""
     if len(blob) < 1 + HEADER_SIZE:
         raise ValueError("file is too short to be an update image")
-    if blob[0] != TYPE_FLAG:
-        raise ValueError(f"bad type flag 0x{blob[0]:02x}, expected 0x{TYPE_FLAG:02x}")
+    if blob[0] not in (TYPE_APP, TYPE_WWW):
+        raise ValueError(f"bad type flag 0x{blob[0]:02x}, expected 0x{TYPE_APP:02x} (app) "
+                         f"or 0x{TYPE_WWW:02x} (www)")
     return blob[1:1 + HEADER_SIZE], blob[1 + HEADER_SIZE:]
 
 
@@ -157,10 +162,14 @@ def cmd_inspect(args):
     pad, source = resolve_pad(args, payload_ct)
 
     header = parse_header(xor_pad(header_ct, pad, 0))
-    payload = xor_pad(payload_ct, pad, HEADER_SIZE)
+    # The web-UI path deobfuscates only the header; it writes and hashes the
+    # payload as received, so a www payload is plaintext on the wire.
+    is_www = blob[0] == TYPE_WWW
+    payload = payload_ct if is_www else xor_pad(payload_ct, pad, HEADER_SIZE)
     digest = hashlib.sha256(payload).digest()
 
     print(f"file            : {args.image}")
+    print(f"type            : 0x{blob[0]:02x} ({'www, payload plaintext' if is_www else 'app, payload obfuscated'})")
     print(f"size            : {len(blob)} bytes")
     print(f"pad             : {pad.hex(' ')}  ({source})")
     print(f"project id      : {header['project_id'].decode('latin1')!r}")
@@ -198,7 +207,7 @@ def cmd_unpack(args):
     pad, _ = resolve_pad(args, payload_ct)
 
     header = parse_header(xor_pad(header_ct, pad, 0))
-    payload = xor_pad(payload_ct, pad, HEADER_SIZE)
+    payload = payload_ct if blob[0] == TYPE_WWW else xor_pad(payload_ct, pad, HEADER_SIZE)
 
     if hashlib.sha256(payload).digest() != header["sha256"] and not args.force:
         sys.exit("digest mismatch; wrong pad or corrupt image (use --force to write anyway)")
@@ -221,7 +230,7 @@ def cmd_pack(args):
         sys.exit("--reserved must be exactly 2 bytes")
 
     header = build_header(payload, reserved)
-    blob = bytes([TYPE_FLAG]) + xor_pad(header, pad, 0) + xor_pad(payload, pad, HEADER_SIZE)
+    blob = bytes([TYPE_APP]) + xor_pad(header, pad, 0) + xor_pad(payload, pad, HEADER_SIZE)
     with open(args.output, "wb") as handle:
         handle.write(blob)
     print(f"wrote {len(blob)} bytes to {args.output}")

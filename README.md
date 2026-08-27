@@ -198,6 +198,8 @@ python tools/ota_tool.py inspect update.bin
 | [`tools/ota_tool.py`](tools/ota_tool.py) | Inspect, unpack, and build OTA update images. |
 | [`tools/compare_upstream.py`](tools/compare_upstream.py) | Measure how much of this tree is still ESP-Miner. |
 | [`tools/dwarf_dump.py`](tools/dwarf_dump.py) | Read the debug information left in `components/a/liba.a`. |
+| [`tools/espimg.py`](tools/espimg.py) | Map an ESP32 image and cross-reference its literal pools, to find the code that uses a given string. |
+| [`tools/xtensa_dis.py`](tools/xtensa_dis.py) | Small Xtensa disassembler, enough to read constants out of a driver. |
 
 ---
 
