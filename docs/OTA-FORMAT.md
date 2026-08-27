@@ -79,7 +79,10 @@ test vectors was obtained.
 **It provides no authenticity.** The SHA-256 in the header is computed
 over the plaintext and then obfuscated with the same broken pad. Anyone
 who recovers the pad can produce a header that validates for arbitrary
-payload. There is no signature and no MAC. Secure Boot is not enabled.
+payload. The container itself carries no signature and no MAC — the
+authenticity that does exist comes from the Secure Boot v2 signature block
+inside the payload, not from the container. See
+[The signature block](#the-signature-block).
 
 **The key is shared and static.** It is compiled into the application
 image as `_binary_flash_encryption_key_bin_start`, so every unit in a
@@ -123,18 +126,51 @@ a gap in the vendor's compliance rather than a separate product.
 
 ---
 
+## The signature block
+
+The payload is a signed image. The last 4 KB, at offset `0x270000`, hold an
+ESP32 Secure Boot v2 signature block, and it validates:
+
+```
+magic            0xe7      version 2 (RSA-PSS)
+RSA modulus      3072 bits, exponent 65537
+block CRC32      0x8014b924, matches the computed value
+image digest     b0e68c9f0b691392dd08fc432086f6a832687444b72e297d1a5945e46a2624ba
+sha256(0..0x270000)  identical to the above
+s^e mod n        ends in 0xbc, a well-formed PSS trailer
+```
+
+`tools/ota_tool.py inspect` reports this. It is why the obfuscation being
+broken does not on its own let an attacker run code on a properly
+provisioned device: `esp_ota_set_boot_partition()` verifies this block
+before switching partitions.
+
+The signature is only enforced if Secure Boot eFuses were actually burned
+at manufacture — a separate step from signing the binary. See
+[SECURITY.md](SECURITY.md#2-unauthenticated-ota-with-obfuscation-standing-in-for-integrity).
+
+---
+
 ## Why this is documented rather than withheld
 
 The obfuscation cannot be repaired by keeping quiet about it. A 16-byte
 repeating pad is recoverable by anyone holding one firmware image, and
 those are published downloads. Treating the scheme as a secret protects
-nobody while leaving owners unaware that their miners accept unsigned
-firmware from any host on the same network.
+nobody while leaving owners unaware of how their miners accept updates.
 
-The real defect is not the weak cipher. It is that **the OTA endpoint has
-no authentication at all** — see [SECURITY.md](SECURITY.md). Obfuscation
-was standing in for an access control that was never implemented.
+What actually protects update integrity on these devices is **Secure Boot
+v2**, not the pad. The vendor's `sdkconfig` enables it, and the shipping
+BC01 2.0.3 image carries a valid RSA-3072-PSS signature block at offset
+`0x270000` whose digest matches the signed region. With Secure Boot on,
+`esp_ota_set_boot_partition()` runs `image_validate(ESP_IMAGE_VERIFY)` and
+rejects an unsigned or altered image before switching the boot partition.
 
-Owners who want genuine update integrity should enable ESP-IDF Secure Boot
-v2 and signed OTA, which this repository documents but cannot enable
-retroactively on already-provisioned units.
+That protection depends on eFuses having been burned at manufacture, which
+is independent of whether the binary was signed and cannot be determined
+over the network. Owners can check with `esptool.py get_security_info` over
+USB. See [SECURITY.md](SECURITY.md#2-unauthenticated-ota-with-obfuscation-standing-in-for-integrity)
+for what follows from each answer.
+
+The defect worth acting on is therefore not the weak pad. It is that **the
+OTA endpoint has no authentication at all**, so any host on the network can
+initiate an update at will.

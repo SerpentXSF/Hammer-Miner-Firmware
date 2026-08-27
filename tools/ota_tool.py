@@ -20,6 +20,7 @@ import collections
 import hashlib
 import struct
 import sys
+import zlib
 
 TYPE_FLAG = 0xAA
 HEADER_SIZE = 48
@@ -104,6 +105,40 @@ def describe_app(image):
     }
 
 
+def describe_signature(image):
+    """Locate and validate an ESP32 Secure Boot v2 signature block.
+
+    The block occupies the final 4 KB sector of a signed image. It is
+    self-checking: a CRC32 over its own body, and a SHA-256 of everything
+    preceding it.
+    """
+    if len(image) < 4096 or len(image) % 4096:
+        return None
+    offset = len(image) - 4096
+    block = image[offset:offset + 1216]
+    if block[0] != 0xE7 or block[1] != 0x02:
+        return None
+
+    digest = block[4:36]
+    modulus = int.from_bytes(block[36:36 + 384], "little")
+    exponent, = struct.unpack_from("<I", block, 36 + 384)
+    signature = int.from_bytes(block[812:812 + 384], "little")
+    stored_crc, = struct.unpack_from("<I", block, 1196)
+
+    signed = image[:offset]
+    encoded = pow(signature, exponent, modulus).to_bytes(384, "big")
+
+    return {
+        "offset": offset,
+        "modulus_bits": modulus.bit_length(),
+        "exponent": exponent,
+        "crc_ok": zlib.crc32(block[:1196]) & 0xFFFFFFFF == stored_crc,
+        "digest_ok": hashlib.sha256(signed).digest() == digest,
+        "pss_trailer_ok": encoded[-1] == 0xBC,
+        "digest": digest.hex(),
+    }
+
+
 def resolve_pad(args, payload):
     if args.pad:
         pad = bytes.fromhex(args.pad.replace(" ", ""))
@@ -141,6 +176,19 @@ def cmd_inspect(args):
         print("\nesp_app_desc_t:")
         for key, value in desc.items():
             print(f"  {key:<13}: {value}")
+
+    sig = describe_signature(payload)
+    if sig:
+        print("\nSecure Boot v2 signature block:")
+        print(f"  offset       : 0x{sig['offset']:x}")
+        print(f"  RSA          : {sig['modulus_bits']} bits, exponent {sig['exponent']}")
+        print(f"  block CRC32  : {'OK' if sig['crc_ok'] else 'BAD'}")
+        print(f"  image digest : {'OK' if sig['digest_ok'] else 'BAD'}")
+        print(f"  PSS trailer  : {'OK' if sig['pss_trailer_ok'] else 'BAD'}")
+        print("  note         : enforced only if Secure Boot eFuses are burned")
+    else:
+        print("\nSecure Boot v2 signature block: none found (image is unsigned)")
+
     return 0 if digest == header["sha256"] else 1
 
 
