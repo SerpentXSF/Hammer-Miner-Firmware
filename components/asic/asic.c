@@ -95,83 +95,38 @@ esp_err_t ASIC_detect(GlobalState * GLOBAL_STATE){
             }
             break;
 
+        /* Every BC board runs the same BM1370 bring-up; only the expected
+         * ASIC count differs, and that comes from ASIC_get_asic_count().
+         * The vendor tree carried this body three times, once per model,
+         * and had no BC01 or BC02 case at all -- so those boards fell
+         * through to default and never initialised, despite nvs_device.c
+         * already configuring them. */
+        case DEVICE_BC01:
+        case DEVICE_BC02:
         case DEVICE_BC04:
-            GLOBAL_STATE->tmmusk = 0;
-            
-            ret = SERIAL_init(0);
-
-            if(ESP_OK == ret){
-                for(int i=0;i<10;i++)
-                {
-                    detetecd_asic = ASIC_init(GLOBAL_STATE);
-                    ESP_LOGI(TAG, "Model BC04, Detect %"PRIu8" asic.", detetecd_asic);
-                    SERIAL_clear_buffer(0);
-                    if(BC04_LOTTO_ASIC_COUNT == detetecd_asic)
-                    {
-                        break;
-                    }
-                }
-            }
-
-            if(BC04_LOTTO_ASIC_COUNT == detetecd_asic){
-                SERIAL_set_baud(0,ASIC_set_max_baud(GLOBAL_STATE));
-                SERIAL_clear_buffer(0);
-                GLOBAL_STATE->ASIC_initalized = true;
-                GLOBAL_STATE->chain_pluged[0] = true;
-                ret = ESP_OK;
-            }else{
-                ret = ESP_FAIL;
-            }
-            break;
-
-        case DEVICE_BC08:
-            GLOBAL_STATE->tmmusk = 0;
-            
-            ret = SERIAL_init(0);
-
-            if(ESP_OK == ret){
-                for(int i=0;i<10;i++)
-                {
-                    detetecd_asic = ASIC_init(GLOBAL_STATE);
-                    ESP_LOGI(TAG, "Model BC08, Detect %"PRIu8" asic.", detetecd_asic);
-                    SERIAL_clear_buffer(0);
-                    if(BC08_LOTTO_ASIC_COUNT == detetecd_asic)
-                    {
-                        break;
-                    }
-                }
-            }
-
-            if(BC08_LOTTO_ASIC_COUNT == detetecd_asic){
-                SERIAL_set_baud(0,ASIC_set_max_baud(GLOBAL_STATE));
-                SERIAL_clear_buffer(0);
-                GLOBAL_STATE->ASIC_initalized = true;
-                GLOBAL_STATE->chain_pluged[0] = true;
-                ret = ESP_OK;
-            }else{
-                ret = ESP_FAIL;
-            }
-            break;
-
         case DEVICE_BC06:
+        case DEVICE_BC08: {
+            uint8_t expected_asic = ASIC_get_asic_count(GLOBAL_STATE);
+
             GLOBAL_STATE->tmmusk = 0;
-            
+
             ret = SERIAL_init(0);
 
             if(ESP_OK == ret){
                 for(int i=0;i<10;i++)
                 {
                     detetecd_asic = ASIC_init(GLOBAL_STATE);
-                    ESP_LOGI(TAG, "Model BC06, Detect %"PRIu8" asic.", detetecd_asic);
+                    ESP_LOGI(TAG, "Model %s, Detect %"PRIu8" asic.",
+                             GLOBAL_STATE->device_model_str, detetecd_asic);
                     SERIAL_clear_buffer(0);
-                    if(BC06_LOTTO_ASIC_COUNT == detetecd_asic)
+                    if(expected_asic == detetecd_asic)
                     {
                         break;
                     }
                 }
             }
 
-            if(BC06_LOTTO_ASIC_COUNT == detetecd_asic){
+            if(expected_asic == detetecd_asic){
                 SERIAL_set_baud(0,ASIC_set_max_baud(GLOBAL_STATE));
                 SERIAL_clear_buffer(0);
                 GLOBAL_STATE->ASIC_initalized = true;
@@ -181,6 +136,7 @@ esp_err_t ASIC_detect(GlobalState * GLOBAL_STATE){
                 ret = ESP_FAIL;
             }
             break;
+        }
 
         default:
             break;
@@ -216,17 +172,15 @@ uint8_t ASIC_init(GlobalState * GLOBAL_STATE) {
             else
                 return GLOBAL_STATE->asic_count[0];
 
+        case DEVICE_BC01:
+        case DEVICE_BC02:
         case DEVICE_BC04:
-            GLOBAL_STATE->asic_count[0] = BM1370_init(GLOBAL_STATE->asic_freqency, BC04_LOTTO_ASIC_COUNT, GLOBAL_STATE->asic_difficulty);
-            return GLOBAL_STATE->asic_count[0];
-
-        case DEVICE_BC08:
-            GLOBAL_STATE->asic_count[0] = BM1370_init(GLOBAL_STATE->asic_freqency, BC08_LOTTO_ASIC_COUNT, GLOBAL_STATE->asic_difficulty);
-            return GLOBAL_STATE->asic_count[0];  
-
         case DEVICE_BC06:
-            GLOBAL_STATE->asic_count[0] = BM1370_init(GLOBAL_STATE->asic_freqency, BC06_LOTTO_ASIC_COUNT, GLOBAL_STATE->asic_difficulty);
-            return GLOBAL_STATE->asic_count[0];  
+        case DEVICE_BC08:
+            GLOBAL_STATE->asic_count[0] = BM1370_init(GLOBAL_STATE->asic_freqency,
+                                                      ASIC_get_asic_count(GLOBAL_STATE),
+                                                      GLOBAL_STATE->asic_difficulty);
+            return GLOBAL_STATE->asic_count[0];
 
         default:
             break;
@@ -246,11 +200,11 @@ int ASIC_set_max_baud(GlobalState * GLOBAL_STATE) {
             return LT0051_set_max_baud_by_chain(GLOBAL_STATE, 0);
 		case DEVICE_DC06:
             return LT0051_set_max_baud_by_chain(GLOBAL_STATE, 0);
+        case DEVICE_BC01:
+        case DEVICE_BC02:
         case DEVICE_BC04:
-            return BM1370_set_max_baud();
-        case DEVICE_BC08:
-            return BM1370_set_max_baud();
         case DEVICE_BC06:
+        case DEVICE_BC08:
             return BM1370_set_max_baud();
         default:
             return 0;
@@ -269,12 +223,19 @@ uint8_t ASIC_get_asic_count(GlobalState * GLOBAL_STATE) {
             return DC04_LOTTO_ASIC_COUNT;
 		case DEVICE_DC06:
 			return DC06_LOTTO_ASIC_COUNT; 
-		case DEVICE_BC04:
-			return BC04_LOTTO_ASIC_COUNT; 
+        case DEVICE_BC01:
+            return BC01_LOTTO_ASIC_COUNT;
+        case DEVICE_BC02:
+            return BC02_LOTTO_ASIC_COUNT;
+        case DEVICE_BC04:
+            return BC04_LOTTO_ASIC_COUNT;
         case DEVICE_BC08:
-			return BC08_LOTTO_ASIC_COUNT; 
+            return BC08_LOTTO_ASIC_COUNT;
         case DEVICE_BC06:
-			return BC08_LOTTO_ASIC_COUNT; 
+            /* Was BC08_LOTTO_ASIC_COUNT, which reported 8 ASICs on a
+             * 6-ASIC board and skewed every per-chip figure derived
+             * from it. */
+            return BC06_LOTTO_ASIC_COUNT;
         default:
             return 0;
     }
@@ -294,12 +255,12 @@ uint16_t ASIC_get_small_core_count(GlobalState * GLOBAL_STATE) {
             return 132;  
         case DEVICE_DC06:
             return 132;		
+        case DEVICE_BC01:
+        case DEVICE_BC02:
         case DEVICE_BC04:
-            return 2040;	
+        case DEVICE_BC06:
         case DEVICE_BC08:
             return 2040;
-        case DEVICE_BC06:
-            return 2040;          	
         default:
             return 0;
     }
@@ -319,12 +280,12 @@ task_result * ASIC_process_work(GlobalState * GLOBAL_STATE, uint32_t chain_num) 
             return LT0051_process_work(GLOBAL_STATE, chain_num);  
         case DEVICE_DC06:
             return LT0051_process_work(GLOBAL_STATE, chain_num); 
+        case DEVICE_BC01:
+        case DEVICE_BC02:
         case DEVICE_BC04:
-            return BM1370_process_work(GLOBAL_STATE);
+        case DEVICE_BC06:
         case DEVICE_BC08:
             return BM1370_process_work(GLOBAL_STATE);
-        case DEVICE_BC06:
-            return BM1370_process_work(GLOBAL_STATE);             
         default:
 			break;
     }

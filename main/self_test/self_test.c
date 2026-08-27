@@ -113,6 +113,39 @@ esp_err_t test_power(int i2c_master_index)
         GLOBAL_STATE->HEALTH_MODULE.voltage = 300;
         GLOBAL_STATE->asic_vol_default = 300;
     }
+    else if(DEVICE_BC01 == GLOBAL_STATE->device_model)
+    {
+        /*
+         * Single BM1370, so the core domain is one ASIC rather than a
+         * series string: roughly 1.2 V, not the 3-4 V of the multi-ASIC
+         * boards. The vendor's BC01 self-test source was not released, so
+         * these figures come from a running BC01 on 2.0.1 reporting
+         * coreVoltage 119 (1.19 V nominal) against 1195 mV measured.
+         *
+         * VOUT_MAX is deliberately held just above that operating point.
+         * Do not raise it to the 5 V the multi-ASIC boards use: on a
+         * single-ASIC domain that clamp would permit a voltage far outside
+         * the chip's safe range.
+         */
+        TPS546_CONFIG_LOTTO.TPS546_INIT_VOUT_MAX = 1.5;
+        TPS546_CONFIG_LOTTO.TPS546_INIT_SCALE_LOOP = 0.125;
+        GLOBAL_STATE->HEALTH_MODULE.voltage = 120;
+        GLOBAL_STATE->asic_vol_default = 120;
+    }
+    else if(DEVICE_BC02 == GLOBAL_STATE->device_model)
+    {
+        /*
+         * Not calibrated. BC02 is a two-ASIC board, so neither the BC01
+         * single-ASIC limits nor the BC04 four-ASIC limits apply, and no
+         * BC02 hardware was available to measure. Refusing is the safe
+         * outcome: running the self-test with the wrong VOUT_MAX risks the
+         * ASIC. Normal mining is unaffected -- it takes its voltage from
+         * NVS through power_on_hashboard(), not from here.
+         */
+        ESP_LOGE(TAG, "Self-test is not calibrated for BC02; refusing to set "
+                      "PMBus voltage limits. Normal operation is unaffected.");
+        return ESP_ERR_NOT_SUPPORTED;
+    }
     ret = TPS546_init(TPS546_CONFIG_LOTTO);
 
     ESP_LOGI(TAG, "test_power done.");
@@ -147,18 +180,15 @@ esp_err_t test_hashboard(void)
     reset_hash_board(GLOBAL_STATE);
     volc_delay(1000);
     GLOBAL_STATE->interface_initalized = true;
-    if(DEVICE_BC04 == GLOBAL_STATE->device_model)
+    /* Every BC board starts the detect pass at a low frequency. */
+    if(DEVICE_BC01 == GLOBAL_STATE->device_model ||
+       DEVICE_BC02 == GLOBAL_STATE->device_model ||
+       DEVICE_BC04 == GLOBAL_STATE->device_model ||
+       DEVICE_BC06 == GLOBAL_STATE->device_model ||
+       DEVICE_BC08 == GLOBAL_STATE->device_model)
     {
         GLOBAL_STATE->asic_freqency = 100;
     }
-    else if(DEVICE_BC08 == GLOBAL_STATE->device_model)
-    {
-        GLOBAL_STATE->asic_freqency = 100;
-    }
-    else if(DEVICE_BC06 == GLOBAL_STATE->device_model)
-    {
-        GLOBAL_STATE->asic_freqency = 100;
-    }    
     ret = ASIC_detect(GLOBAL_STATE);
     return ret;      
 }

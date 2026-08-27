@@ -1,3 +1,5 @@
+#include <stdbool.h>
+
 #include "device.h"
 #include "vcore.h"
 #include "nvs_config.h"
@@ -11,87 +13,99 @@
 
 #define TAG "device"
 
+/*
+ * Per-model I2C thermal sensor layout.
+ *
+ * Some boards cannot be told apart by their sensor address alone: BC01,
+ * BC02 and BC04 all answer at 0x48. Where a board IS distinguishable, a
+ * missing sensor is treated as evidence the configured model is wrong and
+ * the firmware reconfigures itself and reboots. That is what `fallback`
+ * expresses; models with no distinguishing address leave it NULL and only
+ * log, because guessing would trade a wrong reading for a boot loop.
+ *
+ * The vendor release carried BC04, BC06 and BC08 as three near-identical
+ * copies of the same block, and sent everything else -- including BC01 and
+ * BC02, which nvs_device.c already configures -- down an else branch that
+ * reset the model to "DC04". No such model exists in nvs_device.c, so a
+ * BC01 running that build would reset, fail to match again, and loop.
+ */
+typedef struct {
+    DeviceModel  model;
+    const char  *name;
+    uint8_t      primary_addr;
+    uint8_t      secondary_addr;   /* 0 when the board has one sensor */
+    const char  *fallback;         /* model to adopt if the sensor is absent */
+} device_thermal_profile_t;
+
+static const device_thermal_profile_t device_thermal_profiles[] = {
+    { DEVICE_BC01, "BC01", TMP75_I2CADDR_BC01,   0,                    NULL   },
+    { DEVICE_BC02, "BC02", TMP75_I2CADDR_BC01,   0,                    NULL   },
+    { DEVICE_BC04, "BC04", TMP75_I2CADDR_BC04,   0,                    "BC08" },
+    { DEVICE_BC06, "BC06", TMP75_I2CADDR_BC08_1, TMP75_I2CADDR_BC08_2, "BC04" },
+    { DEVICE_BC08, "BC08", TMP75_I2CADDR_BC08_1, TMP75_I2CADDR_BC08_2, "BC04" },
+};
+
+static const device_thermal_profile_t *find_thermal_profile(DeviceModel model)
+{
+    for (size_t i = 0; i < sizeof(device_thermal_profiles) / sizeof(device_thermal_profiles[0]); i++) {
+        if (device_thermal_profiles[i].model == model) {
+            return &device_thermal_profiles[i];
+        }
+    }
+    return NULL;
+}
+
 esp_err_t init_all_i2c_dev(GlobalState *GLOBAL_STATE)
 {
     esp_err_t ret = ESP_FAIL;
 
     ESP_LOGI(TAG, "Initialize all the i2c dev.");
 
-	ESP_ERROR_CHECK(ret = EMC2302_init());
-    uint16_t  Polarity = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, 0);
-	ret = EMC2302_installed(Polarity);
-	if(ESP_OK != ret)
-	{
-		return ret;
-	}
+    ESP_ERROR_CHECK(ret = EMC2302_init());
+    uint16_t Polarity = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, 0);
+    ret = EMC2302_installed(Polarity);
+    if (ESP_OK != ret) {
+        return ret;
+    }
 
-	if(DEVICE_BC04 == GLOBAL_STATE->device_model)
-	{
-		ret = TMP75_init(TMP75_I2CADDR_BC04, 0);
-		ret = TMP75_installed(0);
-		if(ESP_OK != ret)
-		{
-			ESP_LOGE(TAG, "DEVICE model BC04 identify mismatch, reset model to BC08");
-			nvs_config_set_string(NVS_CONFIG_DEVICE_MODEL, "BC08");
-			vTaskDelay(pdMS_TO_TICKS(1000));
-			restart_with_reason("BC04 model identify mismatch, reset to BC08");
-		}
-    	return ret;
-	}
-    else if(DEVICE_BC08 == GLOBAL_STATE->device_model)
-	{
-		ret = TMP75_init(TMP75_I2CADDR_BC08_1, 0);
-		ret = TMP75_installed(0);
-		if(ESP_OK != ret)
-		{
-			ESP_LOGE(TAG, "DEVICE model BC08 identify mismatch, reset model to BC04");
-			nvs_config_set_string(NVS_CONFIG_DEVICE_MODEL, "BC04");
-			vTaskDelay(pdMS_TO_TICKS(1000));
-			restart_with_reason("BC08 model identify mismatch, reset to BC04");
-		}
-        else
-        {
-            ret = TMP75_init(TMP75_I2CADDR_BC08_2, 1);
-            ret = TMP75_installed(1);
-            if(ESP_OK != ret)
-            {
-                ESP_LOGE(TAG, "DEVICE model BC08 temp2 error");
-            }
+    const device_thermal_profile_t *profile = find_thermal_profile(GLOBAL_STATE->device_model);
+    if (NULL == profile) {
+        ESP_LOGE(TAG, "DEVICE model %s unknown; supported models are BC01, BC02, BC04, BC06, BC08",
+                 GLOBAL_STATE->device_model_str);
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+
+    ret = TMP75_init(profile->primary_addr, 0);
+    ret = TMP75_installed(0);
+    if (ESP_OK != ret) {
+        if (NULL != profile->fallback) {
+            ESP_LOGE(TAG, "DEVICE model %s identify mismatch, reset model to %s",
+                     profile->name, profile->fallback);
+            nvs_config_set_string(NVS_CONFIG_DEVICE_MODEL, profile->fallback);
+            vTaskDelay(pdMS_TO_TICKS(1000));
+            restart_with_reason("Device model identify mismatch");
         }
-    	return ret;
-	}
-    else if(DEVICE_BC06 == GLOBAL_STATE->device_model)
-	{
-		ret = TMP75_init(TMP75_I2CADDR_BC08_1, 0);
-		ret = TMP75_installed(0);
-		if(ESP_OK != ret)
-		{
-			ESP_LOGE(TAG, "DEVICE model BC06 identify mismatch, reset model to BC04");
-			nvs_config_set_string(NVS_CONFIG_DEVICE_MODEL, "BC04");
-			vTaskDelay(pdMS_TO_TICKS(1000));
-			restart_with_reason("BC06 model identify mismatch, reset to BC04");
-		}
-        else
-        {
-            ret = TMP75_init(TMP75_I2CADDR_BC08_2, 1);
-            ret = TMP75_installed(1);
-            if(ESP_OK != ret)
-            {
-                ESP_LOGE(TAG, "DEVICE model BC06 temp2 error");
-            }
+        ESP_LOGE(TAG, "DEVICE model %s: temperature sensor not responding at 0x%02x",
+                 profile->name, profile->primary_addr);
+        return ret;
+    }
+
+    if (0 != profile->secondary_addr) {
+        ret = TMP75_init(profile->secondary_addr, 1);
+        ret = TMP75_installed(1);
+        if (ESP_OK != ret) {
+            ESP_LOGE(TAG, "DEVICE model %s temp2 error", profile->name);
         }
-    	return ret;
-	}   
-    else
-    {
-		ESP_LOGE(TAG, "DEVICE model %s unknow, reset model to DC04", GLOBAL_STATE->device_model_str);
-		nvs_config_set_string(NVS_CONFIG_DEVICE_MODEL, "DC04");
-		vTaskDelay(pdMS_TO_TICKS(1000));
-		restart_with_reason("Unknown device model, reset to DC04");
-		return ret;
-	}
+    }
 
     return ret;
+}
+
+/* True when the board carries a second thermal sensor. */
+static bool device_has_second_sensor(DeviceModel model)
+{
+    const device_thermal_profile_t *profile = find_thermal_profile(model);
+    return NULL != profile && 0 != profile->secondary_addr;
 }
 
 esp_err_t read_hash_board_temperature(GlobalState *GLOBAL_STATE)
@@ -99,8 +113,9 @@ esp_err_t read_hash_board_temperature(GlobalState *GLOBAL_STATE)
     esp_err_t ret = ESP_OK;
 
     GLOBAL_STATE->HEALTH_MODULE.board_temperature[0] = TMP75_read_temperature(0);
-    if(DEVICE_BC08 == GLOBAL_STATE->device_model || DEVICE_BC06 == GLOBAL_STATE->device_model)
+    if (device_has_second_sensor(GLOBAL_STATE->device_model)) {
         GLOBAL_STATE->HEALTH_MODULE.board_temperature[1] = TMP75_read_temperature(1);
+    }
     return ret;
 }
 

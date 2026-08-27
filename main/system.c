@@ -32,6 +32,17 @@
 #include "main.h"
 #include "vcore.h"
 
+/* The BM1370-based BC boards, which share bring-up, watchdog and boot-mode
+ * handling. Kept in one place so adding a model does not mean editing every
+ * model test in this file. */
+static inline bool is_bc_family(DeviceModel model)
+{
+    return model == DEVICE_BC01 || model == DEVICE_BC02 ||
+           model == DEVICE_BC04 || model == DEVICE_BC06 ||
+           model == DEVICE_BC08;
+}
+
+
 static const char * TAG = "SystemModule";
 
 static void _suffix_string(uint64_t, char *, size_t, int);
@@ -214,7 +225,7 @@ esp_err_t SYSTEM_get_config_by_boot_mode(GlobalState * GLOBAL_STATE){
         ret = SYSTEM_update_freq_voltage(GLOBAL_STATE);
     }
 
-    if(DEVICE_BC04 == GLOBAL_STATE->device_model || DEVICE_BC08 == GLOBAL_STATE->device_model  || DEVICE_BC06 == GLOBAL_STATE->device_model)
+    if(is_bc_family(GLOBAL_STATE->device_model))
     {
 #ifdef CONFIG_BC04_INDIVIDUAL_FREQ
         if (GLOBAL_STATE->device_model == DEVICE_BC04 && boot_mode == USER_CUSTOMIZED_MODE) {
@@ -776,55 +787,15 @@ void system_task(void *pvParameters)
     
     while (1) 
     {
-        if(GLOBAL_STATE->device_model == DEVICE_BC04)
+        /* Watch for the ASIC chain coming up short. This was three copies of
+         * the same block, one per model, each redefining ASIC_INIT_TIME_OUT;
+         * BC01 and BC02 had no branch and so were never checked. The expected
+         * count now comes from ASIC_get_asic_count(). */
+        #define ASIC_INIT_TIME_OUT (3*60*2)
+        if(is_bc_family(GLOBAL_STATE->device_model))
         {
-            if(GLOBAL_STATE->asic_count[0] != BC04_LOTTO_ASIC_COUNT)
+            if(GLOBAL_STATE->asic_count[0] != ASIC_get_asic_count(GLOBAL_STATE))
             {
-                #define  ASIC_INIT_TIME_OUT (3*60*2)
-                asic_init_time_count ++;
-                if(asic_init_time_count == ASIC_INIT_TIME_OUT)
-                {
-                    char err_str[32];
-                    sprintf(err_str,"ASIC err, num = %d",GLOBAL_STATE->asic_count[0]);
-                    showErrorScreen(err_str,WRONG_ASIC_ERROR);
-                }
-                else if(asic_init_time_count > (ASIC_INIT_TIME_OUT + 1*60*2))
-                {
-                    restart_with_reason("ASIC num err");
-                }
-            }
-            else
-            {
-                asic_init_time_count = 0;
-            }
-        }
-        else if(GLOBAL_STATE->device_model == DEVICE_BC08)
-        {
-            if(GLOBAL_STATE->asic_count[0] != BC08_LOTTO_ASIC_COUNT)
-            {
-                #define  ASIC_INIT_TIME_OUT (3*60*2)
-                asic_init_time_count ++;
-                if(asic_init_time_count == ASIC_INIT_TIME_OUT)
-                {
-                    char err_str[32];
-                    sprintf(err_str,"ASIC err, num = %d",GLOBAL_STATE->asic_count[0]);
-                    showErrorScreen(err_str,WRONG_ASIC_ERROR);
-                }
-                else if(asic_init_time_count > (ASIC_INIT_TIME_OUT + 1*60*2))
-                {
-                    restart_with_reason("ASIC num err");
-                }
-            }
-            else
-            {
-                asic_init_time_count = 0;
-            }
-        }
-        else if(GLOBAL_STATE->device_model == DEVICE_BC06)
-        {
-            if(GLOBAL_STATE->asic_count[0] != BC06_LOTTO_ASIC_COUNT)
-            {
-                #define  ASIC_INIT_TIME_OUT (3*60*2)
                 asic_init_time_count ++;
                 if(asic_init_time_count == ASIC_INIT_TIME_OUT)
                 {
