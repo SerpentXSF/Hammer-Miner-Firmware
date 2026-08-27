@@ -50,6 +50,18 @@ esp_err_t VCORE_init(GlobalState * GLOBAL_STATE) {
     TPS546_CONFIG_LOTTO.TPS546_INIT_VOUT_MIN = (float)GLOBAL_STATE->asic_vol_min/100;
     TPS546_CONFIG_LOTTO.TPS546_INIT_VOUT_MAX = (float)GLOBAL_STATE->asic_vol_max/100;
 
+    /*
+     * VOUT_SCALE_LOOP has to bracket the requested ceiling, or the
+     * regulator cannot represent the voltage at all:
+     *
+     *     scale 1      0.25 - 0.75 V
+     *     scale 0.5    0.25 - 1.5  V
+     *     scale 0.25   0.25 - 3    V
+     *     scale 0.125  0.25 - 6    V
+     *
+     * The struct initialises to 0.5, which covers a single-ASIC domain at
+     * 1.19 V, so the ceilings at or below 1.5 V need no adjustment here.
+     */
     if(TPS546_CONFIG_LOTTO.TPS546_INIT_VOUT_MAX > 1.5)
     {
         /*
