@@ -15,22 +15,35 @@ can put the miner back to stock in a minute.
 
 ## Why the miner survives this
 
-The board splits cleanly. Almost nothing that makes your miner *yours*
-lives on the module.
+The board splits cleanly. The parts that are hard to replace stay put.
 
 | Stays on the miner | Moves with the module |
 |---|---|
 | BM1370 ASIC and its hashboard | Firmware |
-| **Per-unit silicon calibration** in the hashboard I²C EEPROM — `chip_bin`, `pcb_version`, and the values behind `get_voltage_from_eeprom()`, `get_freq_from_eeprom()`, `get_bin_from_eeprom()` | Settings in NVS (pool, WiFi, tuning) |
-| TPS546 core regulator, TMP75 sensor, EMC2302 fan controller | MAC address, and the serial string derived from it |
+| TPS546 core regulator, TMP75 sensor, EMC2302 fan controller | Settings in NVS: pool, WiFi, **frequency and voltage** |
+| Hashboard I²C EEPROM (`chip_bin`, `pcb_version`, binning) | MAC address, and the serial string derived from it |
 | Power input and fan | |
 
-The calibration is the part you could not recreate, and it is not on the
-module. `eeprom.c` reads it over I²C at boot, so a fresh module picks up
-your specific chip's binning on first run with nothing to restore.
+### Tuning does not carry over — write it down
 
-What you do have to re-enter is configuration: pool, WiFi, device model.
-Capture it first.
+The hashboard EEPROM does hold per-unit data, and `eeprom.c` provides
+`get_voltage_from_eeprom()`, `get_freq_from_eeprom()` and
+`get_bin_from_eeprom()` to read it. **Nothing in the shipping firmware
+calls them.** Outside the unit tests they have no callers, so that data is
+present on the board and unused.
+
+Frequency and voltage come from NVS, through `SYSTEM_update_freq_voltage()`:
+
+```c
+GLOBAL_STATE->asic_freqency = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, CONFIG_ASIC_FREQUENCY);
+uint16_t uint_voltage = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, GLOBAL_STATE->asic_vol_default);
+```
+
+NVS lives on the module. So a fresh module comes up on **compile-time
+defaults, not your board's tuning**, and you have to put the values back
+yourself. Capture them before you pull the original — see
+[Before you remove anything](#before-you-remove-anything). This is the step
+people will skip, and it is the one that matters.
 
 ---
 
@@ -68,18 +81,29 @@ Record your settings while the miner still runs:
 curl -s http://<miner>/api/system/info | tee my-miner-settings.json
 ```
 
-Keep that file. The values you will need again:
+Keep that file. These have to go back in by hand:
 
 ```
-DeviceModel      BC01          <- or BC02 / BC04 / BC06 / BC08
-boardVersion     V02
-ASICModel        BM1370
-frequency        750
-coreVoltage      119
+DeviceModel      BC01          -> devicemodel
+boardVersion     V02           -> boardversion
+ASICModel        BM1370        -> asicmodel
+frequency        750           -> asicfrequency, asicoverf
+coreVoltage      119           -> asicvoltage, asicovervol
+                               -> asicovervdef  (the fallback default)
+boot_mode        1
 fanspeed / autofanspeed
 stratumURL / stratumUser / stratumPort
 ssid
 ```
+
+Voltages are in units of 10 mV, so 119 is 1.19 V. Note how much lower that
+is than the multi-ASIC boards, whose core domain is a series string —
+`config.cvs.example` ships 470 because it is written around a BC04. **Do
+not leave a BC04 voltage on a BC01.**
+
+If the device is already dead and you never captured this, the console log
+prints the values at every boot (`asic frequency`, `asic voltage`,
+`vol def`), so an older log or a photo of the screen may still have them.
 
 `sn_str` does not need restoring. The serial is built at runtime from a
 prefix plus the model and MAC, so the new module generates its own.
@@ -169,6 +193,16 @@ first minutes, and shares should start being accepted.
 module is fully seated and the right way round. The firmware retries ten
 times before giving up, so a persistent zero is wiring, not timing.
 
+### If the screen shows a power or PSU fault
+
+Check what firmware is actually running before suspecting the hardware.
+Replacement modules are sometimes sold pre-flashed for a different miner --
+a NerdQAxe++ image on this hardware reports `cannot find TPS53647 buck
+controller` (the BC boards use a TPS546), `Failed to read temperature from
+TMP1075` (they use a TMP75), and `0 chip(s) detected on the chain, expected
+4`, which surfaces on screen as a power fault. The board is fine; the
+firmware is looking for a different one. Flash this firmware over it.
+
 ### If the display is blank but mining works
 
 You have an incompatible panel — most likely an AMOLED variant. Mining is
@@ -180,9 +214,10 @@ layer.
 ## Rolling back
 
 Power off, swap the original module back in. It is untouched, still
-Hammer-signed, and boots stock firmware with your hashboard calibration
-intact. That is the whole point of doing it this way rather than attacking
-the original module: failure costs you nothing.
+Hammer-signed, and boots stock firmware with its own NVS settings intact —
+your original tuning is still on that module, which is the other reason to
+keep it. That is the point of doing it this way rather than attacking the
+original: failure costs you nothing.
 
 ---
 

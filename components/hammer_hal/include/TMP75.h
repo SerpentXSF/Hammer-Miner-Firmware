@@ -21,7 +21,11 @@ temperature sensor: TMP75 {0x48,0x49,0x4A,0x4B,0x4C,0x4D,0x4E,0x4F}
 #define TMP75_I2CADDR_BC08_1       	(0x48+6)
 #define TMP75_I2CADDR_BC08_2       	(0x48+2)
 
-#define TMP75_I2CADDR_BC01       	(0x48+0)
+/* Measured on a BC01 V02: the sensor answers at 0x49, not the 0x48 the
+ * vendor header claimed. 0x48 is the BC04 address; on a BC01 nothing
+ * acknowledges there, which sent model detection into a reboot loop.
+ * Confirmed with hammer_i2c_scan(). */
+#define TMP75_I2CADDR_BC01       	(0x48+1)
 
 
 esp_err_t TMP75_init(uint8_t slave_addr, int temperature_sensor_index);

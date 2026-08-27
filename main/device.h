@@ -16,6 +16,13 @@
 esp_err_t read_hash_board_temperature(GlobalState *GLOBAL_STATE);
 int       read_power_temp(void);
 esp_err_t read_power_information(GlobalState *GLOBAL_STATE);
+
+/* Thermal sensor addresses for a device model. `fallback` is the model to
+ * adopt if the sensor is absent, or NULL where the address does not
+ * distinguish this model from another and reconfiguring would only cause a
+ * boot loop. */
+esp_err_t device_thermal_addresses(DeviceModel model, uint8_t *primary,
+                                   uint8_t *secondary, const char **fallback);
 esp_err_t power_on_hashboard(GlobalState *GLOBAL_STATE);
 esp_err_t power_off_hashboard(GlobalState *GLOBAL_STATE);
 void      reset_hash_board(GlobalState *GLOBAL_STATE);

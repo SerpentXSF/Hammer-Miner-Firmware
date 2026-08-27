@@ -197,91 +197,44 @@ esp_err_t test_external_temperature_sensor(int8_t *t)
 {
     esp_err_t ret = ESP_FAIL;
 
-    if(DEVICE_BC04 == GLOBAL_STATE->device_model)
-	{
-		ret = TMP75_init(TMP75_I2CADDR_BC04, 0);
-		ret = TMP75_installed(0);
-		if(ESP_OK == ret)
-		{
-			*t = TMP75_read_temperature(0);
-		}
-		else
-		{
-			ESP_LOGE(TAG, "DEVICE model BC04 identify mismatch, reset model to BC08");
-			nvs_config_set_string(NVS_CONFIG_DEVICE_MODEL, "BC08");
-			vTaskDelay(pdMS_TO_TICKS(1000));
-			restart_with_reason("BC04 model identify mismatch, reset to BC08");
-		}
-		ESP_LOGI(TAG, "external_temperature_sensor Temperature: %d °C", *t);
-    	return ret;
-	}
-    else if(DEVICE_BC08 == GLOBAL_STATE->device_model)
-	{
-		ret = TMP75_init(TMP75_I2CADDR_BC08_1, 0);
-		ret = TMP75_installed(0);
-		if(ESP_OK == ret)
-		{
-			*t = TMP75_read_temperature(0);
+    /*
+     * This duplicated device.c's thermal identify logic, once per model,
+     * and had no BC01 or BC02 branch -- so those boards fell through and
+     * the model was rewritten, which put the device into a reboot loop
+     * flipping BC04 -> BC08 -> BC04 and rewriting NVS on every cycle.
+     *
+     * It now shares the profile table in device.c. A model whose sensor
+     * address does not distinguish it from another model is never
+     * reconfigured on a missing sensor, because guessing trades a wrong
+     * reading for a boot loop.
+     */
+    uint8_t primary = 0, secondary = 0;
+    const char *fallback = NULL;
 
-            ret = TMP75_init(TMP75_I2CADDR_BC08_2, 1);
-            ret = TMP75_installed(1);
-            if(ESP_OK == ret)
-            {
-                t[1] = TMP75_read_temperature(1);
-            }
-            else
-            {
-                ESP_LOGE(TAG, "temp2 error");
-            }
-		}
-		else
-		{
-			ESP_LOGE(TAG, "DEVICE model BC08 identify mismatch, reset model to BC04");
-			nvs_config_set_string(NVS_CONFIG_DEVICE_MODEL, "BC04");
-			vTaskDelay(pdMS_TO_TICKS(1000));
-			restart_with_reason("BC08 model identify mismatch, reset to BC04");
-		}
-		ESP_LOGI(TAG, "external_temperature_sensor Temperature: %d °C", *t);
-    	return ret;
-	}
-    else if(DEVICE_BC06 == GLOBAL_STATE->device_model)
-	{
-		ret = TMP75_init(TMP75_I2CADDR_BC08_1, 0);
-		ret = TMP75_installed(0);
-		if(ESP_OK == ret)
-		{
-			*t = TMP75_read_temperature(0);
+    if (device_thermal_addresses(GLOBAL_STATE->device_model, &primary, &secondary, &fallback) != ESP_OK) {
+        ESP_LOGE(TAG, "No thermal profile for model %s", GLOBAL_STATE->device_model_str);
+        return ESP_ERR_NOT_SUPPORTED;
+    }
 
-            ret = TMP75_init(TMP75_I2CADDR_BC08_2, 1);
-            ret = TMP75_installed(1);
-            if(ESP_OK == ret)
-            {
-                t[1] = TMP75_read_temperature(1);
-            }
-            else
-            {
-                ESP_LOGE(TAG, "temp2 error");
-            }
-		}
-		else
-		{
-			ESP_LOGE(TAG, "DEVICE model BC06 identify mismatch, reset model to BC04");
-			nvs_config_set_string(NVS_CONFIG_DEVICE_MODEL, "BC04");
-			vTaskDelay(pdMS_TO_TICKS(1000));
-			restart_with_reason("BC06 model identify mismatch, reset to BC04");
-		}
-		ESP_LOGI(TAG, "external_temperature_sensor Temperature: %d °C", *t);
-    	return ret;
-	}
-    else
-    {
-		ESP_LOGE(TAG, "DEVICE model %s unknow, reset model to BC04", GLOBAL_STATE->device_model_str);
-		nvs_config_set_string(NVS_CONFIG_DEVICE_MODEL, "BC04");
-		vTaskDelay(pdMS_TO_TICKS(1000));
-		restart_with_reason("Unknown device model, reset to BC04");
-		return ret;
-	}
+    ret = TMP75_init(primary, 0);
+    ret = TMP75_installed(0);
+    if (ESP_OK == ret) {
+        *t = TMP75_read_temperature(0);
+        ESP_LOGI(TAG, "external_temperature_sensor Temperature: %d C", *t);
+    } else if (NULL != fallback) {
+        ESP_LOGE(TAG, "DEVICE model %s identify mismatch, reset model to %s",
+                 GLOBAL_STATE->device_model_str, fallback);
+        nvs_config_set_string(NVS_CONFIG_DEVICE_MODEL, fallback);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        restart_with_reason("Device model identify mismatch");
+    } else {
+        ESP_LOGE(TAG, "DEVICE model %s: no temperature sensor at 0x%02x",
+                 GLOBAL_STATE->device_model_str, primary);
+    }
+
+    return ret;
 }
+
 
 esp_err_t test_fan(uint16_t * rpm)
 {

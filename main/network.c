@@ -347,7 +347,15 @@ void network_eth_init_test(void)
     // Initialize Ethernet driver
     uint8_t eth_port_cnt = 0;
     esp_eth_handle_t *eth_handles;
-    ESP_ERROR_CHECK(example_eth_init(&eth_handles, &eth_port_cnt));
+
+    /* Not every board in this family has the W5500. The BC01 is
+     * WiFi-only, and aborting here took the whole device into a
+     * boot loop rather than simply leaving Ethernet unavailable. */
+    if (example_eth_init(&eth_handles, &eth_port_cnt) != ESP_OK || eth_port_cnt == 0) {
+        ESP_LOGW(TAG, "No Ethernet controller found; continuing without it");
+        netWork_Info.eth_on = 0;
+        return;
+    }
 
     // Initialize TCP/IP network interface aka the esp-netif (should be called only once in application)
     ESP_ERROR_CHECK(esp_netif_init());
@@ -376,7 +384,15 @@ void network_eth_init(void)
 	// Initialize Ethernet driver
     uint8_t eth_port_cnt = 0;
     esp_eth_handle_t *eth_handles;
-    ESP_ERROR_CHECK(example_eth_init(&eth_handles, &eth_port_cnt));
+
+    /* Not every board in this family has the W5500. The BC01 is
+     * WiFi-only, and aborting here took the whole device into a
+     * boot loop rather than simply leaving Ethernet unavailable. */
+    if (example_eth_init(&eth_handles, &eth_port_cnt) != ESP_OK || eth_port_cnt == 0) {
+        ESP_LOGW(TAG, "No Ethernet controller found; continuing without it");
+        netWork_Info.eth_on = 0;
+        return;
+    }
 
     // Initialize TCP/IP network interface aka the esp-netif (should be called only once in application)
     //ESP_ERROR_CHECK(esp_netif_init());

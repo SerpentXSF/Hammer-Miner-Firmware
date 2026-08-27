@@ -47,7 +47,38 @@ esp_err_t hammer_i2c_init(void)
     //wait for I2C to init
     vTaskDelay(100 / portTICK_PERIOD_MS);
 
+    hammer_i2c_scan();
+
     return ESP_OK;
+}
+
+/*
+ * Log every address that acknowledges on the bus.
+ *
+ * Sensor addresses differ between BC models and the vendor released the
+ * headers for only some of them, so a board whose sensor is not where the
+ * table expects looks identical to a board with no sensor at all. This
+ * turns that into an answer rather than a guess, and it costs one pass at
+ * boot.
+ */
+void hammer_i2c_scan(void)
+{
+    int found = 0;
+
+    ESP_LOGI(TAG, "Scanning I2C bus (SDA=%d SCL=%d)", GPIO_I2C_SDA_0, GPIO_I2C_SCL_0);
+
+    for (uint8_t addr = 0x08; addr < 0x78; addr++) {
+        if (i2c_master_probe(i2c_bus_handle, addr, 50) == ESP_OK) {
+            ESP_LOGW(TAG, "  device responding at 0x%02x", addr);
+            found++;
+        }
+    }
+
+    if (found == 0) {
+        ESP_LOGE(TAG, "  no devices found -- check hashboard power and wiring");
+    } else {
+        ESP_LOGI(TAG, "  %d device(s) found", found);
+    }
 }
 
 esp_err_t hammer_i2c_add_device(uint8_t device_address, 

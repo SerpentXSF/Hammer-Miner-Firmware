@@ -55,6 +55,21 @@ static const device_thermal_profile_t *find_thermal_profile(DeviceModel model)
     return NULL;
 }
 
+/* Lets self_test.c use the same table rather than keeping its own copy. */
+esp_err_t device_thermal_addresses(DeviceModel model, uint8_t *primary,
+                                   uint8_t *secondary, const char **fallback)
+{
+    const device_thermal_profile_t *profile = find_thermal_profile(model);
+    if (NULL == profile) {
+        return ESP_ERR_NOT_FOUND;
+    }
+    if (primary)   *primary   = profile->primary_addr;
+    if (secondary) *secondary = profile->secondary_addr;
+    if (fallback)  *fallback  = profile->fallback;
+    return ESP_OK;
+}
+
+
 esp_err_t init_all_i2c_dev(GlobalState *GLOBAL_STATE)
 {
     esp_err_t ret = ESP_FAIL;
