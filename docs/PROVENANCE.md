@@ -82,59 +82,54 @@ over with the file names intact.
 
 ---
 
-## 4. The BC01 source was never published
+## 4. The BC01 source is published, but not where the binaries are
 
-Hammer maintains two repositories for the BC01, under a different
-organisation from the BC04:
+**Correction.** Earlier revisions of this document stated that the BC01
+source had never been published. That was wrong, and the error is recorded
+here rather than quietly edited out.
 
-- <https://github.com/HammerMiner/BC01-APP> — described as "1-Asic BTC Miner"
-- <https://github.com/HammerMiner/BC01-WWW> — described as "Miner UI"
+The BC01 source does exist, in full:
 
-**Each contains exactly one commit and one file: a two-line README.**
-No source. Neither carries a LICENSE.
+- <https://github.com/baichuan-org/BC01> — "BC01 lab version from Chengdu
+  Baichuan", 3,077 files, pushed 2026-08-21. Contains the complete tree,
+  including `components/hammer_hal/HUSB238A.c`, `components/asic/bm1373.c`,
+  and the BC01 and BC01-Pro code paths that the BC04 release does not have.
 
-```
-$ git clone https://github.com/HammerMiner/BC01-APP.git
-$ git ls-files
-README.md
-$ git log --format="%H %ai %an: %s"
-cc537261ae1e4e95bc485a4a73a9f19dcd67af33 2026-06-25 14:03:05 +0800 xieliyi2026: Initial commit
-$ cat README.md
-# BC01-APP
-1-Asic BTC Miner
-```
+What misled the earlier reading is that this is not where the firmware is
+distributed from. The releases live in a different organisation:
 
-`BC01-WWW` is identical in form, at commit `cac9120b`.
+| Repository | Contents | Releases |
+|---|---|---|
+| `HammerMiner/BC01-APP` | one commit, a two-line `README.md` | `bc01-miner-2.0.3-20260625-update.bin`, 24 downloads |
+| `HammerMiner/BC01-WWW` | one commit, a two-line `README.md` | `bc01-www-1.4.0-20260625-update.bin`, 18 downloads |
+| `baichuan-org/BC01` | **the full source** | none |
 
-That commit hash is what makes this conclusive rather than circumstantial.
-`BC01-APP-2.0.3-20260625.zip`, the 392-byte archive distributed as the
-BC01 source, carries `cc537261ae1e4e95bc485a4a73a9f19dcd67af33` in its
-trailing comment — the same hash. The zip is therefore the complete,
-unmodified source export of that repository, not a truncated download. The
-repository really does contain nothing but a README.
+So a user who downloads the firmware lands on a repository that presents
+itself as the source and contains a README, with nothing pointing to the
+organisation that actually holds it. The 392-byte zip really is the
+complete export of `HammerMiner/BC01-APP`; its commit hash
+`cc537261ae1e4e95bc485a4a73a9f19dcd67af33` matches that repository's only
+commit. The mistake was concluding from an empty repository that no
+repository was populated.
 
-Meanwhile the releases distribute compiled firmware:
+That is a materially smaller failing than non-publication, and it should be
+described accurately. What remains is real but narrower:
 
-| Repository | Release asset | Size | Downloads |
-|---|---|---|---|
-| BC01-APP | `bc01-miner-2.0.3-20260625-update.bin` | 2,560,049 | 24 |
-| BC01-WWW | `bc01-www-1.4.0-20260625-update.bin` | 2,097,201 | 18 |
+- **GPL-3.0 section 6** asks that the corresponding source accompany the
+  object code, or be offered from where the object code is conveyed.
+  Publishing it in an unlinked repository under a different account does
+  not meet that, though the source plainly exists and is public.
+- **`baichuan-org/BC01` carries no LICENSE file**, the same section 4 gap
+  as the BC04 release described below.
+- The `components/a/liba.a` blob is present there too, so section 5.2
+  applies to the BC01 release exactly as it does to the BC04 one.
 
-So the BC01 firmware is conveyed in object form, to users, from a
-repository that presents itself as its source. Section 6 requires the
-corresponding source to accompany that conveyance. A README is not it.
-
-This is not a technicality about a product nobody runs. The shipping BC01
-binary decrypts to an image built from this very tree — its embedded
-`__FILE__` paths are the BC04 paths, misspelling `health_maintennance.c`
-included — so the source that would satisfy the obligation demonstrably
-exists. See [OTA-FORMAT.md](OTA-FORMAT.md#what-the-decrypted-image-proves).
-
-The practical cost is documented in
-[BC01-BRINGUP.md](BC01-BRINGUP.md): this firmware runs on BC01 hardware in
-every respect except bringing up the core regulator, and the pin map and
-power sequencing needed to close that gap are in the source that was not
-released.
+The practical cost of the discoverability gap was measurable. Bringing this
+firmware up on a BC01 required decrypting the shipping image, recovering a
+driver from `__func__` strings, writing an Xtensa disassembler and sweeping
+256 I2C registers on live hardware — to establish a register map that was
+sitting in a public repository the whole time. See
+[BC01-USB-PD.md](BC01-USB-PD.md).
 
 ## 5. What is missing from the vendor release
 
