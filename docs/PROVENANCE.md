@@ -82,22 +82,59 @@ over with the file names intact.
 
 ---
 
-## 4. The BC01 release is empty
+## 4. The BC01 source was never published
 
-`BC01-APP-2.0.3-20260625.zip` is **392 bytes**. It contains exactly one
-file, `README.md`:
+Hammer maintains two repositories for the BC01, under a different
+organisation from the BC04:
+
+- <https://github.com/HammerMiner/BC01-APP> — described as "1-Asic BTC Miner"
+- <https://github.com/HammerMiner/BC01-WWW> — described as "Miner UI"
+
+**Each contains exactly one commit and one file: a two-line README.**
+No source. Neither carries a LICENSE.
 
 ```
+$ git clone https://github.com/HammerMiner/BC01-APP.git
+$ git ls-files
+README.md
+$ git log --format="%H %ai %an: %s"
+cc537261ae1e4e95bc485a4a73a9f19dcd67af33 2026-06-25 14:03:05 +0800 xieliyi2026: Initial commit
+$ cat README.md
 # BC01-APP
 1-Asic BTC Miner
 ```
 
-No source. The BC01 ships the same firmware family as the BC04 — the
-shipping binary's own build metadata proves it (see
-[OTA-FORMAT.md](OTA-FORMAT.md#what-the-decrypted-image-proves)) — so the
-GPL obligation for the BC01 is **unmet**, not satisfied by this release.
+`BC01-WWW` is identical in form, at commit `cac9120b`.
 
----
+That commit hash is what makes this conclusive rather than circumstantial.
+`BC01-APP-2.0.3-20260625.zip`, the 392-byte archive distributed as the
+BC01 source, carries `cc537261ae1e4e95bc485a4a73a9f19dcd67af33` in its
+trailing comment — the same hash. The zip is therefore the complete,
+unmodified source export of that repository, not a truncated download. The
+repository really does contain nothing but a README.
+
+Meanwhile the releases distribute compiled firmware:
+
+| Repository | Release asset | Size | Downloads |
+|---|---|---|---|
+| BC01-APP | `bc01-miner-2.0.3-20260625-update.bin` | 2,560,049 | 24 |
+| BC01-WWW | `bc01-www-1.4.0-20260625-update.bin` | 2,097,201 | 18 |
+
+So the BC01 firmware is conveyed in object form, to users, from a
+repository that presents itself as its source. Section 6 requires the
+corresponding source to accompany that conveyance. A README is not it.
+
+This is not a technicality about a product nobody runs. The shipping BC01
+binary decrypts to an image built from this very tree — its embedded
+`__FILE__` paths are the BC04 paths, misspelling `health_maintennance.c`
+included — so the source that would satisfy the obligation demonstrably
+exists. See [OTA-FORMAT.md](OTA-FORMAT.md#what-the-decrypted-image-proves).
+
+The practical cost is documented in
+[BC01-BRINGUP.md](BC01-BRINGUP.md): this firmware runs on BC01 hardware in
+every respect except bringing up the core regulator, and the pin map and
+power sequencing needed to close that gap are in the source that was not
+released.
 
 ## 5. What is missing from the vendor release
 
