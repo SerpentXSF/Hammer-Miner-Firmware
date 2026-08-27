@@ -5,4 +5,6 @@
 cmake_minimum_required(VERSION 3.5)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(bc04-miner)
+# One firmware for the whole BC family; the model is selected at
+# runtime from NVS, not at build time.
+project(hammer-miner)

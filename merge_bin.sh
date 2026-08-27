@@ -10,10 +10,26 @@ CONFIG_CVS="config.cvs"
 CONFIG_BIN_ADDR=0xe000
 OTA_BIN="build/ota_data_initial.bin"
 OTA_BIN_ADDR=0x16000
-MINER_BIN="build/bc04-miner.bin"
+MINER_BIN="build/hammer-miner.bin"
 MINER_BIN_ADDR=0x20000
 WWW_BIN="build/www.bin"
 WWW_BIN_ADDR=0x9e0000
+
+if [ ! -f "$CONFIG_CVS" ]; then
+    print_with_error_header "$CONFIG_CVS not found."
+    echo "Copy the template and fill in your own values first:"
+    echo "    cp config.cvs.example config.cvs"
+    echo "It holds your WiFi credentials, API password and payout address,"
+    echo "so it is deliberately not tracked in git."
+    exit 6
+fi
+
+if grep -q 'REPLACE-WITH-YOUR-BTC-ADDRESS' "$CONFIG_CVS"; then
+    print_with_error_header "$CONFIG_CVS still contains the placeholder payout address."
+    echo "Set stratumuser to an address you control before flashing;"
+    echo "otherwise this miner will hash for somebody else."
+    exit 7
+fi
 
 echo "Generate $CONFIG_CVS"
 python $IDF_PATH/components/nvs_flash/nvs_partition_generator/nvs_partition_gen.py generate $CONFIG_CVS $CONFIG_BIN 0x6000
@@ -61,7 +77,7 @@ fi
 OPTIND=1  # Reset in case getops has been used previously
 
 # default values
-output_file="bc04-miner-all.bin"
+output_file="hammer-miner-all.bin"
 update_only=0
 with_config=1
 

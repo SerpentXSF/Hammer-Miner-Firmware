@@ -1,0 +1,19 @@
+## IDF Component Manager Manifest File
+##
+## This lives in main/, not the project root. The vendor released it at the
+## root, where the component manager never reads it -- which is why LVGL had
+## to be vendored into components/ and why the version range declared here
+## was never actually applied.
+dependencies:
+  idf:
+    version: '>=5.2.0'
+
+  # Pinned to the version the vendor actually built against. Their manifest
+  # asked for ^9.3.0 while components/lvgl__lvgl/ held 9.2.2; the vendored
+  # copy took priority, so the declared range was never used and never
+  # tested. LVGL 9.3 is not a drop-in for this display porting layer.
+  lvgl/lvgl: '~9.2.2'
+
+  # espressif/esp_lvgl_port was declared but never used -- main/displays/
+  # implements its own porting layer, and the only matches for "lvgl_port"
+  # in the tree are local function names. Removed rather than fetched.

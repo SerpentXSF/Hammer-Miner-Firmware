@@ -11,6 +11,7 @@ set(SRCS
     "statistic.c"
     "network.c"
     "./http_server/http_server.c"
+    "./http_server/api_auth.c"
     "./http_server/theme_api.c"
     "./self_test/self_test.c"
     "./tasks/stratum_task.c"
@@ -68,22 +69,18 @@ set(EMBED_FILES
     "http_server/recovery_page.html"
 )
 
-if("${CONFIG_DEVICE_MODULE}" STREQUAL "lotto")
-    message(STATUS "Device module is set to lotto")
+# Every supported device module builds the same display stack. These were
+# four near-identical copies of this block; they differed only in embedding
+# secure/flash_encryption_key.bin, which was never part of the source
+# release and is no longer referenced (see docs/OTA-FORMAT.md).
+set(DISPLAY_MODULES "lotto" "DC02" "DC04" "BC01" "BC02" "BC04" "BC06" "BC08")
+
+if("${CONFIG_DEVICE_MODULE}" IN_LIST DISPLAY_MODULES)
+    message(STATUS "Device module: ${CONFIG_DEVICE_MODULE} (display stack enabled)")
 
     list(APPEND SRCS
         "./displays/images/ui_font_DigitalNumbers16.c"
         "./displays/images/ui_font_DigitalNumbers28.c"
-        "./displays/images/ui_font_DigitalNumbers16.c"
-        "./displays/images/ui_font_OpenSansBold13.c"
-        "./displays/images/ui_font_OpenSansBold14.c"
-        "./displays/images/ui_font_OpenSansBold24.c"
-        "./displays/images/ui_font_OpenSansBold45.c"
-        "./displays/images/ui_font_vt323_21.c"
-        "./displays/images/ui_font_vt323_35.c"
-        "./displays/images/ui_font_DigitalNumbers16.c"
-        "./displays/images/ui_font_DigitalNumbers28.c"
-        "./displays/images/ui_font_DigitalNumbers16.c"
         "./displays/images/ui_font_OpenSansBold13.c"
         "./displays/images/ui_font_OpenSansBold14.c"
         "./displays/images/ui_font_OpenSansBold24.c"
@@ -95,14 +92,13 @@ if("${CONFIG_DEVICE_MODULE}" STREQUAL "lotto")
         "./displays/lvgl_screen.c"
         "./displays/images/themes/themes.c"
     )
-    
+
     list(APPEND INCLUDE_DIRS
         "displays"
         "displays/images"
         "displays/images/themes"
-        "../components/lvgl__lvgl"
     )
-    
+
     list(APPEND PRIV_REQUIRES
         "lvgl"
         "esp_lcd"
@@ -111,180 +107,10 @@ if("${CONFIG_DEVICE_MODULE}" STREQUAL "lotto")
     include_directories("./displays")
 
     add_definitions(-DLV_LVGL_H_INCLUDE_SIMPLE)
-
-    # add_compile_definitions(LV_MEM_CUSTOM=1)
-    # add_compile_definitions(LV_MEM_CUSTOM_INCLUDE=<lvgl_psram.h>)
-    # add_compile_definitions(LV_MEM_CUSTOM_ALLOC=lv_psram_alloc)
-    # add_compile_definitions(LV_MEM_CUSTOM_FREE=lv_psram_free)
-    # add_compile_definitions(LV_MEM_CUSTOM_REALLOC=lv_psram_realloc)
+else()
+    message(STATUS "Device module: ${CONFIG_DEVICE_MODULE} (no display stack)")
 endif()
 
-
-if("${CONFIG_DEVICE_MODULE}" STREQUAL "DC02")
-    message(STATUS "Device module is set to DC02")
-
-    list(APPEND SRCS
-        "./displays/images/ui_font_DigitalNumbers16.c"
-        "./displays/images/ui_font_DigitalNumbers28.c"
-        "./displays/images/ui_font_DigitalNumbers16.c"
-        "./displays/images/ui_font_OpenSansBold13.c"
-        "./displays/images/ui_font_OpenSansBold14.c"
-        "./displays/images/ui_font_OpenSansBold24.c"
-        "./displays/images/ui_font_OpenSansBold45.c"
-        "./displays/images/ui_font_vt323_21.c"
-        "./displays/images/ui_font_vt323_35.c"
-        "./displays/images/ui_font_DigitalNumbers16.c"
-        "./displays/images/ui_font_DigitalNumbers28.c"
-        "./displays/images/ui_font_DigitalNumbers16.c"
-        "./displays/images/ui_font_OpenSansBold13.c"
-        "./displays/images/ui_font_OpenSansBold14.c"
-        "./displays/images/ui_font_OpenSansBold24.c"
-        "./displays/images/ui_font_OpenSansBold45.c"
-        "./displays/images/ui_font_vt323_21.c"
-        "./displays/images/ui_font_vt323_35.c"
-        "./displays/lvgl_porting.c"
-        "./displays/lv_input.c"
-        "./displays/lvgl_screen.c"
-        "./displays/images/themes/themes.c"
-    )
-    
-    list(APPEND INCLUDE_DIRS
-        "displays"
-        "displays/images"
-        "displays/images/themes"
-        "../components/lvgl__lvgl"
-    )
-    
-    list(APPEND PRIV_REQUIRES
-        "lvgl"
-        "esp_lcd"
-    )
-
-    list(APPEND EMBED_FILES
-        "../secure/flash_encryption_key.bin"
-    )
-
-    include_directories("./displays")
-
-    add_definitions(-DLV_LVGL_H_INCLUDE_SIMPLE)
-
-    # add_compile_definitions(LV_MEM_CUSTOM=1)
-    # add_compile_definitions(LV_MEM_CUSTOM_INCLUDE=<lvgl_psram.h>)
-    # add_compile_definitions(LV_MEM_CUSTOM_ALLOC=lv_psram_alloc)
-    # add_compile_definitions(LV_MEM_CUSTOM_FREE=lv_psram_free)
-    # add_compile_definitions(LV_MEM_CUSTOM_REALLOC=lv_psram_realloc)
-endif()
-
-if("${CONFIG_DEVICE_MODULE}" STREQUAL "DC04")
-    message(STATUS "Device module is set to DC04")
-
-    list(APPEND SRCS
-        "./displays/images/ui_font_DigitalNumbers16.c"
-        "./displays/images/ui_font_DigitalNumbers28.c"
-        "./displays/images/ui_font_DigitalNumbers16.c"
-        "./displays/images/ui_font_OpenSansBold13.c"
-        "./displays/images/ui_font_OpenSansBold14.c"
-        "./displays/images/ui_font_OpenSansBold24.c"
-        "./displays/images/ui_font_OpenSansBold45.c"
-        "./displays/images/ui_font_vt323_21.c"
-        "./displays/images/ui_font_vt323_35.c"
-        "./displays/images/ui_font_DigitalNumbers16.c"
-        "./displays/images/ui_font_DigitalNumbers28.c"
-        "./displays/images/ui_font_DigitalNumbers16.c"
-        "./displays/images/ui_font_OpenSansBold13.c"
-        "./displays/images/ui_font_OpenSansBold14.c"
-        "./displays/images/ui_font_OpenSansBold24.c"
-        "./displays/images/ui_font_OpenSansBold45.c"
-        "./displays/images/ui_font_vt323_21.c"
-        "./displays/images/ui_font_vt323_35.c"
-        "./displays/lvgl_porting.c"
-        "./displays/lv_input.c"
-        "./displays/lvgl_screen.c"
-        "./displays/images/themes/themes.c"
-    )
-    
-    list(APPEND INCLUDE_DIRS
-        "displays"
-        "displays/images"
-        "displays/images/themes"
-        "../components/lvgl__lvgl"
-    )
-    
-    list(APPEND PRIV_REQUIRES
-        "lvgl"
-        "esp_lcd"
-    )
-
-    list(APPEND EMBED_FILES
-        "../secure/flash_encryption_key.bin"
-    )
-
-    include_directories("./displays")
-
-    add_definitions(-DLV_LVGL_H_INCLUDE_SIMPLE)
-
-    # add_compile_definitions(LV_MEM_CUSTOM=1)
-    # add_compile_definitions(LV_MEM_CUSTOM_INCLUDE=<lvgl_psram.h>)
-    # add_compile_definitions(LV_MEM_CUSTOM_ALLOC=lv_psram_alloc)
-    # add_compile_definitions(LV_MEM_CUSTOM_FREE=lv_psram_free)
-    # add_compile_definitions(LV_MEM_CUSTOM_REALLOC=lv_psram_realloc)
-endif()
-
-
-if("${CONFIG_DEVICE_MODULE}" STREQUAL "BC04")
-    message(STATUS "Device module is set to BC01")
-
-    list(APPEND SRCS
-        "./displays/images/ui_font_DigitalNumbers16.c"
-        "./displays/images/ui_font_DigitalNumbers28.c"
-        "./displays/images/ui_font_DigitalNumbers16.c"
-        "./displays/images/ui_font_OpenSansBold13.c"
-        "./displays/images/ui_font_OpenSansBold14.c"
-        "./displays/images/ui_font_OpenSansBold24.c"
-        "./displays/images/ui_font_OpenSansBold45.c"
-        "./displays/images/ui_font_vt323_21.c"
-        "./displays/images/ui_font_vt323_35.c"
-        "./displays/images/ui_font_DigitalNumbers16.c"
-        "./displays/images/ui_font_DigitalNumbers28.c"
-        "./displays/images/ui_font_DigitalNumbers16.c"
-        "./displays/images/ui_font_OpenSansBold13.c"
-        "./displays/images/ui_font_OpenSansBold14.c"
-        "./displays/images/ui_font_OpenSansBold24.c"
-        "./displays/images/ui_font_OpenSansBold45.c"
-        "./displays/images/ui_font_vt323_21.c"
-        "./displays/images/ui_font_vt323_35.c"
-        "./displays/lvgl_porting.c"
-        "./displays/lv_input.c"
-        "./displays/lvgl_screen.c"
-        "./displays/images/themes/themes.c"
-    )
-    
-    list(APPEND INCLUDE_DIRS
-        "displays"
-        "displays/images"
-        "displays/images/themes"
-        "../components/lvgl__lvgl"
-    )
-    
-    list(APPEND PRIV_REQUIRES
-        "lvgl"
-        "esp_lcd"
-    )
-
-    list(APPEND EMBED_FILES
-        "../secure/flash_encryption_key.bin"
-    )
-
-    include_directories("./displays")
-
-    add_definitions(-DLV_LVGL_H_INCLUDE_SIMPLE)
-
-    # add_compile_definitions(LV_MEM_CUSTOM=1)
-    # add_compile_definitions(LV_MEM_CUSTOM_INCLUDE=<lvgl_psram.h>)
-    # add_compile_definitions(LV_MEM_CUSTOM_ALLOC=lv_psram_alloc)
-    # add_compile_definitions(LV_MEM_CUSTOM_FREE=lv_psram_free)
-    # add_compile_definitions(LV_MEM_CUSTOM_REALLOC=lv_psram_realloc)
-endif()
 
 idf_component_register(
     SRCS ${SRCS}
