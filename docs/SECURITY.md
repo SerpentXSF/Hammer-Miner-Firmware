@@ -122,34 +122,43 @@ So the obfuscation being broken does not, by itself, yield code execution.
 
 ### Actual impact
 
-This is the part that cannot be settled remotely, and it decides the
-severity:
+Whether the signature is enforced depends on eFuses burned at manufacture,
+which is independent of whether the binary was signed and is not observable
+over the network.
 
-**If Secure Boot eFuses are burned** — an unauthenticated LAN attacker can
-still consume the inactive OTA slot and force repeated failed updates. That
-is a denial-of-service and a nuisance, not code execution.
+**Measured on a retail BC01** running firmware 2.0.1, via
+`esptool.py get_security_info`:
 
-**If they are not burned** — the signature is decorative, `esp_ota` skips
-verification, and the same attacker gets persistent code execution. This is
-not a hypothetical population: the vendor describes this product as
-"pre-production ... released to the market in limited quantities", and
-pre-production units are exactly where secure-boot provisioning is most
-often skipped.
-
-Signing a binary happens at build time. Enforcing the signature requires
-burning eFuses at manufacture. The two are independent, and no HTTP
-endpoint reports which was done.
-
-### Check your own device
-
-Over USB, with the miner in download mode:
-
-```bash
-esptool.py --port COM3 get_security_info
+```
+Secure Boot:      Enabled
+  BLOCK_KEY0    - SECURE_BOOT_DIGEST0
+  Secure Boot Key1 is Revoked
+  Secure Boot Key2 is Revoked
+Flash Encryption: Enabled
+  SPI_BOOT_CRYPT_CNT: 0x7
+  BLOCK_KEY1    - XTS_AES_128_KEY
+JTAG:             Permanently Disabled
 ```
 
-Look for `secure_boot_en`. If it is not set, treat finding 2 as critical
-for that unit and isolate it (see [Mitigations](#mitigations)).
+Secure Boot is enforced on that unit. **A forged OTA image is therefore a
+denial of service, not code execution**: the attacker consumes the inactive
+OTA slot and the bootloader refuses the result.
+
+One unit is not the whole fleet, and the vendor describes this product as
+pre-production, so other units may differ. Check your own — the command is
+in [SECURE-BOOT.md](SECURE-BOOT.md). Where eFuses are *not* burned, the
+signature is decorative and this finding becomes remote code execution.
+
+### What Secure Boot does not cover
+
+Pool configuration lives in NVS, not in the signed application partition.
+No signature covers it. An unauthenticated attacker who repoints
+`stratumURL` and `stratumUser` takes the device's entire hash output, and
+the change survives reboot — on a fully locked-down unit exactly as on an
+open one.
+
+Secure Boot is the last line here, not the first. Finding 1 is the one that
+matters, and it is untouched by any of this.
 
 ### Fix
 

@@ -30,12 +30,41 @@ Set an API password and isolate the miner.
 
 **Do not flash unsigned firmware.** The bootloader will refuse to boot an
 image not signed by a key whose digest is burned into the eFuses, and that
-key is Hammer's. You do not have it, and eFuses cannot be un-burned.
+key is Hammer's.
 
-Your options are to keep running vendor firmware, or to use this repository
-for its analysis and tooling rather than as a replacement image. Rolling
-back is not possible: a device with Secure Boot enabled cannot be returned
-to accepting unsigned images.
+This is not hypothetical. A retail BC01 measured here reports:
+
+```
+Secure Boot:      Enabled
+  BLOCK_KEY0    - SECURE_BOOT_DIGEST0
+  Secure Boot Key1 is Revoked
+  Secure Boot Key2 is Revoked
+Flash Encryption: Enabled
+  SPI_BOOT_CRYPT_CNT: 0x7
+  BLOCK_KEY1    - XTS_AES_128_KEY
+JTAG:             Permanently Disabled
+```
+
+Every escape route is closed, deliberately:
+
+- Secure Boot v2 holds up to three key digests. Slot 0 is Hammer's, and
+  **slots 1 and 2 are revoked**, so there is no free slot to burn your own
+  key into. Revocation is permanent.
+- Flash encryption is on in release mode with the count at `0x7`, and the
+  XTS key is read-protected. Writing a plaintext image over serial produces
+  something the chip cannot decrypt, and you cannot produce a correctly
+  encrypted one without a key you cannot read.
+- JTAG is permanently disabled, so there is no debug path in.
+- eFuses cannot be un-burned.
+
+A device in this state runs Hammer's firmware or nothing. That is a
+reasonable security posture on the vendor's part; it simply also means
+owners cannot replace software on hardware they own, on a product the
+vendor has said it will not maintain.
+
+Use this repository for its analysis, tooling and provenance record
+instead. [SECURITY.md](SECURITY.md) still applies in full — the missing
+authentication is in NVS-backed configuration that no signature covers.
 
 ---
 

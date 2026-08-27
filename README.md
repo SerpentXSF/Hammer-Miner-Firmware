@@ -75,11 +75,21 @@ released.
 | OTA tooling verified | Yes — round-trips the vendor's own image byte for byte |
 | BM1370 path free of the binary blob | Yes |
 | LT0051 path free of the binary blob | No — see [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md) |
-| **Run on real hardware** | **Not yet.** Whether a given unit can run it at all depends on Secure Boot eFuses; see [docs/SECURE-BOOT.md](docs/SECURE-BOOT.md) |
+| **Run on real hardware** | **No, and on retail units it cannot be.** A retail BC01 was measured with Secure Boot enforced and both spare key slots revoked, so only Hammer-signed images boot. See [docs/SECURE-BOOT.md](docs/SECURE-BOOT.md) |
 
-Treat this as reviewed and building, not as field-tested. If you flash it,
-do so on a unit you can recover over USB, and read
-[docs/SECURE-BOOT.md](docs/SECURE-BOOT.md) first.
+Treat this as reviewed and building, not as field-tested.
+
+**Check your device before flashing anything.** On a retail BC01 measured
+here, Secure Boot is enforced and the two spare key slots are revoked, so
+no firmware but Hammer's will boot and that cannot be changed — eFuses are
+one-way. Units whose eFuses were never burned, such as development or
+pre-production samples, can run this. The one-line check is in
+[docs/SECURE-BOOT.md](docs/SECURE-BOOT.md).
+
+If that rules your hardware out, the analysis, the provenance record and
+the tooling still apply — and so does
+[docs/SECURITY.md](docs/SECURITY.md), because the missing authentication
+affects locked-down units exactly as much as open ones.
 
 ---
 
