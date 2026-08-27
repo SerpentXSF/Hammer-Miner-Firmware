@@ -1,10 +1,11 @@
-#include <string.h>
+﻿#include <string.h>
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_check.h"
 
 #include "miner.h"
 #include "hal_i2c.h"
+#include "pmbus_commands.h"
 
 static const char * TAG = "hammer-i2c";
 
@@ -53,6 +54,66 @@ esp_err_t hammer_i2c_init(void)
 }
 
 /*
+ * Read a few identifying registers from a device found by the scan.
+ *
+ * The BC boards do not agree on where their sensors and regulators sit,
+ * and the vendor released headers for only some models, so knowing an
+ * address is not the same as knowing what answers there. PMBus parts
+ * respond to 0x98/0x99/0xAD; a TMP75 has no such registers and simply
+ * echoes its pointer register, which is itself a useful signature.
+ */
+static void hammer_i2c_identify(uint8_t addr)
+{
+    i2c_device_config_t dev_cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = addr,
+        .scl_speed_hz = I2C_BUS_SPEED_HZ,
+    };
+    i2c_master_dev_handle_t dev = NULL;
+
+    if (i2c_master_bus_add_device(i2c_bus_handle, &dev_cfg, &dev) != ESP_OK) {
+        return;
+    }
+
+    static const struct { uint8_t reg; const char *name; uint8_t len; } probes[] = {
+        { PMBUS_REVISION,        "PMBUS_REVISION",  1 },
+        { PMBUS_MFR_ID,          "MFR_ID",          6 },
+        { PMBUS_MFR_MODEL,       "MFR_MODEL",       6 },
+        { PMBUS_IC_DEVICE_ID,    "IC_DEVICE_ID",    6 },
+        { PMBUS_STATUS_WORD,     "STATUS_WORD",     2 },
+        { PMBUS_READ_VIN,        "READ_VIN",        2 },
+        { PMBUS_READ_VOUT,       "READ_VOUT",       2 },
+        { PMBUS_READ_TEMPERATURE_1, "READ_TEMP_1",  2 },
+        { 0x00,                  "reg0x00",         2 },
+        { 0x01,                  "reg0x01",         2 },
+        { 0x02,                  "reg0x02",         2 },
+        { 0x03,                  "reg0x03",         2 },
+        { 0x04,                  "reg0x04",         2 },
+        { 0x05,                  "reg0x05",         2 },
+        { 0x06,                  "reg0x06",         2 },
+        { 0x07,                  "reg0x07",         2 },
+        { 0x08,                  "reg0x08",         2 },
+        /* INA226/228 identity: MFR_ID reads 0x5449 ("TI"), DIE_ID 0x2260. */
+        { 0xFE,                  "MFR_ID_FE",       2 },
+        { 0xFF,                  "DIE_ID_FF",       2 },
+    };
+
+    for (size_t i = 0; i < sizeof(probes) / sizeof(probes[0]); i++) {
+        uint8_t out[8] = {0};
+        uint8_t reg = probes[i].reg;
+        if (i2c_master_transmit_receive(dev, &reg, 1, out, probes[i].len, 100) == ESP_OK) {
+            char hex[32] = {0};
+            for (uint8_t b = 0; b < probes[i].len && b < 8; b++) {
+                snprintf(hex + b * 3, sizeof(hex) - b * 3, "%02x ", out[b]);
+            }
+            ESP_LOGW(TAG, "    0x%02x %-14s = %s", addr, probes[i].name, hex);
+        }
+    }
+
+    i2c_master_bus_rm_device(dev);
+}
+
+/*
  * Log every address that acknowledges on the bus.
  *
  * Sensor addresses differ between BC models and the vendor released the
@@ -70,6 +131,7 @@ void hammer_i2c_scan(void)
     for (uint8_t addr = 0x08; addr < 0x78; addr++) {
         if (i2c_master_probe(i2c_bus_handle, addr, 50) == ESP_OK) {
             ESP_LOGW(TAG, "  device responding at 0x%02x", addr);
+            hammer_i2c_identify(addr);
             found++;
         }
     }

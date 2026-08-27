@@ -1,4 +1,4 @@
-idf_component_register(
+﻿idf_component_register(
 SRCS 
     #"eeprom.c"
     "TMP75.c"
@@ -11,6 +11,7 @@ SRCS
     "vcore.c"
     "ethernet_init.c"
 
+PRIV_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/../../main"
 INCLUDE_DIRS 
     "include"
     "../asic/include"
