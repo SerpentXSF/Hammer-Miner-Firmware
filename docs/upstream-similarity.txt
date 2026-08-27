@@ -1,0 +1,45 @@
+   sim  local file                                     ESP-Miner file                               loc    up  same
+-------------------------------------------------------------------------------------------------------------------
+100.0%  main/tasks/create_jobs_task.h                  main/tasks/create_jobs_task.h                  6     6     6
+100.0%  main/pmbus_commands.h                          main/pmbus_commands.h                         83    83    83
+100.0%  components/dns_server/include/dns_server.h     components/dns_server/include/dns_server.h    83    83    83
+100.0%  components/asic/include/pll.h                  components/asic/include/pll.h                 13    13    13
+100.0%  components/asic/include/crc.h                  components/asic/include/crc.h                 46    46    46
+100.0%  components/asic/crc.c                          components/asic/crc.c                         55    55    55
+ 99.0%  components/dns_server/dns_server.c             components/dns_server/dns_server.c           302   302   299
+ 98.4%  components/asic/pll.c                          components/asic/pll.c                         61    61    60
+ 92.3%  main/work_queue.h                              main/work_queue.h                             26    26    24
+ 92.3%  main/tasks/asic_result_task.h                  main/tasks/asic_result_task.h                  7     6     6
+ 89.7%  components/hammer_hal/include/TPS546.h         main/power/TPS546.h                          192   214   182
+ 86.5%  components/asic/frequency_transition_bmXX.c    components/asic/frequency_transition_bmXX.c    51    53    45
+ 85.7%  main/http_server/theme_api.h                   main/http_server/theme_api.h                   9    12     9
+ 85.2%  components/asic/include/frequency_transition_bmXX.h components/asic/include/frequency_transition_bmXX.h    30    31    26
+ 75.4%  components/asic/include/bm1370.h               components/asic/include/bm1370.h              33    36    26
+ 71.2%  components/hammer_hal/TPS546.c                 main/power/TPS546.c                         1356  1293   943
+ 67.9%  components/asic/bm1370.c                       components/asic/bm1370.c                     497   416   310
+ 67.9%  main/tasks/hashrate_monitor_task.h             main/tasks/hashrate_monitor_task.h            28    28    19
+ 65.9%  components/stratum/include/utils.h             components/stratum/include/utils.h            46    42    29
+ 65.8%  components/stratum/include/stratum_api.h       components/stratum/include/stratum_api.h     108   114    73
+ 64.9%  main/work_queue.c                              main/work_queue.c                             82   109    62
+ 59.1%  main/http_server/theme_api.c                   main/http_server/theme_api.c                 149   105    75
+ 58.1%  components/asic/serial.c                       components/asic/serial.c                     122   112    68
+ 58.0%  components/stratum/include/mining.h            components/stratum/include/mining.h           46    54    29
+ 55.8%  components/stratum/test/test_stratum_json.c    components/stratum/test/test_stratum_json.c   204   323   147
+ 53.2%  components/stratum/test/test_utils.c           components/stratum/test/test_utils.c          56    83    37
+ 52.2%  main/self_test/self_test.h                     main/self_test/self_test.h                     9    14     6
+ 49.0%  components/asic/include/serial.h               components/asic/include/serial.h              27    22    12
+ 44.8%  components/stratum/test/test_mining.c          components/stratum/test/test_mining.c        390   239   141
+ 42.4%  components/connect/connect.c                   components/connect/connect.c                 397   866   268
+ 40.5%  components/stratum/utils.c                     components/stratum/utils.c                   387   363   152
+ 40.0%  components/hammer_hal/include/vcore.h          main/power/vcore.h                            16    14     6
+ 39.7%  components/stratum/mining.c                    components/stratum/mining.c                  285   184    93
+ 39.5%  components/connect/include/connect.h           components/connect/include/connect.h          47    29    15
+ 35.7%  main/http_server/http_server.h                 main/http_server/http_server.h                13    15     5
+ 31.0%  main/tasks/hashrate_monitor_task.c             main/tasks/hashrate_monitor_task.c           191   261    70
+ 28.3%  main/system.h                                  main/system.h                                 75    45    17
+ 27.9%  main/global_state.h                            main/global_state.h                          228   209    61
+ 24.5%  main/tasks/asic_result_task.c                  main/tasks/asic_result_task.c                171   156    40
+ 22.8%  main/http_server/http_server.c                 main/http_server/http_server.c              3035  2087   583
+ 22.1%  components/stratum/stratum_api.c               components/stratum/stratum_api.c             536   761   143
+-------------------------------------------------------------------------------------------------------------------
+41 files matched upstream; 4367 identical lines of 9498
