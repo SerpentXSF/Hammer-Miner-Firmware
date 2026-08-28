@@ -37,7 +37,7 @@ set(INCLUDE_DIRS
     "../components/dns_server/include"
     "../components/stratum/include"
     "../components/asic/include"
-    "../components/hammer_hal/include"
+    "../components/bc_hal/include"
     "../components/protocol/include"
     "../components/influx/include"
 )
@@ -62,7 +62,7 @@ set(PRIV_REQUIRES
     "esp_lcd"
     "esp-tls"
     "esp_eth"
-    "hammer_hal"
+    "bc_hal"
     "dual_pool"
 # EMBED_FILES "http_server/recovery_page.html"
 )

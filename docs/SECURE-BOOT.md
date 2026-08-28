@@ -101,7 +101,7 @@ spoke the shipping update format without also arming irreversible flash
 encryption.
 
 This repository separates them. The container format is now selected by
-`CONFIG_HAMMER_OTA_OBFUSCATED`, and both flash encryption and Secure Boot
+`CONFIG_STAYOPEN_OTA_OBFUSCATED`, and both flash encryption and Secure Boot
 are **off** in the default `sdkconfig`, because a default that permanently
 alters hardware on first boot is not a safe default for a build anyone can
 run.

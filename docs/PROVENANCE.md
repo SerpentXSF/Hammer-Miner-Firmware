@@ -65,7 +65,7 @@ filenames and diffing line sequences. Full output:
 Larger files remain substantially upstream:
 
 ```
- 71.2%  components/hammer_hal/TPS546.c   (943 of 1356 lines)
+ 71.2%  components/bc_hal/TPS546.c   (943 of 1356 lines)
  67.9%  components/asic/bm1370.c         (310 of  497 lines)
  42.4%  components/connect/connect.c     (268 of  397 lines)
 ```
@@ -92,7 +92,7 @@ The BC01 source does exist, in full:
 
 - <https://github.com/baichuan-org/BC01> — "BC01 lab version from Chengdu
   Baichuan", 3,077 files, pushed 2026-08-21. Contains the complete tree,
-  including `components/hammer_hal/HUSB238A.c`, `components/asic/bm1373.c`,
+  including `components/bc_hal/HUSB238A.c`, `components/asic/bm1373.c`,
   and the BC01 and BC01-Pro code paths that the BC04 release does not have.
 
 What misled the earlier reading is that this is not where the firmware is

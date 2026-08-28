@@ -14,7 +14,7 @@ static i2c_master_dev_handle_t EMC2302_dev_handle;
 
 esp_err_t EMC2302_init(void)
 {
-	return hammer_i2c_add_device(EMC2302_ADDR, &EMC2302_dev_handle, TAG);
+	return bc_i2c_add_device(EMC2302_ADDR, &EMC2302_dev_handle, TAG);
 }
 
 esp_err_t EMC2302_installed(bool Polarity)
@@ -24,31 +24,31 @@ esp_err_t EMC2302_installed(bool Polarity)
 	ESP_LOGI(TAG, "initializing EMC2302 : %d", Polarity);
 
     // set polarity of ch1 and ch2
-    err = hammer_i2c_register_write_byte(EMC2302_dev_handle, EMC2302_POLARITY, (Polarity) ? 0x03 : 0x00);
+    err = bc_i2c_register_write_byte(EMC2302_dev_handle, EMC2302_POLARITY, (Polarity) ? 0x03 : 0x00);
     if (err != ESP_OK) {
         return err;
     }
 
     // set output type to push pull of ch1 and ch2
-    err = hammer_i2c_register_write_byte(EMC2302_dev_handle, EMC2302_OUTPUT_CONFIG, 0x03);
+    err = bc_i2c_register_write_byte(EMC2302_dev_handle, EMC2302_OUTPUT_CONFIG, 0x03);
     if (err != ESP_OK) {
         return err;
     }
 
     // set base frequency of ch1 and ch2 to 19.53kHz
-    err = hammer_i2c_register_write_byte(EMC2302_dev_handle, EMC2302_BASE_F123, (0x01 << 0) | (0x01 << 3));
+    err = bc_i2c_register_write_byte(EMC2302_dev_handle, EMC2302_BASE_F123, (0x01 << 0) | (0x01 << 3));
     if (err != ESP_OK) {
         return err;
     }
 
     // manual fan control
     // bits 4-3: 0b01 = 5 edge samples (2 poles)
-    err = hammer_i2c_register_write_byte(EMC2302_dev_handle, EMC2302_FAN1 + EMC2302_OFS_FAN_CONFIG1, (0b01 << 3));
+    err = bc_i2c_register_write_byte(EMC2302_dev_handle, EMC2302_FAN1 + EMC2302_OFS_FAN_CONFIG1, (0b01 << 3));
     if (err != ESP_OK) {
         return err;
     }
 
-    err = hammer_i2c_register_write_byte(EMC2302_dev_handle, EMC2302_FAN2 + EMC2302_OFS_FAN_CONFIG1, (0b01 << 3));
+    err = bc_i2c_register_write_byte(EMC2302_dev_handle, EMC2302_FAN2 + EMC2302_OFS_FAN_CONFIG1, (0b01 << 3));
     if (err != ESP_OK) {
         return err;
     }
@@ -60,7 +60,7 @@ esp_err_t EMC2302_installed(bool Polarity)
 esp_err_t EMC2302_set_fan_polarity(bool invert) 
 {
     // set polarity of ch1 and ch2
-    return hammer_i2c_register_write_byte(EMC2302_dev_handle, EMC2302_POLARITY, (invert) ? 0x03 : 0x00);
+    return bc_i2c_register_write_byte(EMC2302_dev_handle, EMC2302_POLARITY, (invert) ? 0x03 : 0x00);
 }
 
 esp_err_t EMC2302_set_fan_speed(uint8_t percent)
@@ -72,11 +72,11 @@ esp_err_t EMC2302_set_fan_speed(uint8_t percent)
 
     //ESP_LOGI(TAG, "setting fan speed to %d", percent);
 
-    err = hammer_i2c_register_write_byte(EMC2302_dev_handle, EMC2302_FAN1 + EMC2302_OFS_FAN_SETTING, (uint8_t) value);
+    err = bc_i2c_register_write_byte(EMC2302_dev_handle, EMC2302_FAN1 + EMC2302_OFS_FAN_SETTING, (uint8_t) value);
     if (err != ESP_OK) {
         return err;
     }
-    err = hammer_i2c_register_write_byte(EMC2302_dev_handle, EMC2302_FAN2 + EMC2302_OFS_FAN_SETTING, (uint8_t) value);
+    err = bc_i2c_register_write_byte(EMC2302_dev_handle, EMC2302_FAN2 + EMC2302_OFS_FAN_SETTING, (uint8_t) value);
     return err;
 }
 
@@ -86,12 +86,12 @@ esp_err_t EMC2302_get_fan_speed1(uint16_t *dst)
     uint8_t tach_lsb, tach_msb;
 
     // use channel 1 
-    err = hammer_i2c_register_read(EMC2302_dev_handle, EMC2302_FAN1 + EMC2302_OFS_TACH_READING_MSB, &tach_msb, 1);
+    err = bc_i2c_register_read(EMC2302_dev_handle, EMC2302_FAN1 + EMC2302_OFS_TACH_READING_MSB, &tach_msb, 1);
     if (err != ESP_OK) {
         *dst = 0;
         return err;
     }
-    err = hammer_i2c_register_read(EMC2302_dev_handle, EMC2302_FAN1 + EMC2302_OFS_TACH_READING_LSB, &tach_lsb, 1);
+    err = bc_i2c_register_read(EMC2302_dev_handle, EMC2302_FAN1 + EMC2302_OFS_TACH_READING_LSB, &tach_lsb, 1);
     if (err != ESP_OK) {
         *dst = 0;
         return err;
@@ -145,12 +145,12 @@ esp_err_t EMC2302_get_fan_speed2(uint16_t *dst)
     uint8_t tach_lsb, tach_msb;
 
     // use channel 2 
-    err = hammer_i2c_register_read(EMC2302_dev_handle, EMC2302_FAN2 + EMC2302_OFS_TACH_READING_MSB, &tach_msb, 1);
+    err = bc_i2c_register_read(EMC2302_dev_handle, EMC2302_FAN2 + EMC2302_OFS_TACH_READING_MSB, &tach_msb, 1);
     if (err != ESP_OK) {
         *dst = 0;
         return err;
     }
-    err = hammer_i2c_register_read(EMC2302_dev_handle, EMC2302_FAN2 + EMC2302_OFS_TACH_READING_LSB, &tach_lsb, 1);
+    err = bc_i2c_register_read(EMC2302_dev_handle, EMC2302_FAN2 + EMC2302_OFS_TACH_READING_LSB, &tach_lsb, 1);
     if (err != ESP_OK) {
         *dst = 0;
         return err;

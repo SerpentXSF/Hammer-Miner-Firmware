@@ -381,7 +381,7 @@ esp_err_t init_all_i2c_dev(GlobalState *GLOBAL_STATE)
          * the always-on devices. */
         vTaskDelay(pdMS_TO_TICKS(500));
         ESP_LOGW(TAG, "Bus after VBUS enabled:");
-        hammer_i2c_scan();
+        bc_i2c_scan();
     }
 
     if (device_is_bc01_family(GLOBAL_STATE->device_model)) {

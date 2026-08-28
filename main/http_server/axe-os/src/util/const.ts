@@ -515,5 +515,5 @@ export {
 /* GitHub repo consulted for firmware/web release checks.
  * Was the vendor's HammerMiner/BC04-* repositories, which this build
  * does not track. Change here if the repository is renamed. */
-export const UPDATE_REPO_WWW = "SerpentXSF/Hammer-Miner-Firmware";
-export const UPDATE_REPO_APP = "SerpentXSF/Hammer-Miner-Firmware";
+export const UPDATE_REPO_WWW = "SerpentXSF/StayOpen-Miner-Firmware";
+export const UPDATE_REPO_APP = "SerpentXSF/StayOpen-Miner-Firmware";

@@ -26,20 +26,20 @@ typedef struct
     char device_tag[32];
 } i2c_dev_map_entry_t;
 
-esp_err_t hammer_i2c_init(void);
+esp_err_t bc_i2c_init(void);
 
 /* Log every address that acknowledges on the bus. Runs once at init. */
-void hammer_i2c_scan(void);
+void bc_i2c_scan(void);
 
 /* Report which GPIOs carry an external pull-up. Inputs only; drives
  * nothing. Used to locate a second I2C bus. */
 void hammer_gpio_pullup_survey(void);
-esp_err_t hammer_i2c_add_device(uint8_t device_address, i2c_master_dev_handle_t * dev_handle, const char *device_tag);
-esp_err_t hammer_i2c_get_bus_handle(i2c_master_bus_handle_t * dev_handle);
-esp_err_t hammer_i2c_register_read(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr, uint8_t * read_buf, size_t len);
-esp_err_t hammer_i2c_register_write_addr(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr);
-esp_err_t hammer_i2c_register_write_byte(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr, uint8_t data);
-esp_err_t hammer_i2c_register_write_word(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr, uint16_t data);
-esp_err_t hammer_i2c_register_write_bytes(i2c_master_dev_handle_t dev_handle, uint8_t * data, uint8_t len);
+esp_err_t bc_i2c_add_device(uint8_t device_address, i2c_master_dev_handle_t * dev_handle, const char *device_tag);
+esp_err_t bc_i2c_get_bus_handle(i2c_master_bus_handle_t * dev_handle);
+esp_err_t bc_i2c_register_read(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr, uint8_t * read_buf, size_t len);
+esp_err_t bc_i2c_register_write_addr(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr);
+esp_err_t bc_i2c_register_write_byte(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr, uint8_t data);
+esp_err_t bc_i2c_register_write_word(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr, uint16_t data);
+esp_err_t bc_i2c_register_write_bytes(i2c_master_dev_handle_t dev_handle, uint8_t * data, uint8_t len);
 
 #endif

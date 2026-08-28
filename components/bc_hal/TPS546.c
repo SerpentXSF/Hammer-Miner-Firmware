@@ -45,7 +45,7 @@ static esp_err_t TPS546_parse_status(uint16_t);
  */
 static esp_err_t smb_read_byte(uint8_t command, uint8_t *data)
 {
-    return hammer_i2c_register_read(tps546_i2c_handle, command, data, 1);
+    return bc_i2c_register_read(tps546_i2c_handle, command, data, 1);
 }
 
 /**
@@ -55,7 +55,7 @@ static esp_err_t smb_read_byte(uint8_t command, uint8_t *data)
  */
 static esp_err_t smb_write_byte(uint8_t command, uint8_t data)
 {
-    return hammer_i2c_register_write_byte(tps546_i2c_handle, command, data);
+    return bc_i2c_register_write_byte(tps546_i2c_handle, command, data);
 }
 
 /**
@@ -64,7 +64,7 @@ static esp_err_t smb_write_byte(uint8_t command, uint8_t data)
  */
 static esp_err_t smb_write_addr(uint8_t command)
 {
-    return hammer_i2c_register_write_addr(tps546_i2c_handle, command);
+    return bc_i2c_register_write_addr(tps546_i2c_handle, command);
 }
 
 /**
@@ -75,7 +75,7 @@ static esp_err_t smb_write_addr(uint8_t command)
 static esp_err_t smb_read_word(uint8_t command, uint16_t *result)
 {
     uint8_t data[2];
-    if (hammer_i2c_register_read(tps546_i2c_handle, command, data, 2) != ESP_OK) {
+    if (bc_i2c_register_read(tps546_i2c_handle, command, data, 2) != ESP_OK) {
         return ESP_FAIL;
     } else {
         *result = (data[1] << 8) + data[0];
@@ -90,7 +90,7 @@ static esp_err_t smb_read_word(uint8_t command, uint16_t *result)
  */
 static esp_err_t smb_write_word(uint8_t command, uint16_t data)
 {
-    return hammer_i2c_register_write_word(tps546_i2c_handle, command, data);
+    return bc_i2c_register_write_word(tps546_i2c_handle, command, data);
 }
 
 /**
@@ -103,7 +103,7 @@ static esp_err_t smb_read_block(uint8_t command, uint8_t *data, uint8_t len)
 {
     //malloc a buffer len+1 to store the length byte
     uint8_t *buf = (uint8_t *)malloc(len+1);
-    if (hammer_i2c_register_read(tps546_i2c_handle, command, buf, len+1) != ESP_OK) {
+    if (bc_i2c_register_read(tps546_i2c_handle, command, buf, len+1) != ESP_OK) {
         free(buf);
         return ESP_FAIL;
     }
@@ -346,7 +346,7 @@ esp_err_t TPS546_init_test(TPS546_CONFIG config)
 
     ESP_LOGI(TAG, "Initializing the core voltage regulator test");
 
-    ESP_RETURN_ON_ERROR(hammer_i2c_add_device(TPS546_I2CADDR, &tps546_i2c_handle, TAG), TAG, "Failed to add TPS546 I2C");
+    ESP_RETURN_ON_ERROR(bc_i2c_add_device(TPS546_I2CADDR, &tps546_i2c_handle, TAG), TAG, "Failed to add TPS546 I2C");
 
     /* Establish communication with regulator */
     ret = smb_read_block(PMBUS_IC_DEVICE_ID, data, 6); //the DEVICE_ID block first byte is the length.
@@ -457,7 +457,7 @@ esp_err_t TPS546_init(TPS546_CONFIG config)
 
     ESP_LOGI(TAG, "Initializing the core voltage regulator");
 
-    ESP_RETURN_ON_ERROR(hammer_i2c_add_device(TPS546_I2CADDR, &tps546_i2c_handle, TAG), TAG, "Failed to add TPS546 I2C");
+    ESP_RETURN_ON_ERROR(bc_i2c_add_device(TPS546_I2CADDR, &tps546_i2c_handle, TAG), TAG, "Failed to add TPS546 I2C");
 
     /* Establish communication with regulator */
     ret = smb_read_block(PMBUS_IC_DEVICE_ID, data, 6); //the DEVICE_ID block first byte is the length.

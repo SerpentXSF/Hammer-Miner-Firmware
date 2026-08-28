@@ -39,7 +39,7 @@ LAYOUT = [
     (0xD000, os.path.join(BUILD, "partition_table", "partition-table.bin")),
     (0xE000, os.path.join(DIST, "config-dist.bin")),
     (0x16000, os.path.join(BUILD, "ota_data_initial.bin")),
-    (0x20000, os.path.join(BUILD, "hammer-miner.bin")),
+    (0x20000, os.path.join(BUILD, "stayopen-miner.bin")),
     (0x9E0000, os.path.join(BUILD, "www.bin")),
 ]
 
@@ -94,7 +94,7 @@ def main():
         args += [hex(off), path]
     sh(args)
 
-    shutil.copy(os.path.join(BUILD, "hammer-miner.bin"),
+    shutil.copy(os.path.join(BUILD, "stayopen-miner.bin"),
                 os.path.join(DIST, base + "-app.bin"))
     shutil.copy(os.path.join(BUILD, "www.bin"),
                 os.path.join(DIST, base + "-www.bin"))
@@ -105,7 +105,7 @@ def main():
     # and protects nothing -- it is here because the firmware's updater expects
     # the format, so an update built any other way is rejected.
     sh([sys.executable, os.path.join(ROOT, "tools", "ota_tool.py"), "pack",
-        os.path.join(BUILD, "hammer-miner.bin"),
+        os.path.join(BUILD, "stayopen-miner.bin"),
         "--pad", "69cc74aeaf0ce683229d422f54428a54",
         "-o", os.path.join(DIST, base + "-ota.bin")])
 

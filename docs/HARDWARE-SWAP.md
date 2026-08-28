@@ -133,7 +133,7 @@ Build and provision as in the [README](../README.md):
 cp config.cvs.example config.cvs
 $EDITOR config.cvs        # devicemodel, boardversion, pool, YOUR payout address
 idf.py build
-./merge_bin.sh -c hammer-miner-all.bin
+./merge_bin.sh -c stayopen-miner-all.bin
 ```
 
 Set at minimum, from what you captured:
@@ -149,7 +149,7 @@ apipassword,data,string,<choose one>
 Then flash the whole image:
 
 ```bash
-esptool.py --chip esp32s3 --port COM3 write_flash 0x0 hammer-miner-all.bin
+esptool.py --chip esp32s3 --port COM3 write_flash 0x0 stayopen-miner-all.bin
 ```
 
 A blank module has unburned eFuses, so this just works. Nothing needs

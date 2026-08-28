@@ -1,4 +1,4 @@
-menu "hammer Configuration"
+menu "Stay Open Configuration"
 
     config DEVICE_MODULE
         string "device module"
@@ -48,7 +48,7 @@ menu "hammer Configuration"
             to. Board-specific: 10 on the BC01, 11 on the BC04. It must not
             collide with GPIO_I2C_SDA_1, which is GPIO11 on the BC01.
 
-    config HAMMER_OTA_OBFUSCATED
+    config STAYOPEN_OTA_OBFUSCATED
         bool "Use the obfuscated OTA update container"
         default y
         help
@@ -61,7 +61,7 @@ menu "hammer Configuration"
             The pad is not a security boundary; it is recoverable from any
             published image without the key. Update integrity comes from
             the Secure Boot v2 signature in the payload, and access control
-            from HAMMER_API_AUTH. Turn this off to accept plain,
+            from STAYOPEN_API_AUTH. Turn this off to accept plain,
             unobfuscated application images instead.
 endmenu
 

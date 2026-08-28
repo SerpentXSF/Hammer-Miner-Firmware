@@ -115,5 +115,5 @@ right, and both belong in the record.
 These credits were assembled from public sources and from what people who were
 there have said. Roles in a community project are rarely tidy, and anyone
 misattributed, given someone else's work, or left out entirely should say so —
-[open an issue](https://github.com/SerpentXSF/Hammer-Miner-Firmware/issues) and
+[open an issue](https://github.com/SerpentXSF/StayOpen-Miner-Firmware/issues) and
 it gets fixed. Getting this page wrong is worse than not writing it.

@@ -14,7 +14,7 @@ be distributed under the same terms, with complete corresponding source.
 | [LVGL](https://github.com/lvgl/lvgl) | LVGL Kft. | MIT | Display library, fetched as an unmodified dependency. |
 | [ESP-IDF](https://github.com/espressif/esp-idf) | Espressif Systems | Apache-2.0 | Build system, RTOS, and drivers. |
 | BC04 firmware | Chengdu Baichuan, for Hammer | GPL-3.0 | The vendor release this repository is built from. |
-| [BC01 firmware](https://github.com/baichuan-org/BC01) | Chengdu Baichuan, for Hammer | GPL-3.0 (derived; no LICENSE supplied) | Source of the USB-PD stage this tree needs for the BC01. `components/hammer_hal/HUSB238A.c` and `.h` are imported verbatim; the PD bring-up in `main/device.c` and the BC01 GPIO and voltage configuration come from it. Imported at commit `8dab8f4`. |
+| [BC01 firmware](https://github.com/baichuan-org/BC01) | Chengdu Baichuan, for Hammer | GPL-3.0 (derived; no LICENSE supplied) | Source of the USB-PD stage this tree needs for the BC01. `components/bc_hal/HUSB238A.c` and `.h` are imported verbatim; the PD bring-up in `main/device.c` and the BC01 GPIO and voltage configuration come from it. Imported at commit `8dab8f4`. |
 | SerpentX Dual Pool Mining (BitAxe / NerdAxe) | SerpentX | GPL-3.0 | Origin of the dual-pool work. `components/dual_pool/` is imported from it; the pool B session and the create_jobs / asic_result hooks are ported to this tree's task layout. |
 
 ## Why this file exists
@@ -44,7 +44,7 @@ is the point of the license.
 
 ## Imported from the BC01 release
 
-`components/hammer_hal/HUSB238A.c` and `include/HUSB238A.h` are **verbatim
+`components/bc_hal/HUSB238A.c` and `include/HUSB238A.h` are **verbatim
 copies** from `baichuan-org/BC01` at commit `8dab8f4`, kept byte-identical
 so they can be diffed against the original. The USB Power Delivery
 bring-up in `main/device.c` is imported from the same source with only the

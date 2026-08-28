@@ -269,7 +269,7 @@ void app_main(void)
     /*init the lcd display.*/
     dev_display_init(&GLOBAL_STATE);
 
-	ESP_ERROR_CHECK(hammer_i2c_init());
+	ESP_ERROR_CHECK(bc_i2c_init());
 
     #if 1
     if(should_test()){

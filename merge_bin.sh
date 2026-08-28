@@ -10,7 +10,7 @@ CONFIG_CVS="config.cvs"
 CONFIG_BIN_ADDR=0xe000
 OTA_BIN="build/ota_data_initial.bin"
 OTA_BIN_ADDR=0x16000
-MINER_BIN="build/hammer-miner.bin"
+MINER_BIN="build/stayopen-miner.bin"
 MINER_BIN_ADDR=0x20000
 WWW_BIN="build/www.bin"
 WWW_BIN_ADDR=0x9e0000
@@ -77,7 +77,7 @@ fi
 OPTIND=1  # Reset in case getops has been used previously
 
 # default values
-output_file="hammer-miner-all.bin"
+output_file="stayopen-miner-all.bin"
 update_only=0
 with_config=1
 

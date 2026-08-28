@@ -175,7 +175,7 @@ void hammer_gpio_measure(int pin)
     gpio_config(&off);
 }
 
-esp_err_t hammer_i2c_init(void)
+esp_err_t bc_i2c_init(void)
 {
     /*
      * hammer_gpio_pullup_survey() and hammer_gpio_measure() used to run here.
@@ -238,7 +238,7 @@ esp_err_t hammer_i2c_init(void)
     //wait for I2C to init
     vTaskDelay(100 / portTICK_PERIOD_MS);
 
-    hammer_i2c_scan();
+    bc_i2c_scan();
 
     return ESP_OK;
 }
@@ -252,7 +252,7 @@ esp_err_t hammer_i2c_init(void)
  * respond to 0x98/0x99/0xAD; a TMP75 has no such registers and simply
  * echoes its pointer register, which is itself a useful signature.
  */
-static void hammer_i2c_identify(uint8_t addr)
+static void bc_i2c_identify(uint8_t addr)
 {
     i2c_device_config_t dev_cfg = {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
@@ -312,7 +312,7 @@ static void hammer_i2c_identify(uint8_t addr)
  * turns that into an answer rather than a guess, and it costs one pass at
  * boot.
  */
-void hammer_i2c_scan(void)
+void bc_i2c_scan(void)
 {
     int found = 0;
 
@@ -321,7 +321,7 @@ void hammer_i2c_scan(void)
     for (uint8_t addr = 0x08; addr < 0x78; addr++) {
         if (i2c_master_probe(i2c_bus_handle[0], addr, 50) == ESP_OK) {
             ESP_LOGW(TAG, "  device responding at 0x%02x", addr);
-            hammer_i2c_identify(addr);
+            bc_i2c_identify(addr);
             found++;
         }
     }
@@ -333,7 +333,7 @@ void hammer_i2c_scan(void)
     }
 }
 
-esp_err_t hammer_i2c_add_device(uint8_t device_address, 
+esp_err_t bc_i2c_add_device(uint8_t device_address, 
         i2c_master_dev_handle_t * dev_handle, const char *device_tag)
 {
     if (i2c_device_count >= MAX_DEVICES) 
@@ -365,37 +365,37 @@ esp_err_t hammer_i2c_add_device(uint8_t device_address,
     return ESP_OK;
 }
 
-esp_err_t hammer_i2c_get_bus_handle(i2c_master_bus_handle_t * dev_handle)
+esp_err_t bc_i2c_get_bus_handle(i2c_master_bus_handle_t * dev_handle)
 {
     *dev_handle = i2c_bus_handle[0];
     return ESP_OK;
 }
 
-esp_err_t hammer_i2c_register_read(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr, uint8_t * read_buf, size_t len)
+esp_err_t bc_i2c_register_read(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr, uint8_t * read_buf, size_t len)
 {
     return log_on_error(i2c_master_transmit_receive(dev_handle, &reg_addr, 1, read_buf, len, I2C_DEFAULT_TIMEOUT), dev_handle);
 }
 
-esp_err_t hammer_i2c_register_write_addr(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr)
+esp_err_t bc_i2c_register_write_addr(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr)
 {
     return log_on_error(i2c_master_transmit(dev_handle, &reg_addr, 1, I2C_DEFAULT_TIMEOUT), dev_handle);
 }
 
-esp_err_t hammer_i2c_register_write_byte(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr, uint8_t data)
+esp_err_t bc_i2c_register_write_byte(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr, uint8_t data)
 {
     uint8_t write_buf[2] = {reg_addr, data};
 
     return log_on_error(i2c_master_transmit(dev_handle, write_buf, 2, I2C_DEFAULT_TIMEOUT), dev_handle);
 }
 
-esp_err_t hammer_i2c_register_write_word(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr, uint16_t data)
+esp_err_t bc_i2c_register_write_word(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr, uint16_t data)
 {
     uint8_t write_buf[3] = {reg_addr, (uint8_t)(data & 0x00FF), (uint8_t)((data & 0xFF00) >> 8)};
 
     return log_on_error(i2c_master_transmit(dev_handle, write_buf, 3, I2C_DEFAULT_TIMEOUT), dev_handle);
 }
 
-esp_err_t hammer_i2c_register_write_bytes(i2c_master_dev_handle_t dev_handle, uint8_t * data, uint8_t len)
+esp_err_t bc_i2c_register_write_bytes(i2c_master_dev_handle_t dev_handle, uint8_t * data, uint8_t len)
 {
     return log_on_error(i2c_master_transmit(dev_handle, data, len, I2C_DEFAULT_TIMEOUT), dev_handle);
 }

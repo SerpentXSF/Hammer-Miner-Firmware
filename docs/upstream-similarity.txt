@@ -10,12 +10,12 @@
  98.4%  components/asic/pll.c                          components/asic/pll.c                         61    61    60
  92.3%  main/work_queue.h                              main/work_queue.h                             26    26    24
  92.3%  main/tasks/asic_result_task.h                  main/tasks/asic_result_task.h                  7     6     6
- 89.7%  components/hammer_hal/include/TPS546.h         main/power/TPS546.h                          192   214   182
+ 89.7%  components/bc_hal/include/TPS546.h         main/power/TPS546.h                          192   214   182
  86.5%  components/asic/frequency_transition_bmXX.c    components/asic/frequency_transition_bmXX.c    51    53    45
  85.7%  main/http_server/theme_api.h                   main/http_server/theme_api.h                   9    12     9
  85.2%  components/asic/include/frequency_transition_bmXX.h components/asic/include/frequency_transition_bmXX.h    30    31    26
  75.4%  components/asic/include/bm1370.h               components/asic/include/bm1370.h              33    36    26
- 71.2%  components/hammer_hal/TPS546.c                 main/power/TPS546.c                         1356  1293   943
+ 71.2%  components/bc_hal/TPS546.c                 main/power/TPS546.c                         1356  1293   943
  67.9%  components/asic/bm1370.c                       components/asic/bm1370.c                     497   416   310
  67.9%  main/tasks/hashrate_monitor_task.h             main/tasks/hashrate_monitor_task.h            28    28    19
  65.9%  components/stratum/include/utils.h             components/stratum/include/utils.h            46    42    29
@@ -31,7 +31,7 @@
  44.8%  components/stratum/test/test_mining.c          components/stratum/test/test_mining.c        390   239   141
  42.4%  components/connect/connect.c                   components/connect/connect.c                 397   866   268
  40.5%  components/stratum/utils.c                     components/stratum/utils.c                   387   363   152
- 40.0%  components/hammer_hal/include/vcore.h          main/power/vcore.h                            16    14     6
+ 40.0%  components/bc_hal/include/vcore.h          main/power/vcore.h                            16    14     6
  39.7%  components/stratum/mining.c                    components/stratum/mining.c                  285   184    93
  39.5%  components/connect/include/connect.h           components/connect/include/connect.h          47    29    15
  35.7%  main/http_server/http_server.h                 main/http_server/http_server.h                13    15     5

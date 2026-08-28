@@ -124,8 +124,8 @@ Three routes, in order of how little you need on your machine.
 
 | | |
 |---|---|
-| **Browser** | [Web flasher](https://serpentxsf.github.io/Hammer-Miner-Firmware/flasher/) — Chrome or Edge on a desktop, nothing to install |
-| **esptool** | [Latest release](https://github.com/SerpentXSF/Hammer-Miner-Firmware/releases/latest) — full, app-only, web-UI-only and OTA images, with `SHA256SUMS` |
+| **Browser** | [Web flasher](https://serpentxsf.github.io/StayOpen-Miner-Firmware/flasher/) — Chrome or Edge on a desktop, nothing to install |
+| **esptool** | [Latest release](https://github.com/SerpentXSF/StayOpen-Miner-Firmware/releases/latest) — full, app-only, web-UI-only and OTA images, with `SHA256SUMS` |
 | **From source** | [Building](#building) below, ESP-IDF 5.5.1 |
 
 **Read [the eFuse warning](#status) before flashing anything.** On a retail BC01
@@ -145,8 +145,8 @@ its own update page; that keeps your settings.
 Requires **ESP-IDF 5.5.1** or later.
 
 ```bash
-git clone https://github.com/SerpentXSF/Hammer-Miner-Firmware.git
-cd Hammer-Miner-Firmware
+git clone https://github.com/SerpentXSF/StayOpen-Miner-Firmware.git
+cd StayOpen-Miner-Firmware
 idf.py set-target esp32s3
 idf.py build
 ```
@@ -167,7 +167,7 @@ address â€” fill in your own before flashing, or the build will stop.
 ```bash
 cp config.cvs.example config.cvs
 $EDITOR config.cvs           # set stratumuser to YOUR address
-./merge_bin.sh -c hammer-miner-all.bin
+./merge_bin.sh -c stayopen-miner-all.bin
 ```
 
 ### Flashing
@@ -187,14 +187,14 @@ $EDITOR config.cvs           # set stratumuser to YOUR address
 Full image over USB, for a blank device or one you want to start clean:
 
 ```bash
-esptool.py --chip esp32s3 write_flash 0x0 hammer-miner-all.bin
+esptool.py --chip esp32s3 write_flash 0x0 stayopen-miner-all.bin
 ```
 
 Update over the network, for a working device. The container format is
 unchanged, so this installs the same way vendor images do:
 
 ```bash
-python tools/ota_tool.py pack build/hammer-miner.bin -o update.bin \
+python tools/ota_tool.py pack build/stayopen-miner.bin -o update.bin \
     --pad 69cc74aeaf0ce683229d422f54428a54
 curl -X POST --data-binary @update.bin \
      -H "Authorization: Bearer $TOKEN" \

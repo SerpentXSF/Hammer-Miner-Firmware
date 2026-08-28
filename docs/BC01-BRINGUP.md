@@ -329,7 +329,7 @@ BC board will need them:
 
 | Function | Purpose |
 |---|---|
-| `hammer_i2c_scan()` | Log every address that acknowledges. Found the TMP75 at 0x49 where the header claimed 0x48. |
-| `hammer_i2c_identify()` | Read PMBus and low registers from each device found. Confirmed the TMP75 and excluded 0x42 as a regulator. |
+| `bc_i2c_scan()` | Log every address that acknowledges. Found the TMP75 at 0x49 where the header claimed 0x48. |
+| `bc_i2c_identify()` | Read PMBus and low registers from each device found. Confirmed the TMP75 and excluded 0x42 as a regulator. |
 | `hammer_gpio_pullup_survey()` | Distinguish external pull-ups from floating pins. Inputs only; drives nothing. |
 | `hammer_gpio_measure()` | ADC a pin against the internal pull-up, to tell a pull-down resistor from a driven output before considering driving it. |

@@ -26,7 +26,7 @@ ASIC.
 | Part | HUSB238A, USB-PD sink controller |
 | I²C address | **0x42** — observed answering on the bus, and the only device there besides the TMP75 |
 | I²C bus | SDA GPIO44, SCL GPIO43 — the same bus as everything else |
-| Driver tag | `"HUSB238A"`, passed to `hammer_i2c_add_device()` |
+| Driver tag | `"HUSB238A"`, passed to `bc_i2c_add_device()` |
 
 It is the device this repository previously logged as an unidentified 0x42.
 It ignores the PMBus register pointer and returns a rolling byte stream

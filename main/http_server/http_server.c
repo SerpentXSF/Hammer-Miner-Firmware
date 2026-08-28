@@ -1773,7 +1773,7 @@ static esp_err_t PATCH_update_influx(httpd_req_t * req)
  * a device that speaks the shipping update format without also turning on
  * flash encryption, whose RELEASE mode is irreversible once booted. The
  * two are unrelated and are now configured independently. */
-#ifdef CONFIG_HAMMER_OTA_OBFUSCATED
+#ifdef CONFIG_STAYOPEN_OTA_OBFUSCATED
 esp_err_t POST_WWW_update(httpd_req_t * req)
 {
     if (is_network_allowed(req) != ESP_OK) {

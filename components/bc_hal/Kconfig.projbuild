@@ -1,4 +1,4 @@
-menu "hammer GPIO Pin Configuration"
+menu "BC-series GPIO Pin Configuration"
 
     config GPIO_BOOT_MODE_0
         int "Boot mode pin 0"
