@@ -118,6 +118,28 @@ display. An LT0051 scrypt ASIC path also exists in the tree.
 
 ---
 
+## Installing
+
+Three routes, in order of how little you need on your machine.
+
+| | |
+|---|---|
+| **Browser** | [Web flasher](https://serpentxsf.github.io/Hammer-Miner-Firmware/flasher/) — Chrome or Edge on a desktop, nothing to install |
+| **esptool** | [Latest release](https://github.com/SerpentXSF/Hammer-Miner-Firmware/releases/latest) — full, app-only, web-UI-only and OTA images, with `SHA256SUMS` |
+| **From source** | [Building](#building) below, ESP-IDF 5.5.1 |
+
+**Read [the eFuse warning](#status) before flashing anything.** On a retail BC01
+with Secure Boot burned, this firmware will not boot and cannot be recovered.
+
+The published images carry **no credentials**. Their settings partition is
+generated from `config.cvs.example`, so a freshly flashed miner starts its own
+access point and waits for your network, your pool and your own payout address.
+Nothing mines to anyone else. `tools/make_release.py` builds the artifacts and
+refuses to run if that template has been edited to hold a real address.
+
+To update a miner already running this firmware, upload the `-ota.bin` through
+its own update page; that keeps your settings.
+
 ## Building
 
 Requires **ESP-IDF 5.5.1** or later.
