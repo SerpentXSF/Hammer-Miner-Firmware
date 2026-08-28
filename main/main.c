@@ -27,6 +27,7 @@
 #include "http_server.h"
 
 #include "stratum_task.h"
+#include "stratum_poolb_task.h"
 #include "asic_task.h"
 #include "create_jobs_task.h"
 #include "asic_result_task.h"
@@ -337,6 +338,13 @@ void app_main(void)
 
     /*create the queue.*/
     queue_init(&GLOBAL_STATE.stratum_queue);
+
+    /* dual mining: pool B's own queue and the locks guarding its session state.
+     * Initialised unconditionally so enabling dual mining at runtime does not
+     * need a restart to have somewhere to put work. */
+    queue_init(&GLOBAL_STATE.stratum_queueB);
+    pthread_mutex_init(&GLOBAL_STATE.transportB_lock, NULL);
+    pthread_mutex_init(&GLOBAL_STATE.extranonceB_lock, NULL);
     for(int i = 0; i < MAX_CHAIN_NUM; i++){
         if(GLOBAL_STATE.chain_pluged[i])
             queue_init(&GLOBAL_STATE.ASIC_jobs_queue[i]);
@@ -345,6 +353,8 @@ void app_main(void)
 
     /*create the stratum task.*/
     xTaskCreate(stratum_task, "stratum_manager", 8192, (void *)&GLOBAL_STATE, 5, NULL);
+    /* pool B idles cheaply when dual mining is off, so it is always started */
+    xTaskCreate(stratum_poolb_task, "stratum_poolb", 8192, (void *)&GLOBAL_STATE, 5, NULL);
     /*create the uart task.*/
     xTaskCreate(create_jobs_task, "stratum_worker", 6144, (void *)&GLOBAL_STATE, 10, NULL);
     /*create the socket api task.*/

@@ -32,6 +32,7 @@
 #include "cJSON.h"
 #include "global_state.h"
 #include "nvs_config.h"
+#include "dual_clamp.h"
 #include "api_auth.h"
 //#include "vcore.h"
 #include "connect.h"
@@ -1073,6 +1074,39 @@ static esp_err_t PATCH_update_settings(httpd_req_t * req)
         nvs_config_set_string(NVS_CONFIG_TIME_ZONE, item->valuestring);
     }
 
+    /* ---- dual mining, pool B ----
+     * Takes effect on restart: the pool B session and the slice scheduler read
+     * these at start-up. Ratio and slice length are also re-read live by
+     * create_jobs_task, so those two can be tuned without a reboot. */
+    if ((item = cJSON_GetObjectItem(root, "poolBUrl")) != NULL) {
+        nvs_config_set_string(NVS_CONFIG_POOLB_URL, item->valuestring);
+    }
+    if ((item = cJSON_GetObjectItem(root, "poolBPort")) != NULL && item->valueint > 0) {
+        nvs_config_set_u16(NVS_CONFIG_POOLB_PORT, item->valueint);
+    }
+    if ((item = cJSON_GetObjectItem(root, "poolBUser")) != NULL) {
+        nvs_config_set_string(NVS_CONFIG_POOLB_USER, item->valuestring);
+    }
+    if ((item = cJSON_GetObjectItem(root, "poolBPass")) != NULL) {
+        nvs_config_set_string(NVS_CONFIG_POOLB_PASS, item->valuestring);
+    }
+    if ((item = cJSON_GetObjectItem(root, "poolBTLS")) != NULL) {
+        nvs_config_set_u16(NVS_CONFIG_POOLB_TLS, item->valueint);
+    }
+    if ((item = cJSON_GetObjectItem(root, "dualEnable")) != NULL) {
+        nvs_config_set_u16(NVS_CONFIG_DUAL_ENABLE, item->valueint);
+    }
+    if ((item = cJSON_GetObjectItem(root, "dualRatioA")) != NULL) {
+        uint8_t ratio = dual_clamp_ratio(item->valueint);
+        nvs_config_set_u16(NVS_CONFIG_DUAL_RATIO, ratio);
+        GLOBAL_STATE->dual_ratio_a = ratio;   /* live, no restart needed */
+    }
+    if ((item = cJSON_GetObjectItem(root, "dualSliceMs")) != NULL) {
+        uint16_t slice = dual_clamp_interval(item->valueint);
+        nvs_config_set_u16(NVS_CONFIG_DUAL_SLICE, slice);
+        GLOBAL_STATE->dual_interval_ms = slice;
+    }
+
     if ((item = cJSON_GetObjectItem(root, "snStr")) != NULL) {
         nvs_config_set_string(NVS_CONFIG_SN, item->valuestring);
     }
@@ -1541,6 +1575,18 @@ static esp_err_t GET_system_info(httpd_req_t * req)
     cJSON_AddStringToObject(root, "ntpServer", ntp_server);
     cJSON_AddStringToObject(root, "ntpServerBackup", ntp_server_backup);
     cJSON_AddStringToObject(root, "timezone", time_zone);
+
+    cJSON_AddNumberToObject(root, "dualEnable", GLOBAL_STATE->dual_enable);
+    cJSON_AddNumberToObject(root, "dualRatioA", GLOBAL_STATE->dual_ratio_a);
+    cJSON_AddNumberToObject(root, "dualSliceMs", GLOBAL_STATE->dual_interval_ms);
+    cJSON_AddStringToObject(root, "poolBUrl",
+        GLOBAL_STATE->SYSTEM_MODULE.poolB_url ? GLOBAL_STATE->SYSTEM_MODULE.poolB_url : "");
+    cJSON_AddNumberToObject(root, "poolBPort", GLOBAL_STATE->SYSTEM_MODULE.poolB_port);
+    cJSON_AddStringToObject(root, "poolBUser",
+        GLOBAL_STATE->SYSTEM_MODULE.poolB_user ? GLOBAL_STATE->SYSTEM_MODULE.poolB_user : "");
+    cJSON_AddNumberToObject(root, "poolBConnected", GLOBAL_STATE->SYSTEM_MODULE.poolB_connected);
+    cJSON_AddNumberToObject(root, "poolBSharesAccepted", GLOBAL_STATE->SYSTEM_MODULE.poolB_shares_accepted);
+    cJSON_AddNumberToObject(root, "poolBSharesRejected", GLOBAL_STATE->SYSTEM_MODULE.poolB_shares_rejected);
 
     cJSON_AddStringToObject(root, "version", esp_app_get_description()->version);
     cJSON_AddStringToObject(root, "WWWVersion", WWWVersion);

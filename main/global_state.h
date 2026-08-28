@@ -126,6 +126,21 @@ typedef struct
     char * pool_cert;
     char * fallback_pool_cert;
     bool is_using_fallback;
+
+    /* ---- dual mining, pool B ----
+     * A second, permanently connected pool. Not a failover for pool A: both
+     * stay up and the ASIC's single hashrate is time-sliced between them. */
+    char * poolB_url;
+    uint16_t poolB_port;
+    char * poolB_user;
+    char * poolB_pass;
+    uint16_t poolB_tls;
+    char * poolB_cert;
+    bool poolB_extranonce_subscribe;
+    uint64_t poolB_shares_accepted;
+    uint64_t poolB_shares_rejected;
+    bool poolB_connected;
+
     uint16_t overheat_mode;
     uint16_t power_fault;
     uint32_t lastClockSync;
@@ -202,6 +217,24 @@ typedef struct
     bool new_stratum_version_rolling_msg;
 
     esp_transport_handle_t transport;
+
+    /* ---- dual mining, pool B session ----
+     * Mirrors the pool A fields above. transportB is published only once the
+     * connection is up and is swapped under transportB_lock, because the share
+     * submit path in asic_result_task writes to it from another task. */
+    bool dual_enable;
+    uint8_t dual_ratio_a;        /* percent of slices given to pool A */
+    uint16_t dual_interval_ms;   /* slice length */
+
+    work_queue stratum_queueB;
+    char *extranonce_strB;
+    int extranonce_2_lenB;
+    uint32_t stratum_difficultyB;
+    uint32_t version_maskB;
+    esp_transport_handle_t transportB;
+    int send_uidB;
+    pthread_mutex_t transportB_lock;
+    pthread_mutex_t extranonceB_lock;
 
     // A message ID that must be unique per request that expects a response.
     // For requests not expecting a response (called notifications), this is null.

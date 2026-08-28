@@ -18,6 +18,19 @@
 #define NVS_CONFIG_FALLBACK_STRATUM_PORT "fbstratumport"
 #define NVS_CONFIG_STRATUM_USER "stratumuser"
 #define NVS_CONFIG_STRATUM_PASS "stratumpass"
+
+/* ---- dual mining, pool B ----
+ * NVS keys are limited to 15 characters, hence the abbreviations. */
+#define NVS_CONFIG_POOLB_URL   "poolburl"
+#define NVS_CONFIG_POOLB_PORT  "poolbport"
+#define NVS_CONFIG_POOLB_USER  "poolbuser"
+#define NVS_CONFIG_POOLB_PASS  "poolbpass"
+#define NVS_CONFIG_POOLB_TLS   "poolbtls"
+#define NVS_CONFIG_POOLB_CERT  "poolbcert"
+#define NVS_CONFIG_POOLB_XNSUB "poolbxnsub"
+#define NVS_CONFIG_DUAL_ENABLE "dualenable"
+#define NVS_CONFIG_DUAL_RATIO  "dualratioa"
+#define NVS_CONFIG_DUAL_SLICE  "dualslicems"
 #define NVS_CONFIG_STRATUM_EXTRANONCE_SUBSCRIBE "stratumxnsub"
 #define NVS_CONFIG_STRATUM_TLS "stratumtls"
 #define NVS_CONFIG_STRATUM_CERT "stratumcert"

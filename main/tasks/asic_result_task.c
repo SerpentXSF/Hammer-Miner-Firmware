@@ -2,9 +2,11 @@
 
 #include "system.h"
 #include "work_queue.h"
+#include "pool_scheduler.h"
 #include "serial.h"
 #include "lt0051.h"
 #include <string.h>
+#include <pthread.h>
 #include "esp_log.h"
 #include "nvs_config.h"
 #include "utils.h"
@@ -56,21 +58,52 @@ void ASIC_result_task(void *pvParameters)
 
         if (nonce_diff >= GLOBAL_STATE->ASIC_TASK_MODULE[chain_num].active_jobs[job_id]->pool_diff)
         {
-            char * user = GLOBAL_STATE->SYSTEM_MODULE.is_using_fallback ? GLOBAL_STATE->SYSTEM_MODULE.fallback_pool_user : GLOBAL_STATE->SYSTEM_MODULE.pool_user;
-            /*TODO: submit a share without rolled version.*/
-            int ret = STRATUM_V1_submit_share(
-                GLOBAL_STATE->transport,
-                GLOBAL_STATE->send_uid++,
-                user,
-                GLOBAL_STATE->ASIC_TASK_MODULE[chain_num].active_jobs[job_id]->jobid,
-                GLOBAL_STATE->ASIC_TASK_MODULE[chain_num].active_jobs[job_id]->extranonce2,
-                GLOBAL_STATE->ASIC_TASK_MODULE[chain_num].active_jobs[job_id]->ntime,
-                asic_result->nonce,
-                asic_result->rolled_version ^ GLOBAL_STATE->ASIC_TASK_MODULE[chain_num].active_jobs[job_id]->version);
+            bm_job * job = GLOBAL_STATE->ASIC_TASK_MODULE[chain_num].active_jobs[job_id];
 
-            if (ret < 0) {
-                ESP_LOGI(TAG, "Unable to write share to transport. Closing connection. Ret: %d", ret);
-                stratum_close_connection(GLOBAL_STATE);
+            /*
+             * A share belongs to the pool that issued its job. Sending pool B's
+             * work to pool A gets it rejected as an unknown job id, and would
+             * also credit the wrong pool. The job carries pool_id for exactly
+             * this reason.
+             */
+            if (GLOBAL_STATE->dual_enable && job->pool_id == POOL_B) {
+                /* Hold transportB_lock across the write: the pool B task can be
+                 * tearing this handle down at any moment. */
+                pthread_mutex_lock(&GLOBAL_STATE->transportB_lock);
+                if (GLOBAL_STATE->transportB != NULL) {
+                    int retB = STRATUM_V1_submit_share(
+                        GLOBAL_STATE->transportB,
+                        GLOBAL_STATE->send_uidB++,
+                        GLOBAL_STATE->SYSTEM_MODULE.poolB_user,
+                        job->jobid,
+                        job->extranonce2,
+                        job->ntime,
+                        asic_result->nonce,
+                        asic_result->rolled_version ^ job->version);
+                    if (retB < 0) {
+                        ESP_LOGW(TAG, "Unable to write share to pool B. Ret: %d", retB);
+                    }
+                } else {
+                    ESP_LOGD(TAG, "pool B share dropped: not connected");
+                }
+                pthread_mutex_unlock(&GLOBAL_STATE->transportB_lock);
+            } else {
+                char * user = GLOBAL_STATE->SYSTEM_MODULE.is_using_fallback ? GLOBAL_STATE->SYSTEM_MODULE.fallback_pool_user : GLOBAL_STATE->SYSTEM_MODULE.pool_user;
+                /*TODO: submit a share without rolled version.*/
+                int ret = STRATUM_V1_submit_share(
+                    GLOBAL_STATE->transport,
+                    GLOBAL_STATE->send_uid++,
+                    user,
+                    job->jobid,
+                    job->extranonce2,
+                    job->ntime,
+                    asic_result->nonce,
+                    asic_result->rolled_version ^ job->version);
+
+                if (ret < 0) {
+                    ESP_LOGI(TAG, "Unable to write share to transport. Closing connection. Ret: %d", ret);
+                    stratum_close_connection(GLOBAL_STATE);
+                }
             }
         }
 

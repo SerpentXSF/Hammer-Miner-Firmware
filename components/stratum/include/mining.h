@@ -23,6 +23,9 @@ typedef struct
     uint32_t pool_diff;
     char *jobid;
     char *extranonce2;
+    /* which pool issued this job; a nonce must go back to that pool or it is
+     * rejected as an unknown job id */
+    uint8_t pool_id;
 } bm_job;
 
 void free_bm_job(bm_job *job);

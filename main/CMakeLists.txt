@@ -15,6 +15,7 @@ set(SRCS
     "./http_server/theme_api.c"
     "./self_test/self_test.c"
     "./tasks/stratum_task.c"
+    "./tasks/stratum_poolb_task.c"
     "./tasks/create_jobs_task.c"
     "./tasks/asic_result_task.c"
     "./tasks/asic_task.c"
@@ -62,6 +63,7 @@ set(PRIV_REQUIRES
     "esp-tls"
     "esp_eth"
     "hammer_hal"
+    "dual_pool"
 # EMBED_FILES "http_server/recovery_page.html"
 )
 
