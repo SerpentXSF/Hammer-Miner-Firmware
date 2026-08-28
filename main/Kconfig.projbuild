@@ -40,6 +40,14 @@ menu "hammer Configuration"
         help
             The TPS546 VOUT MIN
 
+    config GPIO_PLUG_SENSE
+        int "Power-good / plug-sense GPIO"
+        default 10
+        help
+            Input the regulator's power-good or barrel-jack sense is wired
+            to. Board-specific: 10 on the BC01, 11 on the BC04. It must not
+            collide with GPIO_I2C_SDA_1, which is GPIO11 on the BC01.
+
     config HAMMER_OTA_OBFUSCATED
         bool "Use the obfuscated OTA update container"
         default y

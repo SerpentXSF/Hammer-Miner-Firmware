@@ -2,10 +2,28 @@
 #define _PWM_FAN_H_
 
 #include "esp_err.h"
+#include "driver/ledc.h"
+#include "driver/pulse_cnt.h"
 
 #include "miner.h"
 
+/*PWM configuration*/
+#define LEDC_TIMER              LEDC_TIMER_0
+#define LEDC_MODE               LEDC_LOW_SPEED_MODE
+
+#define LEDC_PWM_OUTPUT_IO0     CONFIG_GPIO_PWM_0   //Define the output GPIO
+#define LEDC_PWM_OUTPUT_IO1     CONFIG_GPIO_PWM_1   // Define the output GPIO
+
+#define LEDC_CHANNEL            LEDC_CHANNEL_0
+#define LEDC_DUTY_RES           LEDC_TIMER_13_BIT // Set duty resolution to 13 bits, 2**13 = 8192
+#define LEDC_FREQUENCY          8000 // Frequency in Hertz. Set frequency at 8 kHz
 #define MAX_FAN_SPEED           8000
+#define MIN_FAN_SPEED           0
+/*#define MAX_PWM_CHANNEL         2*/
+
+/*Pulse Counter configuration.*/
+#define PULSE_COUNTER0_GPIO_NUM0 CONFIG_GPIO_PULSE_COUNTER_0
+#define PULSE_COUNTER1_GPIO_NUM1 CONFIG_GPIO_PULSE_COUNTER_1
 
 #define MINI_FAN_MAX_SPEED          MAX_FAN_SPEED
 #define MINI_FAN_CHECK_PARAM        180
@@ -47,6 +65,15 @@ typedef struct{
     bool b_pwm_changed;
 }FanInputInfo;
 
+esp_err_t ledc_pwm_init(ledc_channel_t pwm_channel);
+esp_err_t ledc_set_pwm(ledc_channel_t pwm_channel, int pwm_percent);
+
+esp_err_t fan_pcnts_init(ledc_channel_t pwm_channel);
+esp_err_t fan_pcnts_restart(ledc_channel_t pwm_channel);
+esp_err_t fan_pcnts_clear_counter(ledc_channel_t pwm_channel);
+esp_err_t fan_pcnts_get_counter(ledc_channel_t pwm_channel, int *ret_pcounts);
+
+esp_err_t fan_pcnts_get_rpm(ledc_channel_t pwm_channel, int *ret_pcounts, uint32_t mseconds);
 
 bool check_fan_ok(uint16_t *pwm_config, uint16_t *fan_rpm, int fan_num, int max_fan_speed, int fan_check_param);
 void lotto_set_pwm_according_to_temperature(FanInputInfo *fan_info);

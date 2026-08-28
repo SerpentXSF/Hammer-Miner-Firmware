@@ -49,7 +49,12 @@ esp_err_t test_temperature_sensor(float *temperature)
 }
 
 
-#define CONFIG_GPIO_PLUG_SENSE      11
+/* Board-specific. Hardcoded to 11 in the BC04 tree, but the BC01 puts
+ * I2C SDA_1 on GPIO11, so configuring it as a plain input there tore
+ * down the bus the core regulator sits on. Comes from Kconfig now. */
+#ifndef CONFIG_GPIO_PLUG_SENSE
+#define CONFIG_GPIO_PLUG_SENSE      10
+#endif
 #define GPIO_PLUG_SENSE  CONFIG_GPIO_PLUG_SENSE
 #include "TPS546.h"
 static TPS546_CONFIG TPS546_CONFIG_LOTTO = {

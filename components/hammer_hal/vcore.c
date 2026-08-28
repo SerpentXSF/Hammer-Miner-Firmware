@@ -11,7 +11,12 @@
 
 static const char *TAG = "vcore";
 
-#define CONFIG_GPIO_PLUG_SENSE      11
+/* Board-specific. Hardcoded to 11 in the BC04 tree, but the BC01 puts
+ * I2C SDA_1 on GPIO11, so configuring it as a plain input there tore
+ * down the bus the core regulator sits on. Comes from Kconfig now. */
+#ifndef CONFIG_GPIO_PLUG_SENSE
+#define CONFIG_GPIO_PLUG_SENSE      10
+#endif
 #define GPIO_PLUG_SENSE  CONFIG_GPIO_PLUG_SENSE
 
 // nominal voltage settings
@@ -49,6 +54,9 @@ esp_err_t VCORE_init(GlobalState * GLOBAL_STATE) {
 
     TPS546_CONFIG_LOTTO.TPS546_INIT_VOUT_MIN = (float)GLOBAL_STATE->asic_vol_min/100;
     TPS546_CONFIG_LOTTO.TPS546_INIT_VOUT_MAX = (float)GLOBAL_STATE->asic_vol_max/100;
+    /* Start at the minimum rather than the struct default, as the BC01
+     * source does; the regulator is commanded up later. */
+    TPS546_CONFIG_LOTTO.TPS546_INIT_VOUT_COMMAND = (float)GLOBAL_STATE->asic_vol_min/100;
 
     /*
      * VOUT_SCALE_LOOP has to bracket the requested ceiling, or the

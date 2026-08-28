@@ -11,11 +11,12 @@
 #include "miner.h"
 #include "hal_i2c.h"
 #include "HUSB238A.h"
+#include "TPS546.h"
 #include "pmbus_commands.h"
 
 static const char * TAG = "hammer-i2c";
 
-static i2c_master_bus_handle_t i2c_bus_handle;
+static i2c_master_bus_handle_t i2c_bus_handle[2];
 static i2c_dev_map_entry_t i2c_device_map[MAX_DEVICES];
 static int i2c_device_count = 0;
 
@@ -199,7 +200,29 @@ esp_err_t hammer_i2c_init(void)
         .glitch_ignore_cnt = 7,
         .flags.enable_internal_pullup = true,
     };
-    ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_bus_config, &i2c_bus_handle));
+    ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_bus_config, &i2c_bus_handle[0]));
+
+    /*
+     * The BC01 splits its devices across two buses. The thermal sensor and
+     * the USB-PD controller sit on bus 0, but the TPS546 core regulator is
+     * on bus 1, behind the PD gate -- so its pull-ups are unpowered until
+     * negotiation completes, and it is invisible before then. Boards that
+     * leave GPIO_I2C_SDA_1 at 255 simply do not get a second bus.
+     */
+    if (GPIO_I2C_SDA_1 != 255 && GPIO_I2C_SCL_1 != 255) {
+        i2c_master_bus_config_t i2c_bus_config_1 = {
+            .clk_source = I2C_CLK_SRC_DEFAULT,
+            .i2c_port = I2C_NUM_1,
+            .scl_io_num = GPIO_I2C_SCL_1,
+            .sda_io_num = GPIO_I2C_SDA_1,
+            .glitch_ignore_cnt = 7,
+            .flags.enable_internal_pullup = true,
+        };
+        ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_bus_config_1, &i2c_bus_handle[1]));
+        ESP_LOGI(TAG, "I2C bus 1 on SDA=%d SCL=%d", GPIO_I2C_SDA_1, GPIO_I2C_SCL_1);
+    } else {
+        i2c_bus_handle[1] = NULL;
+    }
     
     //wait for I2C to init
     vTaskDelay(100 / portTICK_PERIOD_MS);
@@ -227,7 +250,7 @@ static void hammer_i2c_identify(uint8_t addr)
     };
     i2c_master_dev_handle_t dev = NULL;
 
-    if (i2c_master_bus_add_device(i2c_bus_handle, &dev_cfg, &dev) != ESP_OK) {
+    if (i2c_master_bus_add_device(i2c_bus_handle[0], &dev_cfg, &dev) != ESP_OK) {
         return;
     }
 
@@ -285,7 +308,7 @@ void hammer_i2c_scan(void)
     ESP_LOGI(TAG, "Scanning I2C bus (SDA=%d SCL=%d)", GPIO_I2C_SDA_0, GPIO_I2C_SCL_0);
 
     for (uint8_t addr = 0x08; addr < 0x78; addr++) {
-        if (i2c_master_probe(i2c_bus_handle, addr, 50) == ESP_OK) {
+        if (i2c_master_probe(i2c_bus_handle[0], addr, 50) == ESP_OK) {
             ESP_LOGW(TAG, "  device responding at 0x%02x", addr);
             hammer_i2c_identify(addr);
             found++;
@@ -315,7 +338,12 @@ esp_err_t hammer_i2c_add_device(uint8_t device_address,
         .scl_speed_hz = I2C_BUS_SPEED_HZ,
     };
 
-    ESP_RETURN_ON_ERROR(i2c_master_bus_add_device(i2c_bus_handle, &dev_cfg, dev_handle), TAG, "Device 0x%02x", device_address);
+    /* The core regulator lives on bus 1 where that bus exists. */
+    i2c_master_bus_handle_t target = i2c_bus_handle[0];
+    if (device_address == TPS546_I2CADDR && i2c_bus_handle[1] != NULL) {
+        target = i2c_bus_handle[1];
+    }
+    ESP_RETURN_ON_ERROR(i2c_master_bus_add_device(target, &dev_cfg, dev_handle), TAG, "Device 0x%02x", device_address);
 
     i2c_device_map[i2c_device_count].handle = *dev_handle;
     i2c_device_map[i2c_device_count].device_address = device_address;
@@ -328,7 +356,7 @@ esp_err_t hammer_i2c_add_device(uint8_t device_address,
 
 esp_err_t hammer_i2c_get_bus_handle(i2c_master_bus_handle_t * dev_handle)
 {
-    *dev_handle = i2c_bus_handle;
+    *dev_handle = i2c_bus_handle[0];
     return ESP_OK;
 }
 

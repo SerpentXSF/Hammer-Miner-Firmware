@@ -11,6 +11,9 @@
 #include "esp_log.h"
 #include "main.h"
 #include "HUSB238A.h"
+#include "hal_i2c.h"
+#include "pwm_fan.h"
+#include "driver/ledc.h"
 #include "driver/gpio.h"
 
 #define TAG "device"
@@ -371,13 +374,31 @@ esp_err_t init_all_i2c_dev(GlobalState *GLOBAL_STATE)
             ESP_LOGE(TAG, "USB-PD bring-up failed; hashboard stays unpowered");
             return ESP_FAIL;
         }
+
+        /* Give the rail time to come up and settle before probing anything
+         * behind the gate, then show what is actually reachable. The scan
+         * at boot ran before negotiation, so it could only ever have seen
+         * the always-on devices. */
+        vTaskDelay(pdMS_TO_TICKS(500));
+        ESP_LOGW(TAG, "Bus after VBUS enabled:");
+        hammer_i2c_scan();
     }
 
-    ESP_ERROR_CHECK(ret = EMC2302_init());
-    uint16_t Polarity = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, 0);
-    ret = EMC2302_installed(Polarity);
-    if (ESP_OK != ret) {
-        return ret;
+    if (device_is_bc01_family(GLOBAL_STATE->device_model)) {
+        /* No EMC2302 on these boards. The fan is driven directly by LEDC
+         * PWM with tach pulse-counting, which is why probing 0x2e here
+         * only ever produced a NACK. */
+        ESP_ERROR_CHECK(ret = ledc_pwm_init(LEDC_CHANNEL_0));
+        ESP_ERROR_CHECK(ret = fan_pcnts_init(LEDC_CHANNEL_0));
+        fan_pcnts_clear_counter(LEDC_CHANNEL_0);
+        ledc_set_pwm(LEDC_CHANNEL_0, 70);
+    } else {
+        ESP_ERROR_CHECK(ret = EMC2302_init());
+        uint16_t Polarity = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, 0);
+        ret = EMC2302_installed(Polarity);
+        if (ESP_OK != ret) {
+            return ret;
+        }
     }
 
     const device_thermal_profile_t *profile = find_thermal_profile(GLOBAL_STATE->device_model);
@@ -471,21 +492,26 @@ int read_power_temp(void)
 
 esp_err_t set_fan_pwm(GlobalState *GLOBAL_STATE, uint8_t pwm_percent)
 {
-    esp_err_t ret = ESP_OK;
+    if (device_is_bc01_family(GLOBAL_STATE->device_model)) {
+        return ledc_set_pwm(LEDC_CHANNEL_0, pwm_percent);
+    }
 
-    ret = EMC2302_set_fan_speed(pwm_percent);
-
-    return ret;
+    return EMC2302_set_fan_speed(pwm_percent);
 }
 
 esp_err_t read_fan_rpm(GlobalState *GLOBAL_STATE)
 {
-    esp_err_t ret = ESP_OK;
+    if (device_is_bc01_family(GLOBAL_STATE->device_model)) {
+        int pulses = 0;
+        esp_err_t ret = fan_pcnts_get_rpm(LEDC_CHANNEL_0, &pulses, 1000);
+        GLOBAL_STATE->HEALTH_MODULE.fan_rpm[0] = (uint16_t)pulses;
+        GLOBAL_STATE->HEALTH_MODULE.fan_rpm[1] = 0;
+        return ret;
+    }
 
     ESP_ERROR_CHECK(EMC2302_get_fan_speed(GLOBAL_STATE->HEALTH_MODULE.fan_rpm));
     GLOBAL_STATE->HEALTH_MODULE.fan_rpm[1] = 0;
-
-    return ret;
+    return ESP_OK;
 }
 
 void reset_hash_board(GlobalState *GLOBAL_STATE)
