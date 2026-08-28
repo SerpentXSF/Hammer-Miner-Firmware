@@ -1,9 +1,13 @@
-# BC01 bring-up: what works, and one open problem
+# BC01 bring-up: getting a BC01 mining on this firmware
 
 Record of bringing this firmware up on a BC01 whose stock ESP32-S3 module
-was replaced (see [HARDWARE-SWAP.md](HARDWARE-SWAP.md)). Most of it works.
-One thing does not, and the measurements that rule out the obvious causes
-are written down here so nobody repeats them.
+was replaced (see [HARDWARE-SWAP.md](HARDWARE-SWAP.md)). It mines.
+
+Two things had to be solved: the USB-PD stage the BC04 release omitted,
+and a missing dispatch case that meant no work ever reached the ASIC.
+Both are written up below, along with the measurements that ruled out the
+wrong answers, so nobody repeats them. The sections from "The shape of
+the problem" onward are the earlier power investigation, kept as record.
 
 ---
 
@@ -31,93 +35,125 @@ are written down here so nobody repeats them.
 | Stratum | Connects, authorises, receives work |
 | Telemetry | Matches stock exactly: `voltage 14875`, `power 24.02`, `coreVoltageActual 1195.31` |
 
-## Not working: the ASIC returns no nonces
+## It hashes. What was wrong, and how it was found
 
-The chip is detected, clocked to 750 MHz and drawing 24 W, the pool is
-sending work, and jobs reach the ASIC every 300 ms -- but nothing ever
-comes back:
+The BC01 mines: **1.71 TH/s at 750 MHz, 0 hardware errors, shares
+accepted, 24 W, 54 C**.
+
+The fault was in this repository, in `ASIC_send_work()`:
+
+```c
+        case DEVICE_BC04:
+            BM1370_send_work(GLOBAL_STATE, next_job);
+            break;
+        case DEVICE_BC08:
+            BM1370_send_work(GLOBAL_STATE, next_job);
+            break;
+        case DEVICE_BC06:
+            BM1370_send_work(GLOBAL_STATE, next_job);
+            break;
+        default:            /* <- a BC01 landed here */
+```
+
+No `DEVICE_BC01` case, so every job fell through to `default` and no work
+was ever transmitted. The chip initialised, clocked to 750 MHz, and sat
+idle.
+
+The vendor's BC01 tree has the case. It was lost here when the per-model
+switches were consolidated: that folded BC01 into the shared path in the
+functions that were rewritten, and left it out of four that were not.
+Auditing every `switch (GLOBAL_STATE->device_model)` in the file found
+the other three:
+
+| Function | Effect of the missing case |
+|---|---|
+| `ASIC_send_work` | no work reached the ASIC |
+| `ASIC_set_version_mask` | version rolling never configured |
+| `ASIC_set_frequency` | runtime frequency changes silently ignored |
+| `ASIC_read_registers` | register polls never sent |
+
+### Why it looked like a hardware fault
+
+Idle is quiet. There was nothing to log, so nothing was logged, and every
+observation pointed the wrong way:
+
+- Zero nonces, zero shares, and **no errors** -- none of the failure
+  branches in `SERIAL_rx` fired, because nothing had failed.
+- The receive path timed out waiting on results that could not exist.
+- Power draw was **identical mining and not mining** -- 24.13 W at
+  115200, 24.50 W at 1 Mbaud, 24.02 W on stock while hashing. That
+  reading was an idle chip throughout, so it distinguished nothing. It
+  was read here for a while as evidence the chip was hashing.
+- `ASIC_read_registers` never transmitted, so its silence was read as
+  the chip refusing to answer register reads. It was never asked.
+
+### What actually found it
+
+Probing the chip for its ID after each init step. It answered
+`aa 55 13 70` at every one -- after the version mask, after chain
+inactive, after address assignment, through the frequency ramp, and on
+both sides of the baud change:
 
 ```
-D create_jobs_task: New Work Dequeued 6a8b882000002ef5
-D asic_common: UART timeout in serial RX
-D asic_common: UART timeout in serial RX
+PROBE after freq ramp       ALIVE  aa 55 13 70
+PROBE BEFORE baud change    ALIVE  aa 55 13 70
+PROBE AFTER baud change     ALIVE  aa 55 13 70
 ```
 
-`hashRate 0`, `nonceNumber 0`, `sharesAccepted 0`. The receive path is
-silent rather than wrong: the error branches in `SERIAL_rx` -- checksum
-failure, preamble mismatch, wrong length -- never fire. Zero bytes
-arrive, not corrupt ones.
+A chip that healthy with no results coming back is not a broken link. It
+is a chip with nothing to do. The confirmation was that `BM1370_send_work()`
+logs `"Send Job: %02X"` at INFO on every send, and that line appears in
+**no capture taken here** -- while `New Work Dequeued` and `ASIC Ready`
+both do.
 
-### What this is not
+### Ruled out along the way
 
-Each of these was tested and ruled out, so nobody repeats them:
+Kept because each cost real time and the measurement stands:
 
 | Ruled out | How |
 |---|---|
 | Pool not sending work | A test client using the miner's own credentials received `mining.notify` in 4 s. With a wrong worker name `mining.authorize` returns `false` and no work follows -- worth checking first, but not the case here. |
-| Baud rate | Fails identically at 115200 and at 1 Mbaud. |
-| Board configuration | Every ASIC-relevant `sdkconfig` value -- GPIO, clocks, UART, FreeRTOS -- is identical to the vendor's. |
-| The reimplemented CRC5 | `crc5_bits` is used only to validate received frames and in the EEPROM path, never on transmit; a rejection there would log `Checksum failed on response`, which never appears. |
-| The binary blob | `liba.a` provides the job packing and response parsing for the LT0051 scrypt path only. The BM1370 path does not call into it. |
-| Power draw as evidence | 24.13 W at 115200, 24.50 W at 1 Mbaud, 24.02 W on stock while hashing. The figure is the same whether or not the chip is hashing, so it distinguishes nothing. |
-| Our port diverging from the vendor's | `serial.c`, `asic_task.c` byte-identical; `common.c`, `bm1370.c`, `create_jobs_task.c`, `asic.c` differ only where noted in this repository's commits, all functionally equivalent for BC01. |
+| Baud rate | The chip answers a probe on both sides of the switch to 1 Mbaud. |
+| Operating point | Ran at 500 MHz, 44 C. Same silence. |
+| Board configuration | Every ASIC-relevant `sdkconfig` value matches the vendor's. |
+| The reimplemented CRC5 | `crc5_bits` validates received frames and serves the EEPROM path; it is never used on transmit. |
+| The binary blob | `liba.a` packs jobs for the LT0051 scrypt path only. |
 
-### The vendor's own source reproduces it
+One thing stayed unexplained and no longer matters: a build of the
+vendor's own source mined on one run and produced nothing on two later
+ones. Its `ASIC_send_work` has the BC01 case, so it should mine. That was
+taken here as evidence the fault was shared and intermittent, which sent
+this investigation the wrong way for a while.
 
-The decisive test was to build `baichuan-org/BC01` unmodified -- secure
-boot disabled and a placeholder supplied for the missing key file, see
-[PROVENANCE.md](PROVENANCE.md) section 5.4 -- and run that.
+### Recovering when bring-up does not take
 
-It mined once, briefly (`best_nonce_diff: 469 ... 89554`), and then did
-not mine again across two further runs of 55 s and 131 s. Our build has
-never produced a nonce.
+`system.c` restarts the miner when hashing stalls: more than 180 seconds
+since the last nonce. That check is guarded by `if(found_nonce_time_stamps)`,
+and the timestamp stays zero until the first nonce arrives, so it only
+ever covered a miner that had been hashing and stopped. A bring-up that
+never produced a nonce was invisible to it.
 
-So the failure is **not specific to this repository's changes**. The same
-hashboard, on the vendor's own published source, behaves the same way in
-two runs out of three. Whatever is wrong is shared, intermittent, or
-lives below the firmware.
+The never-started case now takes the same restart, gated on the ASIC
+being initialised and on work having arrived from the pool, so an idle
+pool cannot cause a reboot loop. The display shows "No ASIC response" a
+minute before it acts. This was written while the cause above was still
+unknown; it stays, because a miner that recovers on its own is worth
+having either way.
 
-Also unexplained, and possibly related: fan tach reads about 9700 RPM
-against roughly 4500 under stock, close to a factor of two.
+### A note on the operating point
 
-### Nothing recovered from it, and now something does
-
-`system.c` already carried a stall watchdog: if more than 180 seconds pass
-since the last nonce, it restarts the miner. It never fired here, because
-it is guarded by
+`boot_mode` is **1**, and the enum is zero-based:
 
 ```c
-if(found_nonce_time_stamps)
+typedef enum{
+	NORMAL_MODE = 0x0,
+	OVER_FREQ_MODE = 0x1,
 ```
 
-and that timestamp stays zero until the *first* nonce arrives. A bring-up
-that never produces one is therefore invisible to it -- the miner sits at
-0 H/s indefinitely, which is exactly the behaviour seen on this board and
-reported by its owner.
-
-The same restart is now applied to the never-started case, gated on the
-ASIC being initialised and on work having actually arrived from the pool,
-so an idle or unreachable pool cannot turn it into a reboot loop.
-
-This does not explain why the ASIC goes quiet. It does mean an
-intermittent bring-up recovers on its own instead of needing someone to
-notice, which matters more day to day: the board reached 1.5 TH/s under
-this firmware on a boot that happened to take.
-
-### Where to look next
-
-The one successful run followed the stock image crash-looping, which
-never opened the VBUS gate -- so the hashboard had been genuinely cold.
-Forcing that in firmware (closing the gate for 1.5 s before negotiating)
-did **not** reproduce the success, but a full physical power cycle of the
-PD supply has not yet been tried, and is the obvious next step.
-
-Beyond that: capture the transmitted bytes. `SERIAL_send()` has a
-`debug` parameter, but the body tests `if (false)` rather than `if
-(debug)`, in this tree and the vendor's alike, so the flag in
-`bm1370.h` does nothing. Fixing that and diffing the job frames against
-a run that hashes would settle whether the work leaving the ESP32 is
-well formed.
+So a BC01 ships in **over-frequency mode**, and reads `Overfrequency`
+from NVS -- not `frequency`, and not `Normalfrequency`. Anyone changing
+the clock through the API needs the key the active mode actually reads,
+or the write lands somewhere nothing consults.
 
 ---
 

@@ -76,9 +76,9 @@ released.
 | BM1370 path free of the binary blob | Yes |
 | LT0051 path free of the binary blob | No â€” see [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md) |
 | **Run on real hardware** | **Yes**, on a BC01 with a replacement LilyGO T-Display-S3 module. Boots, negotiates USB-PD, brings up the regulator and fan, detects the BM1370, ramps to 750 MHz, and connects to a pool. See [docs/BC01-BRINGUP.md](docs/BC01-BRINGUP.md) |
-| **Hashing on a BC01** | **No.** The ASIC is detected and clocked but returns no nonces. The vendor's own published source reproduces this on the same board, so it is not specific to this tree — [docs/BC01-BRINGUP.md](docs/BC01-BRINGUP.md) records what has been ruled out |
+| **Hashing on a BC01** | **Yes** — 1.71 TH/s at 750 MHz, 0 hardware errors, shares accepted, 24 W, 54 C. `ASIC_send_work()` had no BC01 case, so no work ever reached the ASIC; see [docs/BC01-BRINGUP.md](docs/BC01-BRINGUP.md) |
 
-Treat this as reviewed, building, and partially field-tested: everything up to and including ASIC bring-up is verified on hardware; hashing is not.
+Treat this as reviewed, building, and field-tested on a BC01: it boots, negotiates USB-PD, brings up the regulator and fan, drives the BM1370, and mines.
 
 **Check your device before flashing anything.** On a retail BC01 measured
 here, Secure Boot is enforced and both spare key slots are revoked, so the
