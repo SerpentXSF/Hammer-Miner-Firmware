@@ -9,6 +9,7 @@
 #include "asic.h"
 #include "lvgl_porting.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "main.h"
 #include "HUSB238A.h"
 #include "hal_i2c.h"
@@ -503,7 +504,29 @@ esp_err_t read_fan_rpm(GlobalState *GLOBAL_STATE)
 {
     if (device_is_bc01_family(GLOBAL_STATE->device_model)) {
         int pulses = 0;
-        esp_err_t ret = fan_pcnts_get_rpm(LEDC_CHANNEL_0, &pulses, 1000);
+        /*
+         * fan_pcnts_get_counter() reads the pulse count and then clears it, so
+         * the count covers the time since the previous call -- not a fixed
+         * window. This passed a hardcoded 1000 ms while the health loop runs
+         * every 2000, so every reported RPM was exactly double: 9690 shown
+         * against roughly 4500 on stock firmware, on the same fan.
+         *
+         * Measuring the interval keeps it right if the loop period ever
+         * changes, which assuming 2000 would not.
+         */
+        static int64_t last_us = 0;
+        int64_t now_us = esp_timer_get_time();
+        uint32_t window_ms = 1000;
+
+        if (last_us != 0) {
+            int64_t elapsed_ms = (now_us - last_us) / 1000;
+            if (elapsed_ms > 0) {
+                window_ms = (uint32_t)elapsed_ms;
+            }
+        }
+        last_us = now_us;
+
+        esp_err_t ret = fan_pcnts_get_rpm(LEDC_CHANNEL_0, &pulses, window_ms);
         GLOBAL_STATE->HEALTH_MODULE.fan_rpm[0] = (uint16_t)pulses;
         GLOBAL_STATE->HEALTH_MODULE.fan_rpm[1] = 0;
         return ret;

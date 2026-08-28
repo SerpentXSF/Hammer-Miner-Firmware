@@ -1,6 +1,6 @@
 {
   "name": "SerpentX / Stay Open",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "home_assistant_domain": null,
   "new_install_prompt_erase": false,
   "builds": [
@@ -8,7 +8,7 @@
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "path": "serpentx-bc01-2.0.5-full.bin",
+          "path": "serpentx-bc01-2.0.6-full.bin",
           "offset": 0
         }
       ]

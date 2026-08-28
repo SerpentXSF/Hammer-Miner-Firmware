@@ -118,6 +118,25 @@ display. An LT0051 scrypt ASIC path also exists in the tree.
 
 ---
 
+## Which device
+
+**The published builds are for the Hammer BC01 only.**
+
+The board model is fixed at compile time and the boards do not share a pinout.
+BC01 and BC04 have their ASIC UART lines **swapped** -- TX 18 / RX 17 against
+TX 17 / RX 18 -- so a BC01 image on a BC04 crosses transmit and receive. The
+miner boots, the web UI works, the ASIC is even detected, and no share is ever
+returned. It reads as dead hardware and it is not.
+
+| Model | Source | Published build |
+|---|---|---|
+| BC01 | Yes | **Yes**, verified on hardware |
+| BC02, BC04, BC06, BC08 | Yes | No -- build from source, and see `sdkconfig.bc04-reference` |
+
+Every release is named for its board, and so is every image inside it
+(`serpentx-bc01-...`). The device model is also written into the settings
+partition, so a miner flashed with the BC01 image reports `DeviceModel: BC01`.
+
 ## Installing
 
 Three routes, in order of how little you need on your machine.

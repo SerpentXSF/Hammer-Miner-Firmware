@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <inttypes.h>
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_timer.h"
@@ -189,8 +190,33 @@ esp_err_t api_auth_require(httpd_req_t *req)
         return ESP_OK;
     }
 
-    ESP_LOGW(TAG, "Rejected unauthenticated %s %s",
-             req->method == HTTP_GET ? "GET" : "request", req->uri);
+    /*
+     * Rate-limited on purpose. A browser tab left on the dashboard polls every
+     * ten seconds, and once its session expires each poll logged a line -- which
+     * filled the 42 KB log buffer with the same message and rolled real events
+     * out of it before anyone could read them. The first rejection still logs
+     * immediately; after that it is one line a minute carrying the count, so a
+     * genuine brute-force attempt is still visible without drowning the buffer.
+     */
+    {
+        static int64_t last_log_us = 0;
+        static uint32_t suppressed = 0;
+        int64_t since = now_us - last_log_us;
+
+        if (last_log_us == 0 || since > 60 * 1000000LL) {
+            if (suppressed > 0) {
+                ESP_LOGW(TAG, "Rejected unauthenticated %s %s (+%" PRIu32 " more since last message)",
+                         req->method == HTTP_GET ? "GET" : "request", req->uri, suppressed);
+            } else {
+                ESP_LOGW(TAG, "Rejected unauthenticated %s %s",
+                         req->method == HTTP_GET ? "GET" : "request", req->uri);
+            }
+            last_log_us = now_us;
+            suppressed = 0;
+        } else {
+            suppressed++;
+        }
+    }
     httpd_resp_set_hdr(req, "WWW-Authenticate", "Bearer");
     httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Authentication required");
     return ESP_FAIL;

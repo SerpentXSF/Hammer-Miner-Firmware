@@ -34,6 +34,11 @@
   th{color:var(--fg);font-weight:600}
   td{color:var(--dim)}
   .cta{text-align:center;margin:2rem 0 .5rem}
+  .device-badge{
+    display:inline-block;background:var(--gold);color:#050910;
+    font-weight:700;font-size:.82rem;letter-spacing:.04em;
+    padding:.35rem 1rem;border-radius:999px;margin-bottom:1rem;
+  }
   .note{font-size:.85rem;color:var(--dim);text-align:center}
   footer{margin-top:3rem;border-top:1px solid var(--line);padding-top:1.25rem;font-size:.85rem;color:var(--dim);text-align:center}
 </style>
@@ -45,9 +50,24 @@
     <img src="serpentx.png" alt="SerpentX">
   </header>
 
+  <div class="device-badge">This build is for the <strong>Hammer BC01</strong> only</div>
+
   <p>Open firmware for the <strong>Hammer BC01</strong>. Measured on hardware:
   1.6–1.7&nbsp;TH/s at 750&nbsp;MHz, 24&nbsp;W, around 54&nbsp;°C, no hardware
   errors.</p>
+
+  <div class="card">
+    <h2 style="margin-top:0">Not for BC04, BC02, BC06 or BC08</h2>
+    <p>The board model is fixed when the firmware is compiled, and the boards do
+    not share a pinout. The BC01 and BC04 have their ASIC UART lines
+    <strong>swapped</strong> — TX&nbsp;18/RX&nbsp;17 against TX&nbsp;17/RX&nbsp;18 — so
+    a BC01 image on a BC04 crosses transmit and receive. The miner boots, the
+    web UI works, the chip is even detected, and it never returns a single
+    share. It looks like broken hardware and it is not.</p>
+    <p>Those models are supported in the source and can be built from it; only
+    the BC01 is published here, because only the BC01 has been run on real
+    hardware.</p>
+  </div>
 
   <div class="card stop">
     <h2>Check your device before you flash</h2>
@@ -95,7 +115,7 @@
         <a href="https://github.com/SerpentXSF/StayOpen-Miner-Firmware">Full source</a>,
         GPL-3.0.</td></tr>
     <tr><th>Flash with esptool</th>
-        <td><code>esptool.py --chip esp32s3 write_flash 0x0 serpentx-bc01-2.0.5-full.bin</code></td></tr>
+        <td><code>esptool.py --chip esp32s3 write_flash 0x0 serpentx-bc01-2.0.6-full.bin</code></td></tr>
     <tr><th>Update over the air</th>
         <td>Upload the <code>-ota.bin</code> through the miner's own update
         page. Keeps your settings.</td></tr>
