@@ -50,6 +50,7 @@ static void _suffix_string(uint64_t, char *, size_t, int);
 static char sn_str[24] = {0};
 static double found_nonce_time_stamps = 0;
 static int miner_started = 0;
+static int no_first_nonce_count = 0;
 
 //local function prototypes
 //static esp_err_t ensure_overheat_mode_config();
@@ -870,6 +871,38 @@ void system_task(void *pvParameters)
                     restart_with_reason("Hashrate error for extended period");
                 }
             }
+        }
+        /* The check above only arms once a nonce has been seen, because
+         * found_nonce_time_stamps stays zero until the first one arrives. A
+         * bring-up that never yields a nonce therefore recovered from
+         * nothing: the miner sat at 0 H/s for as long as it was left alone.
+         *
+         * Observed on a BC01, where the ASIC is detected, clocked and drawing
+         * full power but never answers on the UART. It is intermittent, and a
+         * restart clears it, so the same restart the stall path already
+         * performs is applied to the case where hashing never started.
+         *
+         * Gated on work actually having arrived from the pool, so an idle or
+         * unreachable pool cannot put the miner in a reboot loop. */
+        else if (GLOBAL_STATE->ASIC_initalized &&
+                 GLOBAL_STATE->SYSTEM_MODULE.work_received > 0 &&
+                 !GLOBAL_STATE->SYSTEM_MODULE.is_network_error)
+        {
+            no_first_nonce_count++;
+            #define FIRST_NONCE_WARN_TIME  (120*2)   /* loop runs at 2 Hz */
+            #define FIRST_NONCE_FAIL_TIME  (180*2)
+            if(no_first_nonce_count > FIRST_NONCE_WARN_TIME)
+            {
+                showErrorScreen("No ASIC response",HASHRATE_ERROR);
+                if(no_first_nonce_count > FIRST_NONCE_FAIL_TIME)
+                {
+                    restart_with_reason("ASIC returned no nonce after bring-up");
+                }
+            }
+        }
+        else
+        {
+            no_first_nonce_count = 0;
         }
 
         if(miner_started)

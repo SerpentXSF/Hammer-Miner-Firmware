@@ -80,6 +80,30 @@ lives below the firmware.
 Also unexplained, and possibly related: fan tach reads about 9700 RPM
 against roughly 4500 under stock, close to a factor of two.
 
+### Nothing recovered from it, and now something does
+
+`system.c` already carried a stall watchdog: if more than 180 seconds pass
+since the last nonce, it restarts the miner. It never fired here, because
+it is guarded by
+
+```c
+if(found_nonce_time_stamps)
+```
+
+and that timestamp stays zero until the *first* nonce arrives. A bring-up
+that never produces one is therefore invisible to it -- the miner sits at
+0 H/s indefinitely, which is exactly the behaviour seen on this board and
+reported by its owner.
+
+The same restart is now applied to the never-started case, gated on the
+ASIC being initialised and on work having actually arrived from the pool,
+so an idle or unreachable pool cannot turn it into a reboot loop.
+
+This does not explain why the ASIC goes quiet. It does mean an
+intermittent bring-up recovers on its own instead of needing someone to
+notice, which matters more day to day: the board reached 1.5 TH/s under
+this firmware on a boot that happened to take.
+
 ### Where to look next
 
 The one successful run followed the stock image crash-looping, which
