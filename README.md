@@ -56,7 +56,7 @@ two archives they published and from a shipping firmware binary.
 | **Licensing** | Full GPL-3.0 text, upstream attribution, and a documented provenance chain. |
 | **Blob removal** | BM1370 builds â€” every BC board â€” no longer link the `liba.a` binary blob. The rest of it serves the LT0051 scrypt ASIC and is still required for those builds; see [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md). |
 | **Security** | Real authentication, the OTA error-path bug fixed, shipped credentials removed. See [docs/SECURITY.md](docs/SECURITY.md). |
-| **BC01 support** | The stripped BC01 and BC02 code paths restored. Builds clean; not yet run on hardware â€” see [Status](#status). |
+| **BC01 support** | The stripped BC01 and BC02 code paths restored, and the USB-PD stage the BC04 release omitted merged in from the vendor's BC01 tree. Brings a BC01 up on hardware — see [Status](#status). |
 | **Tooling** | OTA image pack/unpack, upstream diffing, provisioning. |
 
 The first commit in this repository is the vendor's tree, unmodified.
@@ -75,9 +75,10 @@ released.
 | OTA tooling verified | Yes â€” round-trips the vendor's own image byte for byte |
 | BM1370 path free of the binary blob | Yes |
 | LT0051 path free of the binary blob | No â€” see [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md) |
-| **Run on real hardware** | **Not yet.** Retail units enforce Secure Boot on the stock module, but the ESP32-S3 is a socketed LilyGO T-Display-S3 â€” fitting a fresh one runs this firmware with no exploit. See [docs/HARDWARE-SWAP.md](docs/HARDWARE-SWAP.md) |
+| **Run on real hardware** | **Yes**, on a BC01 with a replacement LilyGO T-Display-S3 module. Boots, negotiates USB-PD, brings up the regulator and fan, detects the BM1370, ramps to 750 MHz, and connects to a pool. See [docs/BC01-BRINGUP.md](docs/BC01-BRINGUP.md) |
+| **Hashing on a BC01** | **No.** The ASIC is detected and clocked but returns no nonces. The vendor's own published source reproduces this on the same board, so it is not specific to this tree — [docs/BC01-BRINGUP.md](docs/BC01-BRINGUP.md) records what has been ruled out |
 
-Treat this as reviewed and building, not as field-tested.
+Treat this as reviewed, building, and partially field-tested: everything up to and including ASIC bring-up is verified on hardware; hashing is not.
 
 **Check your device before flashing anything.** On a retail BC01 measured
 here, Secure Boot is enforced and both spare key slots are revoked, so the

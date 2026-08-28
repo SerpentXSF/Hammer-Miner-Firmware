@@ -19,20 +19,81 @@ are written down here so nobody repeats them.
 | TMP75 | Reads correctly once the address was corrected to 0x49 |
 | HTTP API | Serves `/api/system/info` with correct `DeviceModel`, `asicCount`, `frequency` |
 
-## Not working
+## Working, verified on hardware since the USB-PD stage landed
 
-The BM1370 never starts, because the core regulator is unreachable:
+| | |
+|---|---|
+| USB-PD negotiation | `CONTRACT CURRENT 3000.`, `VBUS output enabled` |
+| Core regulator | `vcore: TPS546 power good 1`, `Vout changed to 1.20 V` |
+| Fan | Spins under LEDC PWM with tach counting |
+| ASIC detection | `asic: Model BC01, Detect 1 asic.` |
+| Frequency ramp | 112 steps to 750 MHz, no errors |
+| Stratum | Connects, authorises, receives work |
+| Telemetry | Matches stock exactly: `voltage 14875`, `power 24.02`, `coreVoltageActual 1195.31` |
+
+## Not working: the ASIC returns no nonces
+
+The chip is detected, clocked to 750 MHz and drawing 24 W, the pool is
+sending work, and jobs reach the ASIC every 300 ms -- but nothing ever
+comes back:
 
 ```
-device: Initialize all the i2c dev.
-EMC2103: initializing EMC2302 : 0
-hammer-i2c: Device EMC2103 (0x2e)       <- NACK
-vcore: TPS546 power good 0
-TPS546: Initializing the core voltage regulator
-hammer-i2c: Device TPS546 (0x24)        <- NACK, retries indefinitely
+D create_jobs_task: New Work Dequeued 6a8b882000002ef5
+D asic_common: UART timeout in serial RX
+D asic_common: UART timeout in serial RX
 ```
 
-The fan does not spin and the hashboard rail never comes up.
+`hashRate 0`, `nonceNumber 0`, `sharesAccepted 0`. The receive path is
+silent rather than wrong: the error branches in `SERIAL_rx` -- checksum
+failure, preamble mismatch, wrong length -- never fire. Zero bytes
+arrive, not corrupt ones.
+
+### What this is not
+
+Each of these was tested and ruled out, so nobody repeats them:
+
+| Ruled out | How |
+|---|---|
+| Pool not sending work | A test client using the miner's own credentials received `mining.notify` in 4 s. With a wrong worker name `mining.authorize` returns `false` and no work follows -- worth checking first, but not the case here. |
+| Baud rate | Fails identically at 115200 and at 1 Mbaud. |
+| Board configuration | Every ASIC-relevant `sdkconfig` value -- GPIO, clocks, UART, FreeRTOS -- is identical to the vendor's. |
+| The reimplemented CRC5 | `crc5_bits` is used only to validate received frames and in the EEPROM path, never on transmit; a rejection there would log `Checksum failed on response`, which never appears. |
+| The binary blob | `liba.a` provides the job packing and response parsing for the LT0051 scrypt path only. The BM1370 path does not call into it. |
+| Power draw as evidence | 24.13 W at 115200, 24.50 W at 1 Mbaud, 24.02 W on stock while hashing. The figure is the same whether or not the chip is hashing, so it distinguishes nothing. |
+| Our port diverging from the vendor's | `serial.c`, `asic_task.c` byte-identical; `common.c`, `bm1370.c`, `create_jobs_task.c`, `asic.c` differ only where noted in this repository's commits, all functionally equivalent for BC01. |
+
+### The vendor's own source reproduces it
+
+The decisive test was to build `baichuan-org/BC01` unmodified -- secure
+boot disabled and a placeholder supplied for the missing key file, see
+[PROVENANCE.md](PROVENANCE.md) section 5.4 -- and run that.
+
+It mined once, briefly (`best_nonce_diff: 469 ... 89554`), and then did
+not mine again across two further runs of 55 s and 131 s. Our build has
+never produced a nonce.
+
+So the failure is **not specific to this repository's changes**. The same
+hashboard, on the vendor's own published source, behaves the same way in
+two runs out of three. Whatever is wrong is shared, intermittent, or
+lives below the firmware.
+
+Also unexplained, and possibly related: fan tach reads about 9700 RPM
+against roughly 4500 under stock, close to a factor of two.
+
+### Where to look next
+
+The one successful run followed the stock image crash-looping, which
+never opened the VBUS gate -- so the hashboard had been genuinely cold.
+Forcing that in firmware (closing the gate for 1.5 s before negotiating)
+did **not** reproduce the success, but a full physical power cycle of the
+PD supply has not yet been tried, and is the obvious next step.
+
+Beyond that: capture the transmitted bytes. `SERIAL_send()` has a
+`debug` parameter, but the body tests `if (false)` rather than `if
+(debug)`, in this tree and the vendor's alike, so the flag in
+`bm1370.h` does nothing. Fixing that and diffing the job frames against
+a run that hashes would settle whether the work leaving the ESP32 is
+well formed.
 
 ---
 

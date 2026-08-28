@@ -173,6 +173,77 @@ No documented toolchain version, no `sdkconfig.defaults`, and a
 and `idf_component.yml` ask for LVGL `^9.3.0` while
 `components/lvgl__lvgl/` contains 9.2.2, which silently takes priority.
 
+### 5.4 The published source does not build as released
+
+The BC01 tree at `baichuan-org/BC01` cannot be built by anyone who
+downloads it. `main/CMakeLists.txt` embeds a file into the application
+image in three separate build configurations:
+
+```
+list(APPEND EMBED_FILES
+    "../secure/flash_encryption_key.bin"
+)
+```
+
+No `secure/` directory is present in the repository. CMake stops at the
+generate step:
+
+```
+CMake Error in main/CMakeLists.txt:
+  Cannot find source file:
+    secure/flash_encryption_key.bin
+```
+
+The reference build used for this repository's comparison work only
+completed after supplying a placeholder file in its place.
+
+GPL-3.0 section 1 defines corresponding source as everything needed to
+"generate, install, and ... run the object code". A tree that halts at
+configuration does not meet that, whatever else it contains. The key
+itself need not be published -- but a release that unconditionally
+requires it, with no documented way to build without it, is not a
+buildable release.
+
+### 5.5 The signing and encryption posture locks owners out
+
+Two things follow from the shipped `sdkconfig`, and both were confirmed
+on hardware:
+
+- The stock BC01 application **cannot run on a module whose eFuses are
+  not already burned**. Flashed to a replacement ESP32-S3, it aborts
+  during startup:
+
+  ```
+  E flash_encrypt: Flash encryption eFuse bit was not enabled in
+  bootloader but CONFIG_SECURE_FLASH_ENC_ENABLED is on
+  abort() was called
+  ```
+
+- The retail module ships with Secure Boot v2 and flash encryption in
+  release mode, so it will not accept a rebuilt image either.
+
+The practical effect is that an owner can read the source but cannot run
+a modified version on the device they bought, in either direction. That
+is the arrangement GPL-3.0 section 6 addresses through its Installation
+Information requirement, and no such information accompanies the release.
+The route this repository documents in
+[HARDWARE-SWAP.md](HARDWARE-SWAP.md) -- physically replacing the
+socketed module -- exists precisely because no software route remains.
+
+### 5.6 The flash encryption key is embedded in the application
+
+`main/http_server/http_server.c` reads the same key back out of the
+image at runtime:
+
+```c
+extern const uint8_t flash_encryption_key_bin_start[]
+    asm("_binary_flash_encryption_key_bin_start");
+```
+
+A key compiled into a distributed binary is recoverable by anyone
+holding that binary. This is noted as an observation about the vendor's
+design, not as a vulnerability this repository introduces or relies on.
+
 ---
 
 ## 6. Prior reporting

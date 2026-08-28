@@ -66,7 +66,11 @@ int SERIAL_send(uint32_t chain_num, uint8_t *data, int len, bool debug)
     uint32_t uart_num = chain_num + 1;
     int ret = uart_write_bytes(uart_num, (const char *)data, len);
 
-    if (false)
+    /* This tested `false`, so the debug argument every caller passes -- and the
+     * BM1370_SERIALTX_DEBUG switch feeding it -- did nothing. Honouring it costs
+     * nothing when off, and dumping the frames leaving the ESP32 is the first
+     * thing wanted when an ASIC goes quiet. */
+    if (debug)
     {
         ESP_LOGI(TAG, "tx: uart %"PRIu32" ret [%d]", uart_num, ret);
         prettyHex((unsigned char *)data, len);
