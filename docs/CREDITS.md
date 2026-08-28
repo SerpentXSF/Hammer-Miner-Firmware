@@ -83,6 +83,13 @@ OPPOSITE of BC04", TMP75 at 0x49, HUSB238A as the PD controller — from their
 own disassembly, with no contact between the two efforts. Two teams agreeing
 from separate evidence is worth more than either alone.
 
+### SerpentX — dual-pool mining
+
+The dual-pool work this tree's second Stratum session comes from, written
+for BitAxe and NerdAxe: two permanently connected pools, the ASIC's single
+hashrate time-sliced between them by an error-diffusion scheduler, and each
+pool with its own failover. `components/dual_pool/` is imported from it.
+
 ### Chengdu Baichuan
 
 The BC01 release contains the USB Power Delivery stage the BC04 release
