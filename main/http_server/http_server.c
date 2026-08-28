@@ -1064,6 +1064,14 @@ static esp_err_t PATCH_update_settings(httpd_req_t * req)
     if ((item = cJSON_GetObjectItem(root, "ntpServerBackup")) != NULL) {
         nvs_config_set_string(NVS_CONFIG_NTP_SERVER_BACKUP, item->valuestring);
     }
+    /* The NTP servers were settable but the zone was not, so the clock ran on
+     * whatever the firmware was compiled with -- UTC+8 by default, which is
+     * wrong nearly everywhere. Takes a POSIX TZ string, e.g.
+     * "EST5EDT,M3.2.0,M11.1.0". Applied at the next restart, when rtc_sync()
+     * calls setenv("TZ", ...). */
+    if ((item = cJSON_GetObjectItem(root, "timezone")) != NULL) {
+        nvs_config_set_string(NVS_CONFIG_TIME_ZONE, item->valuestring);
+    }
 
     if ((item = cJSON_GetObjectItem(root, "snStr")) != NULL) {
         nvs_config_set_string(NVS_CONFIG_SN, item->valuestring);
@@ -1435,6 +1443,7 @@ static esp_err_t GET_system_info(httpd_req_t * req)
     char * board_version = nvs_config_get_string(NVS_CONFIG_BOARD_VERSION, "unknown");
     char * ntp_server = nvs_config_get_string(NVS_CONFIG_NTP_SERVER, "pool.ntp.org");
     char * ntp_server_backup = nvs_config_get_string(NVS_CONFIG_NTP_SERVER_BACKUP, "ntp.aliyun.com");
+    char * time_zone = nvs_config_get_string(NVS_CONFIG_TIME_ZONE, "CST-8");
     
     struct tm timeinfo;
     time_t now;
@@ -1531,6 +1540,7 @@ static esp_err_t GET_system_info(httpd_req_t * req)
     cJSON_AddNumberToObject(root, "fallbackStratumExtranonceSubscribe", GLOBAL_STATE->SYSTEM_MODULE.fallback_pool_extranonce_subscribe);
     cJSON_AddStringToObject(root, "ntpServer", ntp_server);
     cJSON_AddStringToObject(root, "ntpServerBackup", ntp_server_backup);
+    cJSON_AddStringToObject(root, "timezone", time_zone);
 
     cJSON_AddStringToObject(root, "version", esp_app_get_description()->version);
     cJSON_AddStringToObject(root, "WWWVersion", WWWVersion);
@@ -1569,6 +1579,7 @@ static esp_err_t GET_system_info(httpd_req_t * req)
     free(ssid);
     free(hostname);
     free(board_version);
+    free(time_zone);
     free(ntp_server);
     free(ntp_server_backup);
 

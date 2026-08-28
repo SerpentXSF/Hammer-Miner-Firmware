@@ -11,6 +11,8 @@ extern "C" {
 #include "./serpentx/export/btcscreen.c"
 #endif
 #include "./serpentx/export/globalStats.c"
+#include "./serpentx/export/netstats.c"
+#include "./serpentx/export/clockscreen.c"
 #include "./serpentx/export/initscreen2.c"
 #include "./serpentx/export/miningscreen2.c"
 #include "./serpentx/export/portalscreen.c"

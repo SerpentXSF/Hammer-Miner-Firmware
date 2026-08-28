@@ -132,20 +132,18 @@ static volc_display volc_s3_display = {
     .m_global_screen = {
         .m_screen_obj = NULL,
         .m_global_stats_data = {
-            .global_diff = "", .global_hashrate = "", .ltc_blockheight = "", .halving_progress = "", .halving_blocks = ""
+            .global_diff = "", .global_hashrate = "", .ltc_blockheight = "",
+            .halving_progress = "", .halving_blocks = "", .price = ""
         },
-        .m_image_element = {.image_dsc = &globalStats, .align = LV_ALIGN_CENTER, .add_flag = LV_OBJ_FLAG_ADV_HITTEST, .clear_flag = LV_OBJ_FLAG_SCROLLABLE},
+        .m_image_element = {.image_dsc = &netstats, .align = LV_ALIGN_CENTER, .add_flag = LV_OBJ_FLAG_ADV_HITTEST, .clear_flag = LV_OBJ_FLAG_SCROLLABLE},
         .m_ui_element_array = {
-            {.name="global_diff", .text="0", .unit_text="", .x_pos=-60, .y_pos=-12, .text_font=&lv_font_montserrat_14,.p_lv_obj = NULL,
-            .width=LV_SIZE_CONTENT, .height=LV_SIZE_CONTENT, .align=LV_ALIGN_RIGHT_MID, .text_align=LV_TEXT_ALIGN_RIGHT, .text_color=LV_COLOR_MAKE(0x0, 0x0, 0x0)},
-            {.name="global_hashrate", .text="0", .unit_text="", .x_pos=-60, .y_pos=29, .text_font=&lv_font_montserrat_14,.p_lv_obj = NULL,
-            .width=LV_SIZE_CONTENT, .height=LV_SIZE_CONTENT, .align=LV_ALIGN_RIGHT_MID, .text_align=LV_TEXT_ALIGN_RIGHT, .text_color=LV_COLOR_MAKE(0x00, 0x00, 0x00)},
-            {.name="ltc_blockheight", .text="0", .unit_text="", .x_pos=-60, .y_pos=67, .text_font=&lv_font_montserrat_14,.p_lv_obj = NULL,
-            .width=LV_SIZE_CONTENT, .height=LV_SIZE_CONTENT, .align=LV_ALIGN_RIGHT_MID, .text_align=LV_TEXT_ALIGN_RIGHT, .text_color=LV_COLOR_MAKE(0x0, 0x0, 0x0)},
-            {.name="halving_progress", .text="0", .unit_text="", .x_pos=-164, .y_pos=16, .text_font=&lv_font_montserrat_14,.p_lv_obj = NULL,
-            .width=LV_SIZE_CONTENT, .height=LV_SIZE_CONTENT, .align=LV_ALIGN_RIGHT_MID, .text_align=LV_TEXT_ALIGN_RIGHT, .text_color=LV_COLOR_MAKE(0x0, 0x0, 0x0)},         
-            {.name="halving_blocks", .text="0", .unit_text="", .x_pos=-175, .y_pos=55, .text_font=&lv_font_montserrat_28,.p_lv_obj = NULL,
-            .width=LV_SIZE_CONTENT, .height=LV_SIZE_CONTENT, .align=LV_ALIGN_RIGHT_MID, .text_align=LV_TEXT_ALIGN_RIGHT, .text_color=LV_COLOR_MAKE(0x00, 0x00, 0x00)}            
+            /* price, large, in the open band under the BITCOIN/USD label */
+            {.name="price", .text="$--", .unit_text="", .x_pos=0, .y_pos=-24, .text_font=&lv_font_montserrat_28,.p_lv_obj = NULL,
+            .width=LV_SIZE_CONTENT, .height=LV_SIZE_CONTENT, .align=LV_ALIGN_CENTER, .text_align=LV_TEXT_ALIGN_CENTER, .text_color=LV_COLOR_MAKE(0xff, 0xb8, 0x1c)},
+            {.name="ltc_blockheight", .text="0", .unit_text="", .x_pos=-61, .y_pos=38, .text_font=&lv_font_montserrat_20,.p_lv_obj = NULL,
+            .width=LV_SIZE_CONTENT, .height=LV_SIZE_CONTENT, .align=LV_ALIGN_CENTER, .text_align=LV_TEXT_ALIGN_CENTER, .text_color=LV_COLOR_MAKE(0xff, 0xff, 0xff)},
+            {.name="global_hashrate", .text="0", .unit_text=" EH/s", .x_pos=85, .y_pos=38, .text_font=&lv_font_montserrat_20,.p_lv_obj = NULL,
+            .width=LV_SIZE_CONTENT, .height=LV_SIZE_CONTENT, .align=LV_ALIGN_CENTER, .text_align=LV_TEXT_ALIGN_CENTER, .text_color=LV_COLOR_MAKE(0xff, 0xff, 0xff)}
         }
     },
     .m_splash_screen = {
@@ -165,6 +163,20 @@ static volc_display volc_s3_display = {
         .m_ui_element_array = {
             {.name="log", .text="log", .unit_text="", .x_pos=0, .y_pos=0, .text_font=&lv_font_montserrat_14,.p_lv_obj = NULL,
             .width=LV_SIZE_CONTENT, .height=LV_SIZE_CONTENT, .align=LV_ALIGN_OUT_LEFT_TOP, .text_align=LV_TEXT_ALIGN_LEFT, .text_color=LV_COLOR_MAKE(0xff, 0xff, 0xff)}
+        }
+    },
+    .m_clock_screen = {
+        .m_screen_obj = NULL,
+        .m_clock_data = {.clock_time = "--:--", .clock_date = "", .hashrate = "0"},
+        .m_image_element = {.image_dsc = &clockscreen, .align = LV_ALIGN_CENTER, .add_flag = LV_OBJ_FLAG_ADV_HITTEST, .clear_flag = LV_OBJ_FLAG_SCROLLABLE},
+        .m_ui_element_array = {
+            {.name="clock_time", .text="--:--", .unit_text="", .x_pos=0, .y_pos=-18, .text_font=&lv_font_montserrat_28,.p_lv_obj = NULL,
+            .width=LV_SIZE_CONTENT, .height=LV_SIZE_CONTENT, .align=LV_ALIGN_CENTER, .text_align=LV_TEXT_ALIGN_CENTER, .text_color=LV_COLOR_MAKE(0xff, 0xff, 0xff)},
+            {.name="clock_date", .text="", .unit_text="", .x_pos=0, .y_pos=18, .text_font=&lv_font_montserrat_16,.p_lv_obj = NULL,
+            .width=LV_SIZE_CONTENT, .height=LV_SIZE_CONTENT, .align=LV_ALIGN_CENTER, .text_align=LV_TEXT_ALIGN_CENTER, .text_color=LV_COLOR_MAKE(0x96, 0xaa, 0xc8)},
+            /* the miner's own rate, small, bottom right */
+            {.name="hashrate", .text="0", .unit_text=" TH/s", .x_pos=88, .y_pos=61, .text_font=&lv_font_montserrat_14,.p_lv_obj = NULL,
+            .width=LV_SIZE_CONTENT, .height=LV_SIZE_CONTENT, .align=LV_ALIGN_CENTER, .text_align=LV_TEXT_ALIGN_RIGHT, .text_color=LV_COLOR_MAKE(0xff, 0xb8, 0x1c)}
         }
     }
 };
@@ -667,11 +679,10 @@ void refresh_global_text()
     UiElement *p_uielement_array = volc_s3_display.m_global_screen.m_ui_element_array;
     global_stats_data *cur_global_data = &(volc_s3_display.m_global_screen.m_global_stats_data);
 
-    strncpy(p_uielement_array[0].text, cur_global_data->global_diff, 20);
-    strncpy(p_uielement_array[1].text, cur_global_data->global_hashrate, 20);
-    strncpy(p_uielement_array[2].text, cur_global_data->ltc_blockheight, 20);
-    strncpy(p_uielement_array[3].text, cur_global_data->halving_progress, 20);
-    strncpy(p_uielement_array[4].text, cur_global_data->halving_blocks, 20);     
+    /* price large, then block height and network hashrate beneath it */
+    strncpy(p_uielement_array[0].text, cur_global_data->price, 20);
+    strncpy(p_uielement_array[1].text, cur_global_data->ltc_blockheight, 20);
+    strncpy(p_uielement_array[2].text, cur_global_data->global_hashrate, 20);
 }
 
 void refresh_global_screen(bool b_load_screen)
@@ -714,6 +725,84 @@ void refresh_global_screen(bool b_load_screen)
 #elif defined(ANIMATION_LOAD_SCREEN)
         lv_screen_load_anim(
             cur_global_screen->m_screen_obj,
+            LV_SCR_LOAD_ANIM_MOVE_BOTTOM, LV_DEF_REFR_PERIOD*128/8, 0, false
+        );
+#endif
+    }
+}
+
+/*
+ * Local time, with the miner's own rate small in the corner.
+ *
+ * The zone comes from NVS_CONFIG_TIME_ZONE, applied by rtc_sync() at start-up,
+ * so this only has to read the clock -- but a device whose zone was never set
+ * shows UTC, which looks like a bug rather than a setting.
+ */
+void refresh_clock_text()
+{
+    UiElement *p_uielement_array = volc_s3_display.m_clock_screen.m_ui_element_array;
+    clock_screen_data *cur_clock_data = &(volc_s3_display.m_clock_screen.m_clock_data);
+
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+
+    if (timeinfo.tm_year > (2020 - 1900)) {
+        strftime(cur_clock_data->clock_time, sizeof(cur_clock_data->clock_time), "%H:%M", &timeinfo);
+        strftime(cur_clock_data->clock_date, sizeof(cur_clock_data->clock_date), "%a %d %b", &timeinfo);
+    } else {
+        /* NTP has not landed yet; say so rather than showing 1970 */
+        strncpy(cur_clock_data->clock_time, "--:--", sizeof(cur_clock_data->clock_time));
+        strncpy(cur_clock_data->clock_date, "no time sync", sizeof(cur_clock_data->clock_date));
+    }
+
+    snprintf(cur_clock_data->hashrate, sizeof(cur_clock_data->hashrate), "%.2f",
+             volc_s3_display.m_mining_screen.m_mining_screen_data.hashrate / 1000.0);
+
+    strncpy(p_uielement_array[0].text, cur_clock_data->clock_time, 20);
+    strncpy(p_uielement_array[1].text, cur_clock_data->clock_date, 20);
+    strncpy(p_uielement_array[2].text, cur_clock_data->hashrate, 20);
+}
+
+void refresh_clock_screen(bool b_load_screen)
+{
+    clock_screen *cur_clock_screen = &(volc_s3_display.m_clock_screen);
+#if defined(REFRESH_UI_ELEMENTS_ONE_BY_ONE)
+    static uint32_t counter = 0;
+#endif
+
+    if(NULL == cur_clock_screen)
+        return;
+
+    if(NULL == cur_clock_screen->m_screen_obj){
+        cur_clock_screen->m_screen_obj = lv_obj_create(NULL);
+        lv_obj_add_style(cur_clock_screen->m_screen_obj, &style, LV_PART_MAIN | LV_STATE_DEFAULT);
+        create_image_obj(cur_clock_screen->m_screen_obj, &(cur_clock_screen->m_image_element));
+        create_ui_elements(
+            cur_clock_screen->m_screen_obj, cur_clock_screen->m_ui_element_array,
+            sizeof(cur_clock_screen->m_ui_element_array)/sizeof(cur_clock_screen->m_ui_element_array[0])
+        );
+    }
+
+    refresh_clock_text();
+
+#if defined(REFRESH_UI_ELEMENTS_TOGOTHRE)
+    refresh_ui_elements(cur_clock_screen->m_screen_obj, cur_clock_screen->m_ui_element_array,
+        sizeof(cur_clock_screen->m_ui_element_array)/sizeof(cur_clock_screen->m_ui_element_array[0])
+    );
+#elif defined(REFRESH_UI_ELEMENTS_ONE_BY_ONE)
+    refresh_one_elemet(cur_clock_screen->m_screen_obj, cur_clock_screen->m_ui_element_array,
+        sizeof(cur_clock_screen->m_ui_element_array)/sizeof(cur_clock_screen->m_ui_element_array[0]), counter++, &(cur_clock_screen->m_image_element)
+    );
+#endif
+
+    if(b_load_screen){
+#if defined(LEGACY_LOAD_SCREEN)
+        lv_screen_load(cur_clock_screen->m_screen_obj);
+#elif defined(ANIMATION_LOAD_SCREEN)
+        lv_screen_load_anim(
+            cur_clock_screen->m_screen_obj,
             LV_SCR_LOAD_ANIM_MOVE_BOTTOM, LV_DEF_REFR_PERIOD*128/8, 0, false
         );
 #endif
@@ -897,21 +986,27 @@ void refresh_setting_screen(bool b_load_screen)
     }
 }
 
+/*
+ * Button order: mining, then network stats, then the clock, then back.
+ *
+ * The vendor cycle ran global -> coin -> mining -> settings, which opened on a
+ * stats page rather than on the thing the device is for. Settings is still
+ * built and refreshed; it is simply not in the button rotation, and the same
+ * information is on the web UI. Putting it back is one line here.
+ */
 void mining_next_screen()
-{  
-    #if 1
-    if(SCREEN_SETTING_SCREEN == cur_screen_index){
-        cur_screen_index = SCREEN_GLOBAL_SCREEN;
-    }else{
-        cur_screen_index = (cur_screen_index+1);
+{
+    switch(cur_screen_index){
+        case SCREEN_MINING_SCREEN:
+            cur_screen_index = SCREEN_GLOBAL_SCREEN;
+            break;
+        case SCREEN_GLOBAL_SCREEN:
+            cur_screen_index = SCREEN_CLOCK_SCREEN;
+            break;
+        default:
+            cur_screen_index = SCREEN_MINING_SCREEN;
+            break;
     }
-    #else
-    if(SCREEN_SETTING_SCREEN == cur_screen_index){
-        cur_screen_index = SCREEN_MINING_SCREEN;
-    }else{
-        cur_screen_index = (cur_screen_index+1);
-    }
-    #endif
     return;
 }
 
@@ -1003,6 +1098,9 @@ void refresh_current_screen()
             break;   
         case SCREEN_SETTING_SCREEN:
             refresh_setting_screen(b_screen_changed);
+            break;
+        case SCREEN_CLOCK_SCREEN:
+            refresh_clock_screen(b_screen_changed);
             break;      
         case SCREEN_LOG_SCREEN:
             refresh_log_screen(b_screen_changed);
@@ -1245,6 +1343,7 @@ void refresh_coin_data(coin_info new_coin_info)
     strncpy(p_doge_data->ltc_price, new_coin_info.ltc_price, sizeof(p_doge_data->ltc_price)/sizeof(p_doge_data->ltc_price[0]));
 
     global_stats_data *p_global_stats = &(volc_s3_display.m_global_screen.m_global_stats_data);
+    strncpy(p_global_stats->price, new_coin_info.ltc_price, sizeof(p_global_stats->price)/sizeof(p_global_stats->price[0]));
     strncpy(p_global_stats->global_diff, new_coin_info.global_ltc_diff, sizeof(p_global_stats->global_diff)/sizeof(p_global_stats->global_diff[0]));
     strncpy(p_global_stats->global_hashrate, new_coin_info.ltc_total_hashrate, sizeof(p_global_stats->global_hashrate)/sizeof(p_global_stats->global_hashrate[0]));
     snprintf(p_global_stats->ltc_blockheight, sizeof(p_global_stats->ltc_blockheight)/sizeof(p_global_stats->ltc_blockheight[0]), "%"PRIu32"", new_coin_info.ltc_block_height);

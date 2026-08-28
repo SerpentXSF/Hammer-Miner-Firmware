@@ -106,13 +106,17 @@ typedef struct {
 
     char halving_progress[20];
     char halving_blocks[20];
+
+    /* price is shown large on this page now, so it is carried here as well
+     * as on the coin screen */
+    char price[20];
 }global_stats_data;
 
 typedef struct {
     lv_obj_t            *m_screen_obj;    
     global_stats_data   m_global_stats_data;
     ImageElement        m_image_element;
-    UiElement           m_ui_element_array[5];
+    UiElement           m_ui_element_array[3];
 }global_stats_screen;
 
 typedef struct {
@@ -167,6 +171,20 @@ typedef struct{
     UiElement           m_ui_element_array[1];
 }log_screen;
 
+/* Local time, with the miner's own hashrate kept small in the corner. */
+typedef struct{
+    char clock_time[20];
+    char clock_date[20];
+    char hashrate[20];
+}clock_screen_data;
+
+typedef struct{
+    lv_obj_t            *m_screen_obj;
+    clock_screen_data   m_clock_data;
+    ImageElement        m_image_element;
+    UiElement           m_ui_element_array[3];
+}clock_screen;
+
 typedef struct {
     /*SemaphoreHandle_t xMutex;*/
     init2_screen    m_init2_screen;
@@ -177,6 +195,7 @@ typedef struct {
     global_stats_screen  m_global_screen;
     splash_screen    m_splash_screen;
     log_screen m_log_screen;
+    clock_screen m_clock_screen;
 }volc_display;
 
 typedef struct{
@@ -240,6 +259,7 @@ typedef enum {
     SCREEN_DOGE_SCREEN,
     SCREEN_MINING_SCREEN,
     SCREEN_SETTING_SCREEN,
+    SCREEN_CLOCK_SCREEN,
     SCREEN_LOG_SCREEN,
     SCREEN_NUM
 }SCREEN_INDEX;
@@ -268,5 +288,6 @@ void showErrorScreen(const char *error_message, uint32_t error_code);
 void hideErrorScreen(void);
 
 void refresh_coin_data(coin_info new_coin_info);
+void refresh_clock_screen(bool b_load_screen);
 
 #endif

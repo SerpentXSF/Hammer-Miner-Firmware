@@ -80,6 +80,10 @@ released.
 
 Treat this as reviewed, building, and field-tested on a BC01: it boots, negotiates USB-PD, brings up the regulator and fan, drives the BM1370, and mines.
 
+This firmware descends from work given away by other people first —
+HAN, NerdMiner, Bitaxe and ESP-Miner, and the Open Source Miners United
+community. They are named in [docs/CREDITS.md](docs/CREDITS.md).
+
 **Check your device before flashing anything.** On a retail BC01 measured
 here, Secure Boot is enforced and both spare key slots are revoked, so the
 stock module will only ever boot Hammer-signed firmware. eFuses are

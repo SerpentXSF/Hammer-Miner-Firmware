@@ -30,7 +30,9 @@ restore what should have accompanied the original release.
 ## Attribution is not a formality here
 
 ESP-Miner is the work of independent developers who chose the GPL
-specifically so that hardware vendors could not take their work private.
+specifically so that hardware vendors could not take their work private. They are
+named individually in [docs/CREDITS.md](docs/CREDITS.md); this file satisfies
+the licence, that one says thank you.
 A commercial product was built on it, sold, and shipped closed-source.
 The vendor's own README describes this as an oversight discovered during
 a compliance audit.
