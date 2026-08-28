@@ -2,7 +2,13 @@
 <html lang="en" style="font-size: 14px">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <!-- The type said image/svg+xml while pointing at an .ico, which browsers
+         are entitled to reject. Declared honestly, with PNG sizes so small
+         tabs get the flat-gold mark rather than a downscaled gradient. -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SerpentX | Stay Open</title>
     <style>
