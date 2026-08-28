@@ -176,9 +176,20 @@ void hammer_gpio_measure(int pin)
 }
 
 esp_err_t hammer_i2c_init(void)
-{   
-    hammer_gpio_pullup_survey();
-    hammer_gpio_measure(10);
+{
+    /*
+     * hammer_gpio_pullup_survey() and hammer_gpio_measure() used to run here.
+     * They must not: both call gpio_config(), which resets a pin's interrupt
+     * type to GPIO_INTR_DISABLE unless one is given. dev_display_init() has
+     * already registered the NEXT button's negative-edge interrupt on GPIO14
+     * by this point, and GPIO14 is in the survey's candidate list -- so the
+     * survey silently disabled it and the button stopped changing pages.
+     * GPIO0, the other button, is not in the list, which is why that one kept
+     * working and made the fault look like a wiring problem.
+     *
+     * Both are kept for bringing up an unfamiliar board, but they mutate pins
+     * other subsystems own and have no business running on every boot.
+     */
 
     /*
      * Two candidate explanations for the missing regulator were tested here
