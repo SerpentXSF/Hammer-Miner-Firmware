@@ -2,8 +2,8 @@
   <div class="login-container">
     <div class="login-card">
       <div class="logo-container">
-        <!-- Replace with your actual logo path or component -->
-        <img src="/icon/logo.svg" alt="Logo" class="logo" />
+        <img src="/icon/logo.svg" alt="SerpentX" class="logo" />
+        <div class="tagline">Stay Open</div>
       </div>
       
       <div class="form-container">
@@ -116,6 +116,14 @@ const handleLogin = async () => {
     width: auto;
     height: 48px; 
     margin-bottom: 0.5rem;
+  }
+
+  .tagline {
+    font-size: 0.8rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    opacity: 0.65;
+    margin-bottom: 0.75rem;
   }
 }
 
