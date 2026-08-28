@@ -188,10 +188,19 @@ int http_rest_btc_stats(void)
         return 0;
     }
 
-    uint64_t hashrate = strtoull(info->valuestring, NULL, 10);
-    ESP_LOGD(TAG, "hashrate_24h %s, %"PRIu64"",info->valuestring, hashrate);
+    /*
+     * Parsed as a double, not strtoull.
+     *
+     * blockchair reports hashrate_24h in H/s as a decimal string, and Bitcoin
+     * is past 9e20. uint64 tops out at 1.8446744e19, so strtoull() saturated
+     * and every device printed 18446744073709551615 / 1e18 = "18.45" -- a
+     * number that looks like a reading and never moves. It has been wrong
+     * since the network passed 18.4 EH/s.
+     */
+    double hashrate = strtod(info->valuestring, NULL);
+    ESP_LOGD(TAG, "hashrate_24h %s, %.0f", info->valuestring, hashrate);
 
-    snprintf(new_coin_info.ltc_total_hashrate, 20, "%.2f", (float)((double)hashrate/1e18));
+    snprintf(new_coin_info.ltc_total_hashrate, 20, "%.0f", hashrate/1e18);
 
     info = cJSON_GetObjectItem(stats_data, "market_price_usd");
     if (!info) {
@@ -297,9 +306,9 @@ int http_rest_doge_stats(void)
         ESP_LOGE(TAG, "Failed to parse hashrate_24h");
         return 0;
     }
-    uint64_t hashrate = strtoull(info->valuestring, NULL, 10);
-    ESP_LOGD(TAG, "hashrate_24h %s, %"PRIu64"",info->valuestring, hashrate);
-    snprintf(new_coin_info.doge_total_hashrate, 20, "%.2f", (float)((float)hashrate/1e15));
+    double hashrate = strtod(info->valuestring, NULL);  /* see the note above */
+    ESP_LOGD(TAG, "hashrate_24h %s, %.0f", info->valuestring, hashrate);
+    snprintf(new_coin_info.doge_total_hashrate, 20, "%.2f", hashrate/1e15);
 
     info = cJSON_GetObjectItem(stats_data, "market_price_usd");
     if (!info) {

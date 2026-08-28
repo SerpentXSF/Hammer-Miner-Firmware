@@ -834,7 +834,36 @@ void system_task(void *pvParameters)
             showErrorScreen("OVER HEATED",HIGH_TEMPERATURE_ERROR);
         }
 
-        if( GLOBAL_STATE->SYSTEM_MODULE.current_hashrate > 1)
+        /*
+         * current_hashrate is a rolling average, and in the first minutes it
+         * reads far above the true rate -- a BC01 settling at 1.6 TH/s shows
+         * 2.3 TH/s at twenty seconds, because the window holds a handful of
+         * lucky shares. current_hashrate_max was a high-water mark that never
+         * decayed, so that early overshoot became the reference for the rest
+         * of the run and set the alarm at half of a number the miner was
+         * never going to reach again. Ordinary variance then tripped
+         * "Hashrate too low" on a perfectly healthy device.
+         *
+         * The average is left to settle before it is trusted, and the mark
+         * bleeds off slowly so one spike cannot poison the whole session.
+         */
+        #define HASHRATE_WARMUP_SECONDS 600
+        int64_t mining_seconds =
+            (esp_timer_get_time() - GLOBAL_STATE->SYSTEM_MODULE.start_time) / 1000000;
+
+        if(mining_seconds < HASHRATE_WARMUP_SECONDS)
+        {
+            current_hashrate_max = 0;
+            hashrate_time_count = 0;
+        }
+        else if(current_hashrate_max > 0)
+        {
+            /* about 1% a minute at this loop's 2 Hz */
+            current_hashrate_max -= current_hashrate_max / 12000;
+        }
+
+        if( GLOBAL_STATE->SYSTEM_MODULE.current_hashrate > 1
+            && mining_seconds >= HASHRATE_WARMUP_SECONDS)
         {
             if(GLOBAL_STATE->SYSTEM_MODULE.current_hashrate > current_hashrate_max)
             {

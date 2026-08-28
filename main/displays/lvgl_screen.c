@@ -679,10 +679,13 @@ void refresh_global_text()
     UiElement *p_uielement_array = volc_s3_display.m_global_screen.m_ui_element_array;
     global_stats_data *cur_global_data = &(volc_s3_display.m_global_screen.m_global_stats_data);
 
-    /* price large, then block height and network hashrate beneath it */
+    /* price large, then block height and network hashrate beneath it.
+     * unit_text is only ever shown where a refresh function appends it, so
+     * the suffix has to be joined on here or it never reaches the screen. */
     strncpy(p_uielement_array[0].text, cur_global_data->price, 20);
     strncpy(p_uielement_array[1].text, cur_global_data->ltc_blockheight, 20);
-    strncpy(p_uielement_array[2].text, cur_global_data->global_hashrate, 20);
+    snprintf(p_uielement_array[2].text, sizeof(p_uielement_array[2].text), "%s%s",
+             cur_global_data->global_hashrate, p_uielement_array[2].unit_text);
 }
 
 void refresh_global_screen(bool b_load_screen)
@@ -762,7 +765,8 @@ void refresh_clock_text()
 
     strncpy(p_uielement_array[0].text, cur_clock_data->clock_time, 20);
     strncpy(p_uielement_array[1].text, cur_clock_data->clock_date, 20);
-    strncpy(p_uielement_array[2].text, cur_clock_data->hashrate, 20);
+    snprintf(p_uielement_array[2].text, sizeof(p_uielement_array[2].text), "%s%s",
+             cur_clock_data->hashrate, p_uielement_array[2].unit_text);
 }
 
 void refresh_clock_screen(bool b_load_screen)
