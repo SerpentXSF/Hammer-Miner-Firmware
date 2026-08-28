@@ -35,6 +35,8 @@ const dualPool = computed(() => {
     rejectedA: s.sharesRejected ?? 0,
     sharesB: s.poolBSharesAccepted ?? 0,
     rejectedB: s.poolBSharesRejected ?? 0,
+    diffA: s.stratumDiff ?? 0,
+    diffB: s.poolBDiff ?? 0,
   };
 });
 const del = (code: string): string => t(`dashboard.uptime.${code}`);
@@ -894,11 +896,15 @@ const gaugeColor = computed(() => {
             <div class="info-list">
               <div class="info-row">
                 <div class="info-key">{{ dll('poolA_shares') }}</div>
-                <div class="info-value">{{ dualPool.sharesA }} / {{ dualPool.rejectedA }}</div>
+                <div class="info-value">{{ dualPool.sharesA }} / {{ dualPool.rejectedA }}
+                  <span class="dual-diff">@ {{ dualPool.diffA }}</span>
+                </div>
               </div>
               <div class="info-row">
                 <div class="info-key">{{ dll('poolB_shares') }}</div>
-                <div class="info-value">{{ dualPool.sharesB }} / {{ dualPool.rejectedB }}</div>
+                <div class="info-value">{{ dualPool.sharesB }} / {{ dualPool.rejectedB }}
+                  <span class="dual-diff">@ {{ dualPool.diffB }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1240,6 +1246,13 @@ const gaugeColor = computed(() => {
 
 .dual-user {
   word-break: break-all;
+}
+
+/* the pools rarely share a difficulty, which is why the share counts differ */
+.dual-diff {
+  color: var(--text-color-secondary);
+  font-size: 0.82em;
+  margin-left: 0.35rem;
 }
 
 .card-title {

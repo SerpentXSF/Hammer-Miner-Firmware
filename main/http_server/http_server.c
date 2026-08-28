@@ -1587,6 +1587,10 @@ static esp_err_t GET_system_info(httpd_req_t * req)
     cJSON_AddNumberToObject(root, "poolBConnected", GLOBAL_STATE->SYSTEM_MODULE.poolB_connected);
     cJSON_AddNumberToObject(root, "poolBSharesAccepted", GLOBAL_STATE->SYSTEM_MODULE.poolB_shares_accepted);
     cJSON_AddNumberToObject(root, "poolBSharesRejected", GLOBAL_STATE->SYSTEM_MODULE.poolB_shares_rejected);
+    /* Pool B's own vardiff. Without it the two pools' share counts cannot be
+     * compared: work delivered is shares x difficulty, and the pools rarely
+     * settle on the same one. */
+    cJSON_AddNumberToObject(root, "poolBDiff", GLOBAL_STATE->stratum_difficultyB);
 
     cJSON_AddStringToObject(root, "version", esp_app_get_description()->version);
     cJSON_AddStringToObject(root, "WWWVersion", WWWVersion);
