@@ -132,7 +132,13 @@ void create_jobs_task(void *pvParameters)
                 if(GLOBAL_STATE->chain_pluged[chain_num])
                 {    
                     ESP_LOGD(TAG, "abandon work. %"PRIu32"", chain_num);
-                    ASIC_jobs_queue_clear(&GLOBAL_STATE->ASIC_jobs_queue[chain_num]);
+                    /* abandon_work is raised by pool A's clean_jobs, so it
+                     * discards pool A's work only -- see cleanQueue() */
+                    if (GLOBAL_STATE->dual_enable) {
+                        ASIC_jobs_queue_clear_pool(&GLOBAL_STATE->ASIC_jobs_queue[chain_num], POOL_A);
+                    } else {
+                        ASIC_jobs_queue_clear(&GLOBAL_STATE->ASIC_jobs_queue[chain_num]);
+                    }
                     xSemaphoreGive(GLOBAL_STATE->ASIC_TASK_MODULE[chain_num].semaphore);
                 }
             }

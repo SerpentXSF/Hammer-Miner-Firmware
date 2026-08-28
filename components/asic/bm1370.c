@@ -417,6 +417,8 @@ void BM1370_send_work(void * pvParameters, bm_job * next_bm_job)
 
     pthread_mutex_lock(&GLOBAL_STATE->valid_jobs_lock[0]);
     GLOBAL_STATE->valid_jobs[0][job.job_id] = 1;
+    /* remember whose work this slot holds; see job_pool in global_state.h */
+    GLOBAL_STATE->job_pool[0][job.job_id] = next_bm_job->pool_id;
     pthread_mutex_unlock(&GLOBAL_STATE->valid_jobs_lock[0]);
 
     //debug sent jobs - this can get crazy if the interval is short

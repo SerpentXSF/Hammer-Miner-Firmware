@@ -209,6 +209,15 @@ typedef struct
     int abandon_work;
 
     uint8_t * valid_jobs[MAX_CHAIN_NUM];
+    /*
+     * Which pool owns each ASIC job slot, so a clean_jobs from one pool can
+     * spare the other's in-flight work. Recorded here rather than read back
+     * from active_jobs[] because that array is written outside
+     * valid_jobs_lock -- following those pointers from another task would be
+     * a use-after-free waiting to happen. Written under the same lock as
+     * valid_jobs, and read under it too.
+     */
+    uint8_t job_pool[MAX_CHAIN_NUM][128];
     pthread_mutex_t valid_jobs_lock[MAX_CHAIN_NUM];
 
     uint32_t stratum_difficulty;

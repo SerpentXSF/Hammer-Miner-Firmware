@@ -20,6 +20,8 @@ typedef struct
 void queue_init(work_queue *queue);
 void queue_enqueue(work_queue *queue, void *new_work);
 void ASIC_jobs_queue_clear(work_queue *queue);
+/* clear only one pool's queued jobs; see work_queue.c */
+void ASIC_jobs_queue_clear_pool(work_queue *queue, uint8_t pool_id);
 void *queue_dequeue(work_queue *queue);
 void queue_clear(work_queue *queue);
 

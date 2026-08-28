@@ -10,6 +10,7 @@
 #include "nvs_config.h"
 #include "stratum_task.h"
 #include "work_queue.h"
+#include "pool_scheduler.h"
 #include "esp_wifi.h"
 #include <esp_sntp.h>
 #include <time.h>
@@ -84,14 +85,31 @@ void cleanQueue(GlobalState * GLOBAL_STATE) {
         if(GLOBAL_STATE->chain_pluged[chain_num]){
             pthread_mutex_lock(&GLOBAL_STATE->valid_jobs_lock[chain_num]);
 
+            /*
+             * This is pool A's clean_jobs. It used to clear the whole ASIC
+             * queue and invalidate all 128 slots -- including pool B's work,
+             * which pool A has no business abandoning. Every nonce the ASIC
+             * then returned for a pool B job was discarded as an unknown job,
+             * on every new block. That is lost shares, and one of them could
+             * be a block.
+             */
             if (GLOBAL_STATE->ASIC_jobs_queue[chain_num].count > 0){
                 ESP_LOGD(TAG, "Clean Jobs: clearing chain %"PRIu32" asic job queue", chain_num);
-                ASIC_jobs_queue_clear(&GLOBAL_STATE->ASIC_jobs_queue[chain_num]);
+                if (GLOBAL_STATE->dual_enable) {
+                    ASIC_jobs_queue_clear_pool(&GLOBAL_STATE->ASIC_jobs_queue[chain_num], POOL_A);
+                } else {
+                    ASIC_jobs_queue_clear(&GLOBAL_STATE->ASIC_jobs_queue[chain_num]);
+                }
             }
-                
+
             for (int i = 0; i < 128; i++) {
-                if(NULL != GLOBAL_STATE->valid_jobs[chain_num])
-                    GLOBAL_STATE->valid_jobs[chain_num][i] = 0;
+                if(NULL == GLOBAL_STATE->valid_jobs[chain_num])
+                    continue;
+                if (GLOBAL_STATE->dual_enable &&
+                    GLOBAL_STATE->job_pool[chain_num][i] == POOL_B) {
+                    continue;   /* pool B's slot; not pool A's to invalidate */
+                }
+                GLOBAL_STATE->valid_jobs[chain_num][i] = 0;
             }
 
             pthread_mutex_unlock(&GLOBAL_STATE->valid_jobs_lock[chain_num]);

@@ -155,9 +155,30 @@ void stratum_poolb_task(void *pvParameters)
             free(line);
 
             if (poolb_message.method == MINING_NOTIFY) {
-                if (poolb_message.should_abandon_work &&
-                    GLOBAL_STATE->stratum_queueB.count > 0) {
-                    queue_clear(&GLOBAL_STATE->stratum_queueB);
+                if (poolb_message.should_abandon_work) {
+                    /*
+                     * The mirror of cleanQueue(): pool B abandons its own work
+                     * and leaves pool A's alone. Without this, pool B's stale
+                     * jobs stayed valid and their nonces were submitted to a
+                     * pool that had already moved on -- rejected as stale.
+                     */
+                    if (GLOBAL_STATE->stratum_queueB.count > 0) {
+                        queue_clear(&GLOBAL_STATE->stratum_queueB);
+                    }
+                    for (uint32_t chain = 0; chain < MAX_CHAIN_NUM; chain++) {
+                        if (!GLOBAL_STATE->chain_pluged[chain]) {
+                            continue;
+                        }
+                        pthread_mutex_lock(&GLOBAL_STATE->valid_jobs_lock[chain]);
+                        ASIC_jobs_queue_clear_pool(&GLOBAL_STATE->ASIC_jobs_queue[chain], POOL_B);
+                        for (int i = 0; i < 128; i++) {
+                            if (GLOBAL_STATE->valid_jobs[chain] != NULL &&
+                                GLOBAL_STATE->job_pool[chain][i] == POOL_B) {
+                                GLOBAL_STATE->valid_jobs[chain][i] = 0;
+                            }
+                        }
+                        pthread_mutex_unlock(&GLOBAL_STATE->valid_jobs_lock[chain]);
+                    }
                 }
                 if (GLOBAL_STATE->stratum_queueB.count == QUEUE_SIZE) {
                     mining_notify *stale =
