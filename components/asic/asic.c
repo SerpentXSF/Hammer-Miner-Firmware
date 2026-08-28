@@ -331,6 +331,8 @@ void ASIC_send_work(GlobalState * GLOBAL_STATE, void * next_job, uint32_t chain_
 			BM1370_send_work(GLOBAL_STATE, next_job);
 			break;
         case DEVICE_BC06:
+        case DEVICE_BC01:
+        case DEVICE_BC02:
 			BM1370_send_work(GLOBAL_STATE, next_job);
 			break;            
             //LT0051_send_work_by_chip(GLOBAL_STATE, next_job, chain_num, workid, ASIC_get_asic_count(GLOBAL_STATE));
@@ -361,6 +363,8 @@ void ASIC_set_version_mask(GlobalState * GLOBAL_STATE, uint32_t mask) {
             BM1370_set_version_mask(mask);
             break;
         case DEVICE_BC06:
+        case DEVICE_BC01:
+        case DEVICE_BC02:
             BM1370_set_version_mask(mask);
             break;            
         default:
@@ -394,6 +398,8 @@ bool ASIC_set_frequency(GlobalState * GLOBAL_STATE, float target_frequency) {
             do_frequency_transition(target_frequency, BM1370_send_hash_frequency);
 			break;
 		case DEVICE_BC06:
+        case DEVICE_BC01:
+        case DEVICE_BC02:
 			success = true;
             do_frequency_transition(target_frequency, BM1370_send_hash_frequency);
 			break;
@@ -437,6 +443,8 @@ void ASIC_read_registers(GlobalState * GLOBAL_STATE)
             BM1370_read_registers(GLOBAL_STATE);
             break;
         case DEVICE_BC06:
+        case DEVICE_BC01:
+        case DEVICE_BC02:
             BM1370_read_registers(GLOBAL_STATE);
             break;             
         default:
