@@ -167,7 +167,7 @@ static volc_display volc_s3_display = {
     },
     .m_clock_screen = {
         .m_screen_obj = NULL,
-        .m_clock_data = {.clock_time = "--:--", .clock_date = "", .hashrate = "0"},
+        .m_clock_data = {.clock_time = "--:--", .clock_date = "", .hashrate = "0", .pool_split = ""},
         .m_image_element = {.image_dsc = &clockscreen, .align = LV_ALIGN_CENTER, .add_flag = LV_OBJ_FLAG_ADV_HITTEST, .clear_flag = LV_OBJ_FLAG_SCROLLABLE},
         .m_ui_element_array = {
             {.name="clock_time", .text="--:--", .unit_text="", .x_pos=0, .y_pos=-18, .text_font=&lv_font_montserrat_28,.p_lv_obj = NULL,
@@ -176,7 +176,11 @@ static volc_display volc_s3_display = {
             .width=LV_SIZE_CONTENT, .height=LV_SIZE_CONTENT, .align=LV_ALIGN_CENTER, .text_align=LV_TEXT_ALIGN_CENTER, .text_color=LV_COLOR_MAKE(0x96, 0xaa, 0xc8)},
             /* the miner's own rate, small, bottom right */
             {.name="hashrate", .text="0", .unit_text=" TH/s", .x_pos=88, .y_pos=61, .text_font=&lv_font_montserrat_14,.p_lv_obj = NULL,
-            .width=LV_SIZE_CONTENT, .height=LV_SIZE_CONTENT, .align=LV_ALIGN_CENTER, .text_align=LV_TEXT_ALIGN_RIGHT, .text_color=LV_COLOR_MAKE(0xff, 0xb8, 0x1c)}
+            .width=LV_SIZE_CONTENT, .height=LV_SIZE_CONTENT, .align=LV_ALIGN_CENTER, .text_align=LV_TEXT_ALIGN_RIGHT, .text_color=LV_COLOR_MAKE(0xff, 0xb8, 0x1c)},
+            /* dual-pool split, under the date; blank when dual mining is off so
+             * the page looks the same as before on a single-pool miner */
+            {.name="pool_split", .text="", .unit_text="", .x_pos=0, .y_pos=37, .text_font=&lv_font_montserrat_14,.p_lv_obj = NULL,
+            .width=LV_SIZE_CONTENT, .height=LV_SIZE_CONTENT, .align=LV_ALIGN_CENTER, .text_align=LV_TEXT_ALIGN_CENTER, .text_color=LV_COLOR_MAKE(0x96, 0xaa, 0xc8)}
         }
     }
 };
@@ -767,6 +771,16 @@ void refresh_clock_text()
     strncpy(p_uielement_array[1].text, cur_clock_data->clock_date, 20);
     snprintf(p_uielement_array[2].text, sizeof(p_uielement_array[2].text), "%s%s",
              cur_clock_data->hashrate, p_uielement_array[2].unit_text);
+
+    /* Where the hashrate is going, when it is going to two places. */
+    if (volc_s3_display.m_dual_enable) {
+        snprintf(cur_clock_data->pool_split, sizeof(cur_clock_data->pool_split),
+                 "A %u%%  /  B %u%%", volc_s3_display.m_dual_ratio_a,
+                 (unsigned)(100 - volc_s3_display.m_dual_ratio_a));
+    } else {
+        cur_clock_data->pool_split[0] = ' ';
+    }
+    strncpy(p_uielement_array[3].text, cur_clock_data->pool_split, 20);
 }
 
 void refresh_clock_screen(bool b_load_screen)
@@ -1324,6 +1338,9 @@ void refresh_hash_data(hash_data new_hash_data)
 void refresh_hash_data_from_system(GlobalState *GLOBAL_STATE)
 {
     hash_data new_hash_data;
+
+    volc_s3_display.m_dual_enable = GLOBAL_STATE->dual_enable;
+    volc_s3_display.m_dual_ratio_a = GLOBAL_STATE->dual_ratio_a;
 
     new_hash_data.frequency = GLOBAL_STATE->asic_freqency;
     new_hash_data.hashrate = GLOBAL_STATE->SYSTEM_MODULE.current_hashrate;

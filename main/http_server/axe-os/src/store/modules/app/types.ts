@@ -2,6 +2,9 @@ import { MinerStatusData, ChartData, DomainData } from "@/api/type.ts";
 
 export interface AppState {
   isAPMode: boolean;
+  /* set when the miner answers 401: it has a password and we hold no valid
+   * token, so the router must offer the login page */
+  authRequired?: boolean;
   staticMenuDesktopInactive: boolean;
   staticMenuMobileActive: boolean;
   isDebugMode: boolean;

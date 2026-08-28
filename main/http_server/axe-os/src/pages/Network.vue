@@ -7,6 +7,7 @@ import {getMinerStatus, getNetworkInfo, restartMiner, scanWifi, setNetworkConf} 
 import {useAppStore} from "@/store";
 import {showNotification, showNotificationLoading, validatorIP, validData} from "@/util/utils.ts";
 import {FormInstance} from "ant-design-vue";
+import SecuritySettings from "@/components/SecuritySettings.vue";
 import {RES_CODE, WIFI_STATUS} from "@/util/const.ts";
 
 const {t, locale} = useI18n();
@@ -418,6 +419,17 @@ onMounted(async () => {
       </a-form>
       </div>
     </a-card>
+
+    <!--
+      First run happens here: the miner is its own access point on
+      192.168.4.1 and this is the page the owner lands on to give it a
+      network. It is also the only moment they are guaranteed to be looking
+      at the device, so it is where the password belongs. Without this a
+      fresh miner joined the network with authentication switched off and
+      nothing prompting anyone to turn it on.
+    -->
+    <SecuritySettings v-if="appStore.statusRaw?.apEnabled" />
+
   </div>
 </template>
 

@@ -41,31 +41,32 @@ const router = createRouter({
 router.beforeEach(async (to, _, next) => {
     const appStore = useAppStore();
 
+    /*
+     * Whether this miner wants a login is answered by the miner, not by a
+     * per-model table in the UI.
+     *
+     * This used to read `appStore.minerStatus?.auth_enable`, gated behind
+     * `support_login`. The firmware reports `authEnabled`, and support_login is
+     * false for every model here -- so the flag was always undefined, the guard
+     * always fell through, and a miner with a password set showed an empty
+     * dashboard with no way to reach the login page. Both halves are fixed:
+     * the field name matches what the firmware sends, and the static gate is
+     * gone.
+     */
+
     // 1. Ensure system status is loaded
     if (!appStore.isDataLoaded) {
         try {
-            const success = await appStore.updateState();
-            if (!success) {
-                // If we failed to get status, check if the current model config even supports login.
-                // By default `support_login` is false. We only redirect to login if it's explicitly supported
-                // or if there's evidence we need auth (e.g. 401 cleared the token, though hard to detect strictly here).
-                // Let's rely on the config. If it doesn't support login, DO NOT redirect.
-                if (appStore.currentModelConfig?.support_login && to.path !== '/login') {
-                    next('/login');
-                    return;
-                }
-            }
+            await appStore.updateState();
         } catch (e) {
             console.error("Failed to load system status", e);
-            if (appStore.currentModelConfig?.support_login && to.path !== '/login') {
-                next('/login');
-                return;
-            }
         }
     }
 
-    // 2. Auth Check: If device doesn't support login, bypass auth
-    const isAuthEnabled = appStore.currentModelConfig?.support_login ? appStore.minerStatus?.auth_enable : false;
+    const status: any = appStore.minerStatus;
+    // authRequired is set when the status call came back 401, which is the only
+    // signal available before we hold a token.
+    const isAuthEnabled = status ? !!status.authEnabled : !!appStore.authRequired;
     const isAuthenticated = appStore.isAuthenticated;
 
     if (to.path === '/login') {

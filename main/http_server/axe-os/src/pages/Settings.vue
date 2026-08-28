@@ -381,7 +381,10 @@ onMounted(async () => {
   </a-card>
 
   
-  <SecuritySettings v-if="appStore.currentModelConfig?.support_login" />
+  <!-- Shown unconditionally: this firmware always supports a device password,
+       and hiding the only way to set one is how a fresh miner ended up with no
+       route to authentication at all. -->
+  <SecuritySettings />
 </template>
 
 <style scoped lang="scss">

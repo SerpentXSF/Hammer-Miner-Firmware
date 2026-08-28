@@ -176,13 +176,15 @@ typedef struct{
     char clock_time[20];
     char clock_date[20];
     char hashrate[20];
+    /* "A 50% / B 50%" while dual mining, empty otherwise */
+    char pool_split[20];
 }clock_screen_data;
 
 typedef struct{
     lv_obj_t            *m_screen_obj;
     clock_screen_data   m_clock_data;
     ImageElement        m_image_element;
-    UiElement           m_ui_element_array[3];
+    UiElement           m_ui_element_array[4];
 }clock_screen;
 
 typedef struct {
@@ -196,6 +198,11 @@ typedef struct {
     splash_screen    m_splash_screen;
     log_screen m_log_screen;
     clock_screen m_clock_screen;
+
+    /* pushed in by refresh_hash_data_from_system, so the display module keeps
+     * its habit of never reaching into GlobalState itself */
+    bool m_dual_enable;
+    uint8_t m_dual_ratio_a;
 }volc_display;
 
 typedef struct{

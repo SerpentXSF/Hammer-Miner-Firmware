@@ -23,6 +23,7 @@ export const useAppStore = defineStore("app", {
         deviceModel: "",
 
         statusRaw: null,
+        authRequired: false,
         dataLabel: JSON.parse(sessionStorage.getItem("dataLabel") || "[]"),
         hashrateData: JSON.parse(sessionStorage.getItem("hashrateData") || "[]"),
         temperatureData: JSON.parse(sessionStorage.getItem("temperatureData") || "[]"),
@@ -160,8 +161,18 @@ export const useAppStore = defineStore("app", {
                     });
                     return true;
                 }
-            } catch (e) {
+            } catch (e: any) {
                 console.error("Failed to update state", e);
+                /*
+                 * A 401 here means this miner has a password set and we hold no
+                 * valid token. Without recording that, the router had no way to
+                 * know auth was in play and left the user on an empty dashboard
+                 * with no route to the login page.
+                 */
+                if (e?.response?.status === 401) {
+                    this.setInfo({ authRequired: true });
+                    this.setToken('');
+                }
                 // Check if axios interceptor cleared the token (401)
                 if (!localStorage.getItem('auth_token') && this.token) {
                     this.setToken('');
