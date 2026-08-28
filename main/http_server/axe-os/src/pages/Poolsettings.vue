@@ -31,6 +31,14 @@ interface FormState {
   stratumExtranonceSubscribe: number;
   fallbackStratumTLS: number;
   fallbackStratumExtranonceSubscribe: number;
+
+  poolBURL: string;
+  poolBUser: string;
+  poolBPassword: string | null;
+  poolBTLS: number;
+  dualEnable: number;
+  dualRatioA: number;
+  dualSliceMs: number;
 }
 
 const formState = reactive<FormState>({
@@ -44,6 +52,14 @@ const formState = reactive<FormState>({
   stratumExtranonceSubscribe: 0,
   fallbackStratumTLS: 0,
   fallbackStratumExtranonceSubscribe: 0,
+
+  poolBURL: '',
+  poolBUser: '',
+  poolBPassword: null,
+  poolBTLS: 0,
+  dualEnable: 0,
+  dualRatioA: 50,
+  dualSliceMs: 2000,
 });
 
 const cfgsFormRef = ref<FormInstance>();
@@ -89,6 +105,10 @@ const syncMinerStatus = async () => {
     console.log(e);
   }
 }
+
+const onPoolBSelect = (value: string) => {
+  formState.poolBURL = value;
+};
 
 const updateSys = async (values: any) => {
   actionStatus.saving = true;
@@ -137,6 +157,26 @@ const updateSys = async (values: any) => {
       fallbackStratumTLS: values.fallbackStratumTLS,
       fallbackStratumExtranonceSubscribe: values.fallbackStratumExtranonceSubscribe,
     }
+
+    // Dual pool. Only send the endpoint when one is set, so saving the page
+    // with the tab untouched cannot blank a configured pool B.
+    const poolB = parseAddress(formState.poolBURL);
+    if (poolB.url) {
+      Object.assign(formData, {
+        poolBUrl: poolB.url,
+        poolBPort: poolB.port,
+        poolBUser: formState.poolBUser,
+        poolBTLS: formState.poolBTLS,
+      });
+      if (formState.poolBPassword && formState.poolBPassword !== '*****') {
+        Object.assign(formData, { poolBPass: formState.poolBPassword });
+      }
+    }
+    Object.assign(formData, {
+      dualEnable: formState.dualEnable,
+      dualRatioA: formState.dualRatioA,
+      dualSliceMs: formState.dualSliceMs,
+    });
 
     await updateSystem('', formData);
     showNotification(t('com.msg_save_success'), 'success')
@@ -193,6 +233,15 @@ onMounted(async () => {
     formState.stratumExtranonceSubscribe = minerStatusRef.value.stratumExtranonceSubscribe ?? 0;
     formState.fallbackStratumTLS = minerStatusRef.value.fallbackStratumTLS ?? 0;
     formState.fallbackStratumExtranonceSubscribe = minerStatusRef.value.fallbackStratumExtranonceSubscribe ?? 0;
+
+    const st: any = minerStatusRef.value;
+    formState.poolBURL = st.poolBUrl ? `${st.poolBUrl}:${st.poolBPort ?? 3333}` : '';
+    formState.poolBUser = st.poolBUser ?? '';
+    formState.poolBPassword = st.poolBUrl ? '*****' : '';
+    formState.poolBTLS = st.poolBTLS ?? 0;
+    formState.dualEnable = st.dualEnable ?? 0;
+    formState.dualRatioA = st.dualRatioA ?? 50;
+    formState.dualSliceMs = st.dualSliceMs ?? 2000;
   }
 })
 </script>
@@ -294,6 +343,78 @@ onMounted(async () => {
             </div>
           </a-tab-pane>
 
+          <a-tab-pane key="dual" :tab="dpl('dual')">
+            <div class="tab-content">
+
+              <div class="dual-intro">
+                <div class="dual-intro-title">{{ dpl('dual_intro_title') }}</div>
+                <div class="dual-intro-body">{{ dpl('dual_intro_body') }}</div>
+              </div>
+
+              <a-form-item :colon="false" style="margin-bottom: 1.25rem;">
+                <div class="ps-switch-row">
+                  <span class="ps-switch-label">{{ dpl('dual_enable') }}</span>
+                  <a-switch :checked="formState.dualEnable === 1"
+                            @change="(checked: boolean) => formState.dualEnable = checked ? 1 : 0" />
+                </div>
+              </a-form-item>
+
+              <a-form-item label="Quick Select">
+                <a-select class="pool-quick-select" placeholder="Select a recommended solo pool"
+                          @change="onPoolBSelect" style="width: 100%"
+                          dropdownClassName="pool-quick-select-dropdown">
+                  <a-select-option v-for="pool in recommendedPools" :key="pool.id" :value="pool.value">
+                    <div class="pool-option">
+                      <img :src="pool.logo" class="pool-logo" />
+                      <div class="pool-info">
+                        <div class="pool-name">{{ pool.label }}</div>
+                        <div class="pool-addr">{{ pool.value }}</div>
+                      </div>
+                    </div>
+                  </a-select-option>
+                </a-select>
+              </a-form-item>
+
+              <a-form-item :label="pl('stratum_host')" name="poolBURL">
+                <a-input v-model:value="formState.poolBURL" placeholder="host:port"></a-input>
+              </a-form-item>
+              <a-form-item :label="pl('stratum_user')" name="poolBUser">
+                <a-input v-model:value="formState.poolBUser"></a-input>
+              </a-form-item>
+              <a-form-item :label="pl('stratum_password')" name="poolBPassword">
+                <a-input-password v-model:value="formState.poolBPassword"></a-input-password>
+              </a-form-item>
+
+              <a-form-item v-if="appStore.currentModelConfig?.support_tls" name="poolBTLS" :colon="false" style="margin-bottom: 0;">
+                <div class="ps-switch-row">
+                  <span class="ps-switch-label">{{ pl('stratum_tls') }}</span>
+                  <a-switch :checked="formState.poolBTLS === 1"
+                            @change="(checked: boolean) => formState.poolBTLS = checked ? 1 : 0" />
+                </div>
+              </a-form-item>
+
+              <div class="dual-split">
+                <div class="dual-split-head">
+                  <span class="ps-switch-label">{{ dpl('dual_split') }}</span>
+                  <span class="dual-split-value">
+                    <span class="pool-a">A {{ formState.dualRatioA }}%</span>
+                    <span class="sep">/</span>
+                    <span class="pool-b">B {{ 100 - formState.dualRatioA }}%</span>
+                  </span>
+                </div>
+                <a-slider v-model:value="formState.dualRatioA" :min="0" :max="100" :step="5"
+                          :tip-formatter="(v: number) => `A ${v}% / B ${100 - v}%`" />
+                <div class="dual-hint">{{ dpl('dual_split_hint') }}</div>
+              </div>
+
+              <a-form-item :label="dpl('dual_slice')" name="dualSliceMs">
+                <a-input-number v-model:value="formState.dualSliceMs" :min="100" :max="60000" :step="100" />
+              </a-form-item>
+              <div class="dual-hint">{{ dpl('dual_slice_hint') }}</div>
+
+            </div>
+          </a-tab-pane>
+
         </a-tabs>
 
         <div class="ps-action">
@@ -329,6 +450,57 @@ onMounted(async () => {
 
 .tab-content {
   padding-top: 20px;
+}
+
+/* ---- dual pool ---- */
+.dual-intro {
+  border: 1px solid var(--surface-border);
+  border-left: 3px solid var(--primary-color);
+  border-radius: var(--card-border-radius);
+  padding: 0.85rem 1.1rem;
+  margin-bottom: 1.5rem;
+  background: var(--surface-overlay);
+}
+
+.dual-intro-title {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  color: var(--text-color);
+}
+
+.dual-intro-body {
+  color: var(--text-color-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.dual-split {
+  border-top: 1px solid var(--surface-border);
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+}
+
+.dual-split-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.dual-split-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+
+  .pool-a { color: var(--primary-color); }
+  .pool-b { color: #ffb81c; }
+  .sep { color: var(--text-color-secondary); margin: 0 0.4rem; }
+}
+
+.dual-hint {
+  color: var(--text-color-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin-bottom: 1.25rem;
 }
 
 :deep(.ant-form-item .ant-form-item-label >label) {

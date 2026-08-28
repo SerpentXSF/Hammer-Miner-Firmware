@@ -19,6 +19,24 @@ const dtl = (code: string): string => t(`dashboard.chart.${code}`);
 const dsrl = (code: string): string => t(`dashboard.progress.power.${code}`);
 const dstl = (code: string): string => t(`dashboard.progress.heat.${code}`);
 const dll = (code: string): string => t(`dashboard.pool.${code}`);
+
+/* Pool B status. statusRaw is the unshaped API payload, so it is read through
+ * one accessor here rather than casting in half a dozen template expressions. */
+const dualPool = computed(() => {
+  const s: any = appStore.statusRaw ?? {};
+  return {
+    enabled: !!s.dualEnable,
+    connected: !!s.poolBConnected,
+    url: s.poolBUrl ?? '',
+    port: s.poolBPort ?? 0,
+    user: s.poolBUser ?? '',
+    ratioA: s.dualRatioA ?? 50,
+    sharesA: s.sharesAccepted ?? 0,
+    rejectedA: s.sharesRejected ?? 0,
+    sharesB: s.poolBSharesAccepted ?? 0,
+    rejectedB: s.poolBSharesRejected ?? 0,
+  };
+});
 const del = (code: string): string => t(`dashboard.uptime.${code}`);
 const dal = (code: string): string => t(`dashboard.alert.${code}`);
 
@@ -847,6 +865,44 @@ const gaugeColor = computed(() => {
             </div>
           </div>
 
+          <div class="card" v-if="dualPool.enabled">
+            <div class="card-header">
+              <div class="card-title">{{ dll('poolB_title') }}</div>
+              <span class="dual-badge" :class="{ 'is-live': dualPool.connected }">
+                {{ dualPool.connected ? dll('poolB_connected') : dll('poolB_waiting') }}
+              </span>
+            </div>
+            <div class="info-list">
+              <div class="info-row">
+                <div class="info-key">{{ dll('url') }}</div>
+                <div class="info-value">{{ dualPool.url }}:{{ dualPool.port }}</div>
+              </div>
+              <div class="info-row">
+                <div class="info-key">{{ dll('user') }}</div>
+                <div class="info-value dual-user">{{ dualPool.user }}</div>
+              </div>
+            </div>
+
+            <div class="dual-split-row">
+              <span class="dual-leg pool-a">A {{ dualPool.ratioA }}%</span>
+              <span class="dual-leg pool-b">B {{ 100 - dualPool.ratioA }}%</span>
+            </div>
+            <div class="meter dual-meter">
+              <div class="meter-fill" :style="{ width: dualPool.ratioA + '%' }"></div>
+            </div>
+
+            <div class="info-list">
+              <div class="info-row">
+                <div class="info-key">{{ dll('poolA_shares') }}</div>
+                <div class="info-value">{{ dualPool.sharesA }} / {{ dualPool.rejectedA }}</div>
+              </div>
+              <div class="info-row">
+                <div class="info-key">{{ dll('poolB_shares') }}</div>
+                <div class="info-value">{{ dualPool.sharesB }} / {{ dualPool.rejectedB }}</div>
+              </div>
+            </div>
+          </div>
+
           <div class="card">
             <div class="card-header">
               <div class="card-title">{{ t('logs.overview') }}</div>
@@ -1143,6 +1199,47 @@ const gaugeColor = computed(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.dual-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 10px;
+  border-radius: 999px;
+  color: var(--text-color-secondary);
+  border: 1px solid var(--surface-border);
+}
+
+.dual-badge.is-live {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.dual-split-row {
+  display: flex;
+  justify-content: space-between;
+  margin: 10px 0 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dual-leg.pool-a { color: var(--primary-color); }
+.dual-leg.pool-b { color: #ffb81c; }
+
+.dual-meter .meter-fill {
+  background: var(--primary-color);
+}
+
+/* the unfilled remainder stands for pool B */
+.dual-meter {
+  background: #ffb81c;
+}
+
+.dual-user {
+  word-break: break-all;
 }
 
 .card-title {
