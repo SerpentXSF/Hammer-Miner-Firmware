@@ -34,3 +34,8 @@ secure/
 .DS_Store
 Thumbs.db
 *.swp
+
+# The web flasher has to serve its image from its own origin: GitHub release
+# assets are delivered without CORS headers, so a browser cannot fetch one
+# from the Pages site. This is the only .bin that belongs in the repository.
+!docs/flasher/*.bin
