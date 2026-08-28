@@ -6,24 +6,24 @@ extern "C" {
 #endif
 
 #if APP_SUPPORT_FOUND_BLOCK
-#include "./hammer/export/btcscreen1.c"
+#include "./serpentx/export/btcscreen1.c"
 #else
-#include "./hammer/export/btcscreen.c"
+#include "./serpentx/export/btcscreen.c"
 #endif
-#include "./hammer/export/globalStats.c"
-#include "./hammer/export/initscreen2.c"
-#include "./hammer/export/miningscreen2.c"
-#include "./hammer/export/portalscreen.c"
-#include "./hammer/export/settingsscreen2.c"
-#include "./hammer/export/splashscreen2.c"
-#include "./hammer/export/wifi1.c"
-#include "./hammer/export/wifi2.c"
-#include "./hammer/export/wifi3.c"
-#include "./hammer/export/wifi4.c"
-#include "./hammer/export/found.c"
-#include "./hammer/export/eth_0.c"
-#include "./hammer/export/eth_1.c"
-#include "./hammer/export/eth_2.c"
+#include "./serpentx/export/globalStats.c"
+#include "./serpentx/export/initscreen2.c"
+#include "./serpentx/export/miningscreen2.c"
+#include "./serpentx/export/portalscreen.c"
+#include "./serpentx/export/settingsscreen2.c"
+#include "./serpentx/export/splashscreen2.c"
+#include "./serpentx/export/wifi1.c"
+#include "./serpentx/export/wifi2.c"
+#include "./serpentx/export/wifi3.c"
+#include "./serpentx/export/wifi4.c"
+#include "./serpentx/export/found.c"
+#include "./serpentx/export/eth_0.c"
+#include "./serpentx/export/eth_1.c"
+#include "./serpentx/export/eth_2.c"
 
 #ifdef __cplusplus
 }

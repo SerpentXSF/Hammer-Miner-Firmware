@@ -8,6 +8,10 @@ import i18n from "@/i18n";
 
 import App from "./pages/App.vue";
 import "./styles/layout/layout.scss";
+import { restoreTheme } from "@/util/theme";
+
+/* apply the stored theme before first paint, not after */
+restoreTheme();
 
 const app = createApp(App);
 

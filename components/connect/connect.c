@@ -199,7 +199,7 @@ static void event_handler(void * arg, esp_event_base_t event_base, int32_t event
         ip_event_got_ip_t * event = (ip_event_got_ip_t *) event_data;
         snprintf(_ip_addr_str, IP4ADDR_STRLEN_MAX, IPSTR, IP2STR(&event->ip_info.ip));
 
-        ESP_LOGI(TAG, "hammer ip: %s", _ip_addr_str);
+        ESP_LOGI(TAG, "device ip: %s", _ip_addr_str);
         s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
         network_set_wifi_status(WIFI_CONNECTED, 0, 0);

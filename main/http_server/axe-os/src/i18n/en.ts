@@ -49,7 +49,11 @@ const lang = {
         theme: 'Theme',
         light_theme_default: 'Light',
         dark_theme_black: 'Dark',
-        dark_theme_green: 'Green'
+        dark_theme_green: 'Green',
+        theme_green: 'Green',
+        theme_blue: 'Blue',
+        theme_red: 'Red',
+        theme_yellow: 'Yellow'
     },
     sidebar: {
         menu: {

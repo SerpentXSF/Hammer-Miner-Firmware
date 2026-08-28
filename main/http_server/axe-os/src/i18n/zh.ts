@@ -49,7 +49,11 @@ const lang = {
         theme: '主题',
         light_theme_default: '浅色 (默认)',
         dark_theme_black: '深色',
-        dark_theme_green: '绿色'
+        dark_theme_green: '绿色',
+        theme_green: '绿色',
+        theme_blue: '蓝色',
+        theme_red: '红色',
+        theme_yellow: '黄色'
     },
     sidebar: {
         menu: {

@@ -3,11 +3,11 @@
 */
 
 :root {
-  /* 默认主题: HammerUI Dark (dark-black) - 匹配 HammerUIMock.html */
+  /* 默认主题: SerpentX Dark (dark-black) */
   color-scheme: dark;
   --theme: 'dark-black';
 
-  /* 基础 (来自 HammerUI Mock) */
+  /* 基础 (base surfaces) */
   --surface-ground: #050910;
   --surface-overlay: #05070d;
   --surface-card: #050b16;
@@ -15,13 +15,13 @@
   --text-color: #f5f7fb;
   --text-color-secondary: #9ca3af;
 
-  /* Antd 适配 (来自 HammerUI) */
+  /* Antd 适配 (shared) */
   --ant-primary-color: #19e1a5;
   --ant-primary-color-hover: #2fedb6;
   --ant-primary-color-active: #14b889;
   --ant-primary-color-text: #020617;
 
-  /* 形状 (来自 HammerUI) */
+  /* 形状 (shared) */
   --card-border-radius: 14px;
   --button-border-radius: 999px;
   --input-border-radius: 8px;

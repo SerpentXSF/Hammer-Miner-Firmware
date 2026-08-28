@@ -6,7 +6,7 @@ import SecuritySettings from "@/components/SecuritySettings.vue";
 import {onMounted, ref} from "vue";
 import {MinerStatusData} from "@/api/type.ts";
 import {useI18n} from "vue-i18n";
-import { WEB_VERSION } from "../util/const.ts";
+import { WEB_VERSION, UPDATE_REPO_WWW, UPDATE_REPO_APP } from "../util/const.ts";
 import {useAppStore} from "@/store";
 import {getMinerStatus, URL as APP_URL, restartMiner} from "@/api";
 import {showNotificationLoading, validData, getUrl} from "@/util/utils.ts";
@@ -213,8 +213,8 @@ const checkGithubUpdates = async () => {
   
   try {
     const [webRes, fwRes] = await Promise.allSettled([
-      axios.get(`https://api.github.com/repos/HammerMiner/BC04-WWW/releases/latest?t=${ts}`),
-      axios.get(`https://api.github.com/repos/HammerMiner/BC04-APP/releases/latest?t=${ts}`)
+      axios.get(`https://api.github.com/repos/${UPDATE_REPO_WWW}/releases/latest?t=${ts}`),
+      axios.get(`https://api.github.com/repos/${UPDATE_REPO_APP}/releases/latest?t=${ts}`)
     ]);
 
     let foundUpdate = false;
@@ -232,7 +232,7 @@ const checkGithubUpdates = async () => {
         
         if (isVersionNewer(gitWebVersion, WEB_VERSION)) {
           remoteWebUrl.value = binAsset.browser_download_url;
-          remoteWebReleaseUrl.value = webRes.value.data.html_url || `https://github.com/HammerMiner/BC04-WWW/releases/tag/${webRes.value.data.tag_name}`;
+          remoteWebReleaseUrl.value = webRes.value.data.html_url || `https://github.com/${UPDATE_REPO_WWW}/releases/tag/${webRes.value.data.tag_name}`;
           remoteWebVersion.value = gitWebVersion;
           remoteWebNotes.value = webRes.value.data.body || '';
           foundUpdate = true;
@@ -255,7 +255,7 @@ const checkGithubUpdates = async () => {
         const localFw = minerStatusRef.value?.version || '0';
         if (isVersionNewer(gitFwVersion, localFw)) {
           remoteFwUrl.value = binAsset.browser_download_url;
-          remoteFwReleaseUrl.value = fwRes.value.data.html_url || `https://github.com/HammerMiner/BC04-APP/releases/tag/${fwRes.value.data.tag_name}`;
+          remoteFwReleaseUrl.value = fwRes.value.data.html_url || `https://github.com/${UPDATE_REPO_APP}/releases/tag/${fwRes.value.data.tag_name}`;
           remoteFwVersion.value = gitFwVersion;
           remoteFwNotes.value = fwRes.value.data.body || '';
           foundUpdate = true;

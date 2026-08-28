@@ -43,7 +43,7 @@
 #include "network.h"
 
 
-static const char * TAG = "hammer-miner";
+static const char * TAG = "serpentx";
 
 static GlobalState GLOBAL_STATE = {
     .extranonce_str = NULL, 
@@ -101,7 +101,7 @@ void init_jobs(GlobalState *GLOBAL_STATE)
 
 static void restart_callback(void)
 {
-    esp_rom_printf("\nhammer-miner restarting...\n\n");
+    esp_rom_printf("\nSerpentX restarting...\n\n");
 }
 
 void analyze_task_memory(void) {
@@ -232,7 +232,7 @@ void app_main(void)
 {
     init_logging_system();
 
-    esp_rom_printf("\nhammer-miner starting....\n\n");
+    esp_rom_printf("\nSerpentX starting....\n\n");
     ESP_LOGI(TAG, "APP: %s %s", CONFIG_APP_PROJECT_VER, __TIME__);
 	
     showLastResetReason();

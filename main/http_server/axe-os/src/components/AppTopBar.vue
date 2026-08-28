@@ -184,10 +184,13 @@ onUnmounted(() => {
   <div class="layout-topbar">
     <a class="layout-topbar-logo" @click="onLogoClick">
       <div class="logo-container">
-        <div class="logo"></div>
         <div class="logo-hash-badge" :class="{ 'is-offline': isOffline }">
           <span class="val">{{ currentHashrate.data }}</span>
           <span class="unit">{{ currentHashrate.suffix }}</span>
+        </div>
+        <div class="brand">
+          <div class="brand-wordmark">Stay Open</div>
+          <div class="logo"></div>
         </div>
       </div>
     </a>
@@ -274,28 +277,40 @@ onUnmounted(() => {
 
 .logo-container {
   position: relative;
-  display: inline-block;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   line-height: 0;
 }
 
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.brand-wordmark {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: var(--text-color);
+  padding-left: 2px;
+}
+
 .logo {
-  height: 36px;
-  width: 153px;
-  background: url("/public/icon/logo.svg") no-repeat top left / 100% 100%;
+  /* SerpentX wordmark is 338x52 (6.5:1); keep that ratio so it is not stretched. */
+  height: 18px;
+  width: 117px;
+  background: url("/public/icon/serpentx.png") no-repeat top left / 100% 100%;
 }
 
 .logo-hash-badge {
-  position: absolute;
-  // Logo SVG viewBox=837x197, rendered at 153x36.
-  // Inner circle: cx=147, cy=98.5, r=70 in SVG coords.
-  // Scale factor = 36/197 = 0.1827
-  // Rendered center: x=147*0.1827=26.9px, y=36/2=18px
-  // Rendered radius: 70*0.1827=12.8px => diameter ~26px
-  width: 26px;
-  height: 26px;
-  top: 50%;
-  left: 26.9px;
-  transform: translate(-50%, -50%);
+  position: relative;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
   border-radius: 50%;
   background: rgba(10, 20, 35, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -316,7 +331,7 @@ onUnmounted(() => {
     transform: scale(0.5);
     transform-origin: center;
     font-weight: 900;
-    color: #4ade80;
+    color: var(--primary-color);
     letter-spacing: -0.3px;
     line-height: 1;
     margin-bottom: -2px; // 补偿 scale 后的间距压缩

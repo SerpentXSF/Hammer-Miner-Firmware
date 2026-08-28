@@ -2,7 +2,7 @@
   <div class="login-container">
     <div class="login-card">
       <div class="logo-container">
-        <img src="/icon/logo.svg" alt="SerpentX" class="logo" />
+        <img src="/icon/serpentx.png" alt="SerpentX" class="logo" />
         <div class="tagline">Stay Open</div>
       </div>
       

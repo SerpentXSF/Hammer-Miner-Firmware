@@ -67,7 +67,7 @@ export const statusData: MinerStatusData = {
     freeHeap: 2000,
     coreVoltage: 1200,
     coreVoltageActual: 1200,
-    hostname: "Hammer",
+    hostname: "SerpentX",
     macAddr: "2C:54:91:88:C9:E3",
     ssid: "default",
     wifiPass: "password",
@@ -312,7 +312,7 @@ const getNetworkInfo = async (data?: {}) => {
                 mask: "255.255.255.0",
                 gateway: "192.168.1.1",
                 dns: "1.1.1.1",
-                hostname: "Hammer"
+                hostname: "SerpentX"
             })
         } as unknown as ResData<string>);
     }
