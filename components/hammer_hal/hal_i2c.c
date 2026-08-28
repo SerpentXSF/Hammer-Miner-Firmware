@@ -10,7 +10,7 @@
 
 #include "miner.h"
 #include "hal_i2c.h"
-#include "husb238a.h"
+#include "HUSB238A.h"
 #include "pmbus_commands.h"
 
 static const char * TAG = "hammer-i2c";
@@ -205,35 +205,6 @@ esp_err_t hammer_i2c_init(void)
     vTaskDelay(100 / portTICK_PERIOD_MS);
 
     hammer_i2c_scan();
-
-    /*
-     * Report the USB-PD controller's state, if this board has one.
-     *
-     * Read-only. On the BC01 the hashboard supply is gated by this part, so
-     * knowing whether VBUS is switched through explains at a glance why the
-     * regulator and fan controller are or are not on the bus above.
-     * See docs/BC01-USB-PD.md.
-     */
-    if (husb238a_init() == ESP_OK) {
-        husb238a_dump();
-
-        /*
-         * Switch VBUS through to the hashboard.
-         *
-         * Nothing downstream of this gate is powered until it opens, so the
-         * regulator and fan controller cannot be found, let alone
-         * configured. This only clears the disable bit; it requests no
-         * voltage and changes none. Until negotiation is implemented the
-         * adapter is still supplying the USB default, which is below the
-         * regulator's 11 V VIN_ON, so the ASIC stays off and only the
-         * devices become reachable.
-         */
-        if (husb238a_gate_open() == ESP_OK) {
-            ESP_LOGW(TAG, "Re-scanning the bus now that VBUS is switched through");
-            hammer_i2c_scan();
-            husb238a_dump();
-        }
-    }
 
     return ESP_OK;
 }

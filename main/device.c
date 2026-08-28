@@ -10,6 +10,8 @@
 #include "lvgl_porting.h"
 #include "esp_log.h"
 #include "main.h"
+#include "HUSB238A.h"
+#include "driver/gpio.h"
 
 #define TAG "device"
 
@@ -38,8 +40,9 @@ typedef struct {
 } device_thermal_profile_t;
 
 static const device_thermal_profile_t device_thermal_profiles[] = {
-    { DEVICE_BC01, "BC01", TMP75_I2CADDR_BC01,   0,                    NULL   },
-    { DEVICE_BC02, "BC02", TMP75_I2CADDR_BC01,   0,                    NULL   },
+    { DEVICE_BC01,     "BC01",     TMP75_I2CADDR_BC01,     0, "BC01-Pro" },
+    { DEVICE_BC01_Pro, "BC01-Pro", TMP75_I2CADDR_BC01_Pro, 0, "BC01"     },
+    { DEVICE_BC02,     "BC02",     TMP75_I2CADDR_BC01,     0, NULL       },
     { DEVICE_BC04, "BC04", TMP75_I2CADDR_BC04,   0,                    "BC08" },
     { DEVICE_BC06, "BC06", TMP75_I2CADDR_BC08_1, TMP75_I2CADDR_BC08_2, "BC04" },
     { DEVICE_BC08, "BC08", TMP75_I2CADDR_BC08_1, TMP75_I2CADDR_BC08_2, "BC04" },
@@ -56,6 +59,290 @@ static const device_thermal_profile_t *find_thermal_profile(DeviceModel model)
 }
 
 /* Lets self_test.c use the same table rather than keeping its own copy. */
+
+/*
+ * USB Power Delivery bring-up for the BC01 family.
+ *
+ * These boards take their hashboard supply through a HUSB238A PD sink
+ * controller: the adapter is negotiated up from the USB default, and only
+ * then is VBUS gated through. Until that happens the TPS546 core regulator
+ * and the EMC2302 fan controller have no power and do not answer on I2C at
+ * all, so the ASIC cannot be started.
+ *
+ * The BC04 has no PD stage, so the BC04 source release contains none of
+ * this. The sequence below is imported from the BC01 source published at
+ * github.com/baichuan-org/BC01 (commit 8dab8f4, main/device.c), kept close
+ * to the original so it can be diffed against it. See docs/BC01-USB-PD.md.
+ *
+ * Note what the negotiated current is used for: the ASIC frequency and
+ * voltage ceilings are derated from it, so a weaker adapter runs the chip
+ * slower rather than browning out. That relationship is not guessable and
+ * is the main reason this was worth importing rather than reimplementing.
+ */
+static void pd_power_io_off(void)
+{
+    gpio_config_t gpio_conf = {
+        .pin_bit_mask = (1ULL << CONFIG_GPIO_OVERHEATE_ALERT_0),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config(&gpio_conf);
+    gpio_set_level(CONFIG_GPIO_OVERHEATE_ALERT_0, 1);
+}
+
+static void pd_power_io_on(void)
+{
+    gpio_config_t gpio_conf = {
+        .pin_bit_mask = (1ULL << CONFIG_GPIO_OVERHEATE_ALERT_0),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config(&gpio_conf);
+    gpio_set_level(CONFIG_GPIO_OVERHEATE_ALERT_0, 0);
+}
+
+static bool device_is_bc01_family(DeviceModel model)
+{
+    return model == DEVICE_BC01 || model == DEVICE_BC02 || model == DEVICE_BC01_Pro;
+}
+
+static esp_err_t bc01_pd_bringup(GlobalState *GLOBAL_STATE)
+{
+
+    // Status Variables
+    bool attached = false, sink_ready = false;
+    uint8_t negotiated_volt = 0;
+    uint8_t fault = 0;
+    husb238_protocol_t protocol = PROTOCOL_NONE;
+    uint16_t time_out = 0;
+
+    // Dynamic voltage list (only supported voltages)
+    uint8_t volt_list[5] = {0};
+    uint8_t volt_count = 0;
+    uint8_t curr_index = 0;
+    uint8_t target_volt = 0;
+
+    bool voltage_setting = false;
+    bool set_success = false;
+    bool cap_loaded = false;
+
+    // Driver initialization
+    ESP_ERROR_CHECK(husb238a_init());
+    //vTaskDelay(pdMS_TO_TICKS(10));
+    ESP_LOGI(TAG, "PD Negotiation: Read adapter capability first, 5-15V");
+
+    while (1) {
+        // Read PD status
+        if(attached == false ||  sink_ready == false)
+        {
+            husb238a_get_connect_status(&attached, &sink_ready);
+        }
+        else
+        {
+            if(protocol == PROTOCOL_NONE)
+            {
+                protocol = husb238_get_protocol();
+            }
+            husb238a_get_negotiated_voltage(&negotiated_volt);
+            husb238a_get_fault(&fault);
+        }
+
+        // Print status every 200ms
+        if ((time_out % 20) == 0) {
+            ESP_LOGI(TAG, "attached=%d, ready=%d, volt=%dV, fault=%d, target=%dV",
+                    attached, sink_ready, negotiated_volt, fault, target_volt);
+        }
+
+        // Safe rule: Only operate when attached, ready and voltage > 0V
+        if (attached && sink_ready && protocol)
+        {
+            // Read adapter capability once
+            if (!cap_loaded) 
+            {
+                bool sup5, sup9, sup12, sup15;
+                vTaskDelay(pdMS_TO_TICKS(50));
+                husb238a_get_capability(&sup5, &sup9, &sup12, &sup15);
+                
+                // Build voltage list (Priority: 5V → 9V → 12V → 15V)
+                volt_count = 0;
+                if(sup5)  volt_list[volt_count++] = 5;
+                if(sup9)  volt_list[volt_count++] = 9;
+                if(sup12) volt_list[volt_count++] = 12;
+                if(sup15) volt_list[volt_count++] = 15;
+
+                if(volt_count == 0){
+                    ESP_LOGE(TAG, "No supported voltage detected");
+                    break;
+                }
+
+                target_volt = volt_list[curr_index];
+                ESP_LOGI(TAG, "Adapter supported voltages:");
+                for(int i=0; i<volt_count; i++){
+                    ESP_LOGI(TAG, "%dV", volt_list[i]);
+                }
+
+                cap_loaded = true;
+                vTaskDelay(pdMS_TO_TICKS(10));
+            }
+
+            // Check if negotiation success
+            if (negotiated_volt == target_volt) {
+                ESP_LOGI(TAG, "Negotiation success: %dV", target_volt);
+                set_success = true;
+                if (curr_index >= volt_count -1) 
+                {
+                    break;
+                }
+                else
+                {
+                    curr_index++;
+                    target_volt = volt_list[curr_index];
+                    time_out = 0;
+                    voltage_setting = false;
+                    husb238a_gate_open();
+                    pd_power_io_on();
+                    vTaskDelay(pdMS_TO_TICKS(20));
+                    continue;
+                }
+            }
+
+            // Set target voltage if not setting
+            if (negotiated_volt != 0 && !voltage_setting && target_volt != 0) {
+                vTaskDelay(pdMS_TO_TICKS(50));
+                husb238a_set_voltage(target_volt);
+                ESP_LOGI(TAG, "Set voltage: %dV", target_volt);
+                voltage_setting = true;
+                time_out = 0;
+                vTaskDelay(pdMS_TO_TICKS(10));
+            }
+
+            // Timeout handler, switch to next voltage
+            if (time_out > 200) {
+                ESP_LOGW(TAG, "%dV negotiation timeout", target_volt);
+                curr_index++;
+                if (curr_index >= volt_count) {
+                    ESP_LOGE(TAG, "All voltage attempts failed");
+                    break;
+                }
+                target_volt = volt_list[curr_index];
+                voltage_setting = false;
+                time_out = 0;
+            }
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10));
+        time_out++;
+
+        // Global timeout protection
+        if(time_out > 500){
+            ESP_LOGW(TAG, "Global negotiation timeout");
+            break;
+        }
+    }
+
+    //husb238_print_info();
+    // Check negotiated current
+    if(set_success)
+    {
+        uint16_t curr = husb238_get_negotiated_current();
+        ESP_LOGI(TAG, "CONTRACT CURRENT %d.",curr);
+        if(negotiated_volt == 15)
+        {
+            if(curr < 2000)
+            {
+                set_success = false;
+            }
+        }
+        else if(negotiated_volt == 12)
+        {
+            if(curr < 3000)
+            {
+                set_success = false;
+            }
+        }
+        else if(negotiated_volt == 9)
+        {
+            if(curr >= 3000)
+            {
+                if(DEVICE_BC01_Pro == GLOBAL_STATE->device_model)
+                    GLOBAL_STATE->asic_freqency = GLOBAL_STATE->asic_freqency < 350 ? GLOBAL_STATE->asic_freqency : 350;
+                else if(DEVICE_BC01 == GLOBAL_STATE->device_model)
+                    GLOBAL_STATE->asic_freqency = GLOBAL_STATE->asic_freqency < 650 ? GLOBAL_STATE->asic_freqency : 650;
+            }
+            else if(curr >= 2770)
+            {
+                if(DEVICE_BC01_Pro == GLOBAL_STATE->device_model)
+                    GLOBAL_STATE->asic_freqency = GLOBAL_STATE->asic_freqency < 330 ? GLOBAL_STATE->asic_freqency : 330;
+                else if(DEVICE_BC01 == GLOBAL_STATE->device_model)
+                    GLOBAL_STATE->asic_freqency = GLOBAL_STATE->asic_freqency < 600 ? GLOBAL_STATE->asic_freqency : 600;
+
+            }
+            else if(curr >= 2220)
+            {
+                if(DEVICE_BC01_Pro == GLOBAL_STATE->device_model)
+                    GLOBAL_STATE->asic_freqency = GLOBAL_STATE->asic_freqency < 300 ? GLOBAL_STATE->asic_freqency : 300;
+                else if(DEVICE_BC01 == GLOBAL_STATE->device_model)
+                    GLOBAL_STATE->asic_freqency = GLOBAL_STATE->asic_freqency < 480 ? GLOBAL_STATE->asic_freqency : 480;
+
+            }
+            else
+            {
+                set_success = false;
+            }
+            if(DEVICE_BC01_Pro == GLOBAL_STATE->device_model)
+                GLOBAL_STATE->asic_vol_default = GLOBAL_STATE->asic_vol_default < 95 ? GLOBAL_STATE->asic_vol_default : 95;
+            else if(DEVICE_BC01 == GLOBAL_STATE->device_model)
+                GLOBAL_STATE->asic_vol_default = GLOBAL_STATE->asic_vol_default < 115 ? GLOBAL_STATE->asic_vol_default : 115;
+        }
+        else
+        {
+            if(curr < 3000)
+            {
+                set_success = false;
+            }
+            else
+            {
+                if(DEVICE_BC01_Pro == GLOBAL_STATE->device_model)
+                    GLOBAL_STATE->asic_freqency = GLOBAL_STATE->asic_freqency < 300 ? GLOBAL_STATE->asic_freqency : 300;
+                else if(DEVICE_BC01 == GLOBAL_STATE->device_model)
+                    GLOBAL_STATE->asic_freqency = GLOBAL_STATE->asic_freqency < 400 ? GLOBAL_STATE->asic_freqency : 400;
+            }
+            if(DEVICE_BC01_Pro == GLOBAL_STATE->device_model)
+                GLOBAL_STATE->asic_vol_default = GLOBAL_STATE->asic_vol_default < 93 ? GLOBAL_STATE->asic_vol_default : 93;
+            else if(DEVICE_BC01 == GLOBAL_STATE->device_model)
+                GLOBAL_STATE->asic_vol_default = GLOBAL_STATE->asic_vol_default < 115 ? GLOBAL_STATE->asic_vol_default : 115;
+        }
+
+        if(set_success == false)
+        {
+            ESP_LOGW(TAG, "The current is too weak to function properly.");
+        }
+    }
+
+    // VBUS control
+    if (set_success) {
+        vTaskDelay(pdMS_TO_TICKS(500));
+        husb238a_gate_open();
+        pd_power_io_on();
+        vTaskDelay(pdMS_TO_TICKS(200));
+        ESP_LOGI(TAG, "VBUS output enabled");
+    } else {
+        ESP_LOGE(TAG, "VBUS output disabled");
+    }
+
+    if (set_success) {
+        GLOBAL_STATE->pd_state = 1;
+        return ESP_OK;
+    }
+
+    GLOBAL_STATE->pd_state = 0;
+    return ESP_FAIL;
+}
+
 esp_err_t device_thermal_addresses(DeviceModel model, uint8_t *primary,
                                    uint8_t *secondary, const char **fallback)
 {
@@ -75,6 +362,16 @@ esp_err_t init_all_i2c_dev(GlobalState *GLOBAL_STATE)
     esp_err_t ret = ESP_FAIL;
 
     ESP_LOGI(TAG, "Initialize all the i2c dev.");
+
+    /* On the BC01 family nothing downstream of the PD gate is powered until
+     * negotiation completes, so this has to run before any attempt to reach
+     * the fan controller or the regulator. */
+    if (device_is_bc01_family(GLOBAL_STATE->device_model)) {
+        if (bc01_pd_bringup(GLOBAL_STATE) != ESP_OK) {
+            ESP_LOGE(TAG, "USB-PD bring-up failed; hashboard stays unpowered");
+            return ESP_FAIL;
+        }
+    }
 
     ESP_ERROR_CHECK(ret = EMC2302_init());
     uint16_t Polarity = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, 0);

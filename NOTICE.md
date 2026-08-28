@@ -14,6 +14,7 @@ be distributed under the same terms, with complete corresponding source.
 | [LVGL](https://github.com/lvgl/lvgl) | LVGL Kft. | MIT | Display library, fetched as an unmodified dependency. |
 | [ESP-IDF](https://github.com/espressif/esp-idf) | Espressif Systems | Apache-2.0 | Build system, RTOS, and drivers. |
 | BC04 firmware | Chengdu Baichuan, for Hammer | GPL-3.0 | The vendor release this repository is built from. |
+| [BC01 firmware](https://github.com/baichuan-org/BC01) | Chengdu Baichuan, for Hammer | GPL-3.0 (derived; no LICENSE supplied) | Source of the USB-PD stage this tree needs for the BC01. `components/hammer_hal/HUSB238A.c` and `.h` are imported verbatim; the PD bring-up in `main/device.c` and the BC01 GPIO and voltage configuration come from it. Imported at commit `8dab8f4`. |
 
 ## Why this file exists
 
@@ -37,6 +38,25 @@ a compliance audit.
 Whatever the intent, the practical effect was that the people whose work
 made this product possible were not credited to its buyers. Naming them
 is the point of the license.
+
+## Imported from the BC01 release
+
+`components/hammer_hal/HUSB238A.c` and `include/HUSB238A.h` are **verbatim
+copies** from `baichuan-org/BC01` at commit `8dab8f4`, kept byte-identical
+so they can be diffed against the original. The USB Power Delivery
+bring-up in `main/device.c` is imported from the same source with only the
+changes needed to fit this tree's structure, and is marked as such in the
+code.
+
+That release carries **no LICENSE file**. It is nonetheless a derivative of
+ESP-Miner — it is the same codebase as the BC04 release, sharing its file
+layout and its `health_maintennance.c` misspelling — so GPL-3.0 applies to
+it by inheritance regardless of what the repository does or does not state.
+This repository treats it accordingly and licenses the result under
+GPL-3.0.
+
+Their copyright in these files remains theirs. Nothing here claims
+authorship of imported work.
 
 ## Scope of this repository's own changes
 

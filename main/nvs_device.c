@@ -64,17 +64,22 @@ esp_err_t NVSDevice_parse_config(GlobalState * GLOBAL_STATE)
         GLOBAL_STATE->device_model = DEVICE_BC01;
         GLOBAL_STATE->voltage_domain = 2;
         GLOBAL_STATE->asic_difficulty = BC01_LOTTO_ASIC_DIFFICULTY;
-        /*
-         * CONFIG_TPS546_VOUT_MAX is 520, i.e. 5.20 V, which suits the
-         * multi-ASIC boards because their core domain is a series string.
-         * The BC01 has a single ASIC domain running near 1.19 V, measured
-         * 1195.31 mV on a running unit, so inheriting that ceiling set the
-         * regulator's over-voltage protection several times too high to
-         * protect anything.
-         */
-        GLOBAL_STATE->asic_vol_max = 150;
+        /* CONFIG_TPS546_VOUT_MAX is 130 in the BC01 configuration, i.e.
+         * 1.30 V for a single-ASIC domain. The 520 this tree inherited was
+         * the BC04's, whose core domain is a series string of four. */
+        GLOBAL_STATE->asic_vol_max = CONFIG_TPS546_VOUT_MAX;
         GLOBAL_STATE->asic_vol_min = CONFIG_TPS546_VOUT_MIN;
 		GLOBAL_STATE->asic_vol_default = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE_DEF, CONFIG_ASIC_VOLTAGE);
+        GLOBAL_STATE->asic_job_frequency_ms = 300;
+    }
+    else if (strcmp(GLOBAL_STATE->device_model_str, "BC01-Pro") == 0) {
+        ESP_LOGI(TAG, "DEVICE Model: BC01-Pro");
+        GLOBAL_STATE->device_model = DEVICE_BC01_Pro;
+        GLOBAL_STATE->voltage_domain = 2;
+        GLOBAL_STATE->asic_difficulty = BC01_LOTTO_ASIC_DIFFICULTY;
+        GLOBAL_STATE->asic_vol_max = 115;
+        GLOBAL_STATE->asic_vol_min = 90;
+        GLOBAL_STATE->asic_vol_default = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE_DEF, 95);
         GLOBAL_STATE->asic_job_frequency_ms = 300;
     }
     else if (strcmp(GLOBAL_STATE->device_model_str, "BC02") == 0) {
@@ -82,15 +87,7 @@ esp_err_t NVSDevice_parse_config(GlobalState * GLOBAL_STATE)
         GLOBAL_STATE->device_model = DEVICE_BC02;
         GLOBAL_STATE->voltage_domain = 2;
         GLOBAL_STATE->asic_difficulty = BC02_LOTTO_ASIC_DIFFICULTY;
-        /*
-         * CONFIG_TPS546_VOUT_MAX is 520, i.e. 5.20 V, which suits the
-         * multi-ASIC boards because their core domain is a series string.
-         * The BC02 has a two ASIC domain running near 1.19 V, measured
-         * 1195.31 mV on a running unit, so inheriting that ceiling set the
-         * regulator's over-voltage protection several times too high to
-         * protect anything.
-         */
-        GLOBAL_STATE->asic_vol_max = 260;
+        GLOBAL_STATE->asic_vol_max = CONFIG_TPS546_VOUT_MAX * 2;
         GLOBAL_STATE->asic_vol_min = CONFIG_TPS546_VOUT_MIN;
 		GLOBAL_STATE->asic_vol_default = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE_DEF, CONFIG_ASIC_VOLTAGE);
         GLOBAL_STATE->asic_job_frequency_ms = 300;

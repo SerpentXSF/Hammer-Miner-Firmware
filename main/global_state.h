@@ -38,6 +38,7 @@ typedef enum
     DEVICE_BC01,
     DEVICE_BC02,
     DEVICE_BC06,
+    DEVICE_BC01_Pro,
 } DeviceModel;
 
 typedef enum
@@ -218,6 +219,7 @@ typedef struct
     int block_height;
     char * scriptsig;
     char network_diff_string[DIFF_STRING_SIZE];
+    char pd_state;
 } GlobalState;
 
 typedef struct{
