@@ -118,6 +118,19 @@ display. An LT0051 scrypt ASIC path also exists in the tree.
 
 ---
 
+## Dual-pool mining
+
+Two pools connected at once, with the ASIC's time split between them. It
+divides your hashrate rather than adding to it, and both pools must be
+SHA-256d. Off unless you turn it on and configure a second pool.
+
+Share counts will not match the ratio you set: each pool runs its own vardiff,
+so the same work produces different share counts. The dashboard prints each
+pool's difficulty beside its counts for that reason.
+[docs/DUAL-POOL.md](docs/DUAL-POOL.md) covers the setup, how the split is
+measured honestly, and the clean_jobs bug that used to discard the other pool's
+shares.
+
 ## Which device
 
 **The published builds are for the Hammer BC01 only.**
