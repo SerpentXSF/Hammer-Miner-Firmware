@@ -104,12 +104,18 @@ happen.
 - **Pool B has no dedicated failover.** Pool A keeps its own; pool B retries its
   single endpoint. The upstream SerpentX implementation has per-pool failover
   and it has not been ported here yet.
-Job accounting *is* now available: `/api/system/info` reports
-`poolAJobsSelected` / `poolAJobsServed` and the pool B pair. Selected is what
-the scheduler assigned; served is what was actually built. The gap is work one
-pool lost to the other because it had nothing queued to build from -- which on
-this miner is a fixed cost of roughly a dozen jobs at start-up, before pool B's
-first notify arrives, and flat thereafter.
+
+## Checking the split directly
+
+`/api/system/info` reports `poolAJobsSelected` / `poolAJobsServed` and the pool
+B pair. Selected is what the scheduler assigned; served is what was actually
+built. The gap is work one pool lost to the other for want of anything queued
+to build from.
+
+On this miner that gap is about a dozen jobs at start-up, before pool B's first
+notify arrives, and flat afterwards -- so the residual difference from an even
+split is a fixed cost at boot rather than a leak that grows. Read these rather
+than inferring a shortfall from share counts against two moving vardiffs.
 
 ## Credit
 
