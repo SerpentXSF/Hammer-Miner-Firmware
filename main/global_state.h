@@ -141,6 +141,14 @@ typedef struct
     uint64_t poolB_shares_rejected;
     bool poolB_connected;
 
+    /* pool B's own failover, independent of pool A's */
+    char * poolB_fb_url;
+    uint16_t poolB_fb_port;
+    char * poolB_fb_user;
+    char * poolB_fb_pass;
+    uint16_t poolB_fb_tls;
+    bool poolB_is_using_failover;
+
     uint16_t overheat_mode;
     uint16_t power_fault;
     uint32_t lastClockSync;

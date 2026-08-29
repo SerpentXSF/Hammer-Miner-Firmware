@@ -1093,6 +1093,21 @@ static esp_err_t PATCH_update_settings(httpd_req_t * req)
     if ((item = cJSON_GetObjectItem(root, "poolBTLS")) != NULL) {
         nvs_config_set_u16(NVS_CONFIG_POOLB_TLS, item->valueint);
     }
+    if ((item = cJSON_GetObjectItem(root, "poolBFbUrl")) != NULL) {
+        nvs_config_set_string(NVS_CONFIG_POOLB_FB_URL, item->valuestring);
+    }
+    if ((item = cJSON_GetObjectItem(root, "poolBFbPort")) != NULL && item->valueint > 0) {
+        nvs_config_set_u16(NVS_CONFIG_POOLB_FB_PORT, item->valueint);
+    }
+    if ((item = cJSON_GetObjectItem(root, "poolBFbUser")) != NULL) {
+        nvs_config_set_string(NVS_CONFIG_POOLB_FB_USER, item->valuestring);
+    }
+    if ((item = cJSON_GetObjectItem(root, "poolBFbPass")) != NULL) {
+        nvs_config_set_string(NVS_CONFIG_POOLB_FB_PASS, item->valuestring);
+    }
+    if ((item = cJSON_GetObjectItem(root, "poolBFbTLS")) != NULL) {
+        nvs_config_set_u16(NVS_CONFIG_POOLB_FB_TLS, item->valueint);
+    }
     if ((item = cJSON_GetObjectItem(root, "dualEnable")) != NULL) {
         nvs_config_set_u16(NVS_CONFIG_DUAL_ENABLE, item->valueint);
     }
@@ -1585,6 +1600,12 @@ static esp_err_t GET_system_info(httpd_req_t * req)
     cJSON_AddStringToObject(root, "poolBUser",
         GLOBAL_STATE->SYSTEM_MODULE.poolB_user ? GLOBAL_STATE->SYSTEM_MODULE.poolB_user : "");
     cJSON_AddNumberToObject(root, "poolBConnected", GLOBAL_STATE->SYSTEM_MODULE.poolB_connected);
+    cJSON_AddStringToObject(root, "poolBFbUrl",
+        GLOBAL_STATE->SYSTEM_MODULE.poolB_fb_url ? GLOBAL_STATE->SYSTEM_MODULE.poolB_fb_url : "");
+    cJSON_AddNumberToObject(root, "poolBFbPort", GLOBAL_STATE->SYSTEM_MODULE.poolB_fb_port);
+    cJSON_AddStringToObject(root, "poolBFbUser",
+        GLOBAL_STATE->SYSTEM_MODULE.poolB_fb_user ? GLOBAL_STATE->SYSTEM_MODULE.poolB_fb_user : "");
+    cJSON_AddNumberToObject(root, "poolBUsingFailover", GLOBAL_STATE->SYSTEM_MODULE.poolB_is_using_failover);
     cJSON_AddNumberToObject(root, "poolBSharesAccepted", GLOBAL_STATE->SYSTEM_MODULE.poolB_shares_accepted);
     cJSON_AddNumberToObject(root, "poolBSharesRejected", GLOBAL_STATE->SYSTEM_MODULE.poolB_shares_rejected);
     /* Pool B's own vardiff. Without it the two pools' share counts cannot be

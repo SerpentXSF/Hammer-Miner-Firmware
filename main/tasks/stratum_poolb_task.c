@@ -33,6 +33,7 @@
 #include "stratum_poolb_task.h"
 #include "stratum_recv_ctx.h"
 #include "pool_scheduler.h"
+#include "pool_failover.h"
 #include "work_queue.h"
 
 static const char *TAG = "stratum_poolb";
@@ -40,6 +41,7 @@ static const char *TAG = "stratum_poolb";
 #define POOLB_CONNECT_TIMEOUT_MS 5000
 #define POOLB_IDLE_DELAY_MS      2000
 #define POOLB_RETRY_DELAY_MS     5000
+#define POOLB_MAX_RETRIES        3
 
 static void poolb_close(GlobalState *GLOBAL_STATE)
 {
@@ -72,6 +74,16 @@ void stratum_poolb_task(void *pvParameters)
     char *rxbuf = NULL;
     size_t rxsize = 0;
 
+    /*
+     * Pool B keeps its own failover, stepped independently of pool A's. Before
+     * this, a pool B outage meant it retried a dead host forever and every
+     * slice the scheduler gave it fell through to pool A -- the miner quietly
+     * stopped dual mining and nothing said so.
+     */
+    pool_failover_t fo;
+    pool_failover_init(&fo, POOLB_MAX_RETRIES,
+                       module->poolB_fb_url != NULL && module->poolB_fb_url[0] != 0);
+
     ESP_LOGI(TAG, "pool B task started");
 
     while (1) {
@@ -81,14 +93,28 @@ void stratum_poolb_task(void *pvParameters)
             continue;
         }
 
-        char *url = module->poolB_url;
-        uint16_t port = module->poolB_port;
+        int endpoint = pool_failover_endpoint(&fo);
+        if (endpoint < 0) {
+            /* both endpoints exhausted this cycle; pool B's share of the work
+             * goes to pool A meanwhile, which beats idling the ASIC */
+            pool_failover_step(&fo, PF_EV_DISCONNECTED);
+            vTaskDelay(pdMS_TO_TICKS(POOLB_RETRY_DELAY_MS));
+            continue;
+        }
+
+        bool use_fb = (endpoint == 1);
+        module->poolB_is_using_failover = use_fb;
+
+        char *url     = use_fb ? module->poolB_fb_url  : module->poolB_url;
+        uint16_t port = use_fb ? module->poolB_fb_port : module->poolB_port;
+        char *user    = use_fb ? module->poolB_fb_user : module->poolB_user;
+        char *pass    = use_fb ? module->poolB_fb_pass : module->poolB_pass;
         if (url == NULL || url[0] == '\0') {
             vTaskDelay(pdMS_TO_TICKS(POOLB_IDLE_DELAY_MS));
             continue;
         }
 
-        tls_mode tls = (tls_mode)module->poolB_tls;
+        tls_mode tls = (tls_mode)(use_fb ? module->poolB_fb_tls : module->poolB_tls);
 
         /*
          * Build and connect on a local handle. Publishing a half-open handle to
@@ -98,6 +124,7 @@ void stratum_poolb_task(void *pvParameters)
         esp_transport_handle_t transport = STRATUM_V1_transport_init(tls, module->poolB_cert);
         if (transport == NULL) {
             ESP_LOGE(TAG, "pool B transport init failed");
+            pool_failover_step(&fo, PF_EV_DISCONNECTED);
             vTaskDelay(pdMS_TO_TICKS(POOLB_RETRY_DELAY_MS));
             continue;
         }
@@ -110,6 +137,7 @@ void stratum_poolb_task(void *pvParameters)
             ESP_LOGW(TAG, "pool B connect failed %s:%u", url, port);
             esp_transport_close(transport);
             esp_transport_destroy(transport);
+            pool_failover_step(&fo, PF_EV_DISCONNECTED);
             vTaskDelay(pdMS_TO_TICKS(POOLB_RETRY_DELAY_MS));
             continue;
         }
@@ -118,7 +146,9 @@ void stratum_poolb_task(void *pvParameters)
         GLOBAL_STATE->transportB = transport;
         pthread_mutex_unlock(&GLOBAL_STATE->transportB_lock);
         module->poolB_connected = true;
-        ESP_LOGI(TAG, "pool B connected to %s:%u", url, port);
+        pool_failover_step(&fo, PF_EV_CONNECTED);
+        ESP_LOGI(TAG, "pool B connected to %s:%u (%s)", url, port,
+                 use_fb ? "failover" : "primary");
 
         /* a fresh accumulator per connection */
         if (rxbuf != NULL) {
@@ -134,7 +164,7 @@ void stratum_poolb_task(void *pvParameters)
         STRATUM_V1_subscribe(GLOBAL_STATE->transportB, GLOBAL_STATE->send_uidB++,
                              GLOBAL_STATE->asic_model_str);
         STRATUM_V1_authorize(GLOBAL_STATE->transportB, GLOBAL_STATE->send_uidB++,
-                             module->poolB_user, module->poolB_pass);
+                             user, pass);
 
         while (1) {
             if (!GLOBAL_STATE->dual_enable) {
@@ -148,6 +178,7 @@ void stratum_poolb_task(void *pvParameters)
             if (line == NULL) {
                 ESP_LOGW(TAG, "pool B connection lost, reconnecting");
                 poolb_close(GLOBAL_STATE);
+                pool_failover_step(&fo, PF_EV_DISCONNECTED);
                 break;
             }
 
@@ -239,6 +270,7 @@ void stratum_poolb_task(void *pvParameters)
             } else if (poolb_message.method == CLIENT_RECONNECT) {
                 ESP_LOGW(TAG, "pool B requested reconnect");
                 poolb_close(GLOBAL_STATE);
+                pool_failover_step(&fo, PF_EV_DISCONNECTED);
                 break;
             }
         }

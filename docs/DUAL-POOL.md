@@ -99,11 +99,31 @@ simpler and wrong: that array is written outside `valid_jobs_lock`, so
 following those pointers from another task is a use-after-free waiting to
 happen.
 
+## Pool B has its own failover
+
+Pool B keeps a second endpoint of its own, stepped independently of pool A's.
+Set it in the Dual Pool tab, or over the API as `poolBFbUrl`, `poolBFbPort`,
+`poolBFbUser`, `poolBFbPass` and `poolBFbTLS`.
+
+Without it, a pool B outage meant it retried a dead host forever while every
+job the scheduler assigned it fell through to pool A -- the miner quietly
+stopped dual mining and nothing said so. `poolBUsingFailover` in
+`/api/system/info` now reports which endpoint is live.
+
+The state machine (`components/dual_pool/pool_failover.c`) tries the primary,
+falls to the failover after three failed attempts, and probes the primary again
+whenever the failover itself drops -- so it does not flap between two working
+pools, and it does not strand itself on the backup when the primary returns.
+
+Verified by pointing the primary at an unroutable address: it retried, switched
+to the failover, and connected there after about 86 seconds.
+
 ## What is not done
 
-- **Pool B has no dedicated failover.** Pool A keeps its own; pool B retries its
-  single endpoint. The upstream SerpentX implementation has per-pool failover
-  and it has not been ported here yet.
+- Nothing outstanding on the failover path. The remaining gap is that a pool
+  which is up but silent -- accepting the connection and never sending work --
+  is not treated as a failure, because nothing distinguishes it from a quiet
+  pool.
 
 ## Checking the split directly
 

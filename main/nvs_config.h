@@ -28,6 +28,14 @@
 #define NVS_CONFIG_POOLB_TLS   "poolbtls"
 #define NVS_CONFIG_POOLB_CERT  "poolbcert"
 #define NVS_CONFIG_POOLB_XNSUB "poolbxnsub"
+
+/* pool B's own failover endpoint. Pool A already had one; without this, pool B
+ * simply retried a dead host forever and donated its slices to pool A. */
+#define NVS_CONFIG_POOLB_FB_URL  "poolbfburl"
+#define NVS_CONFIG_POOLB_FB_PORT "poolbfbport"
+#define NVS_CONFIG_POOLB_FB_USER "poolbfbuser"
+#define NVS_CONFIG_POOLB_FB_PASS "poolbfbpass"
+#define NVS_CONFIG_POOLB_FB_TLS  "poolbfbtls"
 #define NVS_CONFIG_DUAL_ENABLE "dualenable"
 #define NVS_CONFIG_DUAL_RATIO  "dualratioa"
 #define NVS_CONFIG_DUAL_SLICE  "dualslicems"
