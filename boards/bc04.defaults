@@ -1,0 +1,13 @@
+# Hammer BC04 board configuration.
+#
+# Applied as a fragment on top of the base sdkconfig, so it carries only what
+# differs between boards. Build with tools/build_board.py bc04.
+#
+# Pin assignment taken from the vendor's own reference configuration, not from
+# measurement: no BC04 has been run with this firmware. Treat this file as
+# unverified until one has been, and read docs/BC01-BRINGUP.md first -- the
+# BC01 needed four missing dispatch cases in components/asic/asic.c before it
+# would hash at all, and the BC04 cases deserve the same check.
+CONFIG_DEVICE_MODULE="BC04"
+CONFIG_GPIO_UART_CHAIN_0_TXD0=17
+CONFIG_GPIO_UART_CHAIN_0_RXD0=18

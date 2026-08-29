@@ -1,0 +1,13 @@
+# Hammer BC01 (and BC01 Pro) board configuration.
+#
+# Applied as a fragment on top of the base sdkconfig, so it carries only what
+# differs between boards. Build with tools/build_board.py bc01.
+#
+# The UART pins are the entire reason this file exists. The Kconfig defaults
+# in components/bc_hal are 17/18, which is the BC04 arrangement; the BC01 has
+# them the other way round. Verified on hardware -- with the pins crossed the
+# miner boots, serves its interface, detects the chip and never returns a
+# single share, which looks exactly like broken hardware.
+CONFIG_DEVICE_MODULE="BC01"
+CONFIG_GPIO_UART_CHAIN_0_TXD0=18
+CONFIG_GPIO_UART_CHAIN_0_RXD0=17

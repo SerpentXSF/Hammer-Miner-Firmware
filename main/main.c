@@ -17,6 +17,7 @@
 #include "nvs_device.h"
 #include "main.h"
 #include "global_state.h"
+#include "miner.h"
 #include "self_test.h"
 #include "serial.h"
 #include "asic.h"
@@ -253,6 +254,55 @@ static void enable_mining_logs(void)
     }
 }
 
+/*
+ * The board model is read from NVS at runtime. The ASIC's UART pins are fixed
+ * when the image is built. Nothing ties the two together, so a BC01 image
+ * whose settings say BC04 takes every BC04 code path over BC01 wiring: it
+ * boots, serves its web interface, detects the chip, and never returns a
+ * single share. That is indistinguishable from dead hardware, and it cost a
+ * long debugging session to find from the other end -- so it is worth saying
+ * plainly at boot.
+ *
+ * Only boards whose pinout is actually known are checked. The BC01 was
+ * measured on hardware; the BC04 comes from the vendor's own reference
+ * configuration. Anything else passes, because guessing here would block a
+ * board that works.
+ */
+static void check_board_matches_image(GlobalState * state)
+{
+    static const struct {
+        DeviceModel model;
+        int tx;
+        int rx;
+        const char *name;
+    } known[] = {
+        { DEVICE_BC01,     18, 17, "BC01" },
+        { DEVICE_BC01_Pro, 18, 17, "BC01 Pro" },
+        { DEVICE_BC04,     17, 18, "BC04" },
+    };
+
+    for (size_t i = 0; i < sizeof(known) / sizeof(known[0]); i++) {
+        if (known[i].model != state->device_model) {
+            continue;
+        }
+        if (known[i].tx == UART_CHAIN_0_TXD0 && known[i].rx == UART_CHAIN_0_RXD0) {
+            return;
+        }
+
+        state->SYSTEM_MODULE.board_mismatch = true;
+        ESP_LOGE(TAG, "================ BOARD MISMATCH ================");
+        ESP_LOGE(TAG, "Settings say this is a %s.", known[i].name);
+        ESP_LOGE(TAG, "This image drives the ASIC on TX %d / RX %d;",
+                 UART_CHAIN_0_TXD0, UART_CHAIN_0_RXD0);
+        ESP_LOGE(TAG, "a %s needs TX %d / RX %d.",
+                 known[i].name, known[i].tx, known[i].rx);
+        ESP_LOGE(TAG, "The chip will be detected and will never return a");
+        ESP_LOGE(TAG, "share. Flash the %s build instead.", known[i].name);
+        ESP_LOGE(TAG, "================================================");
+        return;
+    }
+}
+
 void app_main(void)
 {
     init_logging_system();
@@ -284,6 +334,8 @@ void app_main(void)
         ESP_LOGE(TAG, "Failed to parse NVS config");
         return;
     }
+
+    check_board_matches_image(&GLOBAL_STATE);
 
     GLOBAL_STATE.global_parameter_mutex = xSemaphoreCreateMutex();   
     SYSTEM_init_system(&GLOBAL_STATE);

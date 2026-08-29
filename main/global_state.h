@@ -110,6 +110,8 @@ typedef struct
 #endif
     RejectedReasonStat rejected_reason_stats[10];
     int rejected_reason_stats_count;
+    /* set when the NVS board model cannot work with this image's pins */
+    bool board_mismatch;
     int screen_page;
     uint64_t best_nonce_diff;
     char best_diff_string[DIFF_STRING_SIZE];
