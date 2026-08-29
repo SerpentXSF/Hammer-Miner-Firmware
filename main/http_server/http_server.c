@@ -2580,6 +2580,87 @@ esp_err_t echo_handler(httpd_req_t * req)
     return ESP_OK;
 }
 
+/*
+ * Per-core hardware error counts.
+ *
+ * Reported on its own endpoint rather than folded into /api/system/info:
+ * this is a hundred-odd entries that a dashboard polls every few seconds
+ * has no use for, and it is read when someone is diagnosing a chip.
+ *
+ * Only cores that have produced something are listed. A core absent from
+ * the list has returned nothing at all, which on a healthy chip simply
+ * means it has not got there yet, and on a sick one is itself the finding.
+ */
+static esp_err_t GET_core_stats(httpd_req_t * req)
+{
+    if (is_network_allowed(req) != ESP_OK) {
+        return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    }
+
+    if (api_auth_require(req) != ESP_OK) {
+        return ESP_OK; /* 401 already sent */
+    }
+
+    if (set_cors_headers(req) != ESP_OK) {
+        httpd_resp_send_500(req);
+        return ESP_OK;
+    }
+
+    httpd_resp_set_type(req, "application/json");
+
+    cJSON * root = cJSON_CreateObject();
+    if (root == NULL) {
+        httpd_resp_send_500(req);
+        return ESP_OK;
+    }
+
+#ifdef HW_STATISTIC_FEATURE
+    SystemModule * module = &GLOBAL_STATE->SYSTEM_MODULE;
+    cJSON * cores = cJSON_AddArrayToObject(root, "cores");
+    uint64_t total_nonces = 0, total_errors = 0;
+    int active = 0, faulty = 0;
+
+    for (int i = 0; i < CORE_STATS_CORES; i++) {
+        uint32_t good = module->core_nonces[i];
+        uint32_t bad = module->core_errors[i];
+
+        total_nonces += good;
+        total_errors += bad;
+        if (good || bad) {
+            active++;
+        }
+        if (bad) {
+            faulty++;
+        }
+
+        if (cores != NULL && (good || bad)) {
+            cJSON * entry = cJSON_CreateObject();
+            if (entry != NULL) {
+                cJSON_AddNumberToObject(entry, "core", i);
+                cJSON_AddNumberToObject(entry, "nonces", good);
+                cJSON_AddNumberToObject(entry, "errors", bad);
+                cJSON_AddItemToArray(cores, entry);
+            }
+        }
+    }
+
+    cJSON_AddNumberToObject(root, "coresSeen", active);
+    cJSON_AddNumberToObject(root, "coresWithErrors", faulty);
+    cJSON_AddNumberToObject(root, "totalNonces", total_nonces);
+    cJSON_AddNumberToObject(root, "totalErrors", total_errors);
+    cJSON_AddNumberToObject(root, "coreCount", CORE_STATS_CORES);
+#else
+    cJSON_AddArrayToObject(root, "cores");
+    cJSON_AddNumberToObject(root, "coresSeen", 0);
+#endif
+
+    const char * out = cJSON_Print(root);
+    httpd_resp_sendstr(req, out);
+    free((void *)out);
+    cJSON_Delete(root);
+    return ESP_OK;
+}
+
 esp_err_t sync_time_handler(httpd_req_t *req)
 {
     esp_err_t ret = ESP_OK;
@@ -2972,6 +3053,15 @@ esp_err_t start_rest_server(void * pvParameters)
         .user_ctx = rest_context
     };
     httpd_register_uri_handler(server, &system_info_get_uri);
+
+    /* URI handler for per-core hardware error statistics */
+    httpd_uri_t core_stats_get_uri = {
+        .uri = "/api/system/cores",
+        .method = HTTP_GET,
+        .handler = GET_core_stats,
+        .user_ctx = rest_context
+    };
+    httpd_register_uri_handler(server, &core_stats_get_uri);
 
     #if 0
     httpd_uri_t influx_info_get_uri = {

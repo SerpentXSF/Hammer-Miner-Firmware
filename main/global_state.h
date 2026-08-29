@@ -21,6 +21,9 @@
 #define HISTORY_LENGTH      100
 #define DIFF_STRING_SIZE    10
 
+/* BM1370 core ids are seven bits wide. */
+#define CORE_STATS_CORES    128
+
 /*TODO: replace the MAX_VALID_JOBS*/
 #define MAX_VALID_JOBS      128
 
@@ -92,6 +95,18 @@ typedef struct
 #ifdef HW_STATISTIC_FEATURE
     uint64_t recveived_nonce;
     uint64_t recveived_hw;
+    /*
+     * Per-core accounting. The BM1370 reports the core that produced each
+     * result in seven bits, so 128 slots covers every id it can emit --
+     * including any the datasheet does not claim exist, which is the case
+     * worth catching rather than dropping.
+     *
+     * A core that has gone bad returns nonces that fail the difficulty-1
+     * check. Counting good and bad per core turns "the chip has hardware
+     * errors" into "core 63 produces them and nothing else does".
+     */
+    uint32_t core_nonces[CORE_STATS_CORES];
+    uint32_t core_errors[CORE_STATS_CORES];
 #endif
     RejectedReasonStat rejected_reason_stats[10];
     int rejected_reason_stats_count;
