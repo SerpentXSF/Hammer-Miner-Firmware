@@ -100,11 +100,15 @@ void create_jobs_task(void *pvParameters)
                                 extranonce_2_B = 0;
                             }
 
-                            if (pool_scheduler_select(&scheduler, esp_timer_get_time()) == POOL_B &&
-                                poolb_notification != NULL) {
+                            uint8_t chosen = pool_scheduler_select(&scheduler, esp_timer_get_time());
+                            GLOBAL_STATE->jobs_selected[chosen]++;
+                            if (chosen == POOL_B && poolb_notification != NULL) {
                                 pool_id = POOL_B;
                             }
+                            /* chosen but not served means the job went to the
+                             * other pool; the counters make that visible */
                         }
+                        GLOBAL_STATE->jobs_served[pool_id]++;
 
                         if (pool_id == POOL_B) {
                             generate_work(GLOBAL_STATE, poolb_notification, extranonce_2_B,

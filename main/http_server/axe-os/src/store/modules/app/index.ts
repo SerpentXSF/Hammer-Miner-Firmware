@@ -311,7 +311,14 @@ export const useAppStore = defineStore("app", {
             this.wsConnecting = true;
             this.logContent = translations.connecting + "\n";
             const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-            const wsUrl = `${wsProtocol}//${window.location.host}/api/ws`;
+            /*
+             * The token goes in the query string because a browser WebSocket
+             * cannot set an Authorization header. Without it the miner rejects
+             * the connection and the log viewer shows "connected" followed
+             * immediately by an error.
+             */
+            const wsToken = this.token ? `?token=${encodeURIComponent(this.token)}` : "";
+            const wsUrl = `${wsProtocol}//${window.location.host}/api/ws${wsToken}`;
             try {
                 const socket = new WebSocket(wsUrl);
                 socket.onopen = () => {

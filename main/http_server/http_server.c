@@ -1591,6 +1591,10 @@ static esp_err_t GET_system_info(httpd_req_t * req)
      * compared: work delivered is shares x difficulty, and the pools rarely
      * settle on the same one. */
     cJSON_AddNumberToObject(root, "poolBDiff", GLOBAL_STATE->stratum_difficultyB);
+    cJSON_AddNumberToObject(root, "poolAJobsSelected", GLOBAL_STATE->jobs_selected[0]);
+    cJSON_AddNumberToObject(root, "poolAJobsServed", GLOBAL_STATE->jobs_served[0]);
+    cJSON_AddNumberToObject(root, "poolBJobsSelected", GLOBAL_STATE->jobs_selected[1]);
+    cJSON_AddNumberToObject(root, "poolBJobsServed", GLOBAL_STATE->jobs_served[1]);
 
     cJSON_AddStringToObject(root, "version", esp_app_get_description()->version);
     cJSON_AddStringToObject(root, "WWWVersion", WWWVersion);
@@ -2519,8 +2523,16 @@ esp_err_t echo_handler(httpd_req_t * req)
         return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
     }
 
-    if (api_auth_require(req) != ESP_OK) {
-        return ESP_OK; /* 401 already sent */
+    /*
+     * The websocket gate, not the plain one. A browser WebSocket cannot send an
+     * Authorization header, so this endpoint was rejecting every connection the
+     * log viewer made -- the page showed "connection successful" then an error,
+     * because the socket is upgraded before this handler runs and the 401 had
+     * nowhere to go. The token arrives as ?token=... instead; returning
+     * ESP_FAIL closes the connection.
+     */
+    if (api_auth_require_ws(req) != ESP_OK) {
+        return ESP_FAIL;
     }
 
     // Set CORS headers

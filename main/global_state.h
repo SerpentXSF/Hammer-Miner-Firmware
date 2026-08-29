@@ -235,6 +235,20 @@ typedef struct
     uint8_t dual_ratio_a;        /* percent of slices given to pool A */
     uint16_t dual_interval_ms;   /* slice length */
 
+    /*
+     * Jobs the scheduler assigned to each pool, and jobs actually built for
+     * it. Counted per job rather than per wall-clock slice, because
+     * pool_scheduler_select() is consulted once per job and several jobs are
+     * built inside one slice -- so these measure the work split directly.
+     *
+     * The gap between them is what a pool lost to the other, because it had
+     * nothing queued to build from. Without it a shortfall could only be
+     * inferred from share counts against two moving vardiffs.
+     * Index by pool_id.
+     */
+    uint32_t jobs_selected[2];
+    uint32_t jobs_served[2];
+
     work_queue stratum_queueB;
     char *extranonce_strB;
     int extranonce_2_lenB;

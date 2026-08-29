@@ -124,3 +124,22 @@ protection against an attacker already positioned on the path.
 
 The honest summary: this closes the hole where no credential existed at
 all. Treat the miner as an appliance on a trusted segment regardless.
+
+## The websocket is authenticated differently
+
+The log stream at `/api/ws` takes its token from the query string
+(`/api/ws?token=...`) as well as from the `Authorization` header.
+
+A browser `WebSocket` cannot send custom headers -- the API has no facility for
+it -- so gating that endpoint on a bearer header rejected every connection the
+log viewer made. The failure was confusing to read: the page reported
+"connection successful" and then an error, because the server upgrades the
+socket before the handler runs, so by the time the request is rejected there is
+no HTTP response left to send. The connection is closed instead.
+
+A token in a URL is worse than one in a header. It lands in browser history and
+in the logs of anything on the path. For a miner reached over a LAN that is a
+reasonable trade for having the log stream work, and it is the choice most
+embedded interfaces make -- but it is a trade, not a free win. The token is
+still the same short-lived session token, it still expires, and clearing the
+password still invalidates it.

@@ -104,9 +104,12 @@ happen.
 - **Pool B has no dedicated failover.** Pool A keeps its own; pool B retries its
   single endpoint. The upstream SerpentX implementation has per-pool failover
   and it has not been ported here yet.
-- **No slice accounting.** The scheduler does not record slices selected versus
-  slices actually served, so a shortfall has to be inferred from share counts
-  rather than read directly.
+Job accounting *is* now available: `/api/system/info` reports
+`poolAJobsSelected` / `poolAJobsServed` and the pool B pair. Selected is what
+the scheduler assigned; served is what was actually built. The gap is work one
+pool lost to the other because it had nothing queued to build from -- which on
+this miner is a fixed cost of roughly a dozen jobs at start-up, before pool B's
+first notify arrives, and flat thereafter.
 
 ## Credit
 

@@ -39,6 +39,14 @@ bool api_auth_is_disabled(void);
  */
 esp_err_t api_auth_require(httpd_req_t *req);
 
+/*
+ * Gate for the websocket. A browser WebSocket cannot set an Authorization
+ * header, so this also accepts ?token=... from the query string. Sends no 401:
+ * the socket is already upgraded by the time a handler runs, so the caller
+ * closes the connection instead.
+ */
+esp_err_t api_auth_require_ws(httpd_req_t *req);
+
 /* POST /api/system/login -- exchange the password for a session token. */
 esp_err_t POST_api_login(httpd_req_t *req);
 
