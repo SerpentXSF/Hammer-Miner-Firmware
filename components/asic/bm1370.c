@@ -477,6 +477,16 @@ task_result * BM1370_process_work(void * pvParameters)
     result.job_id = job_id;
     result.nonce = asic_result.job.nonce;
     result.rolled_version = rolled_version;
+    /* Decoded just above and previously discarded, which left every result
+     * claiming core 0 -- the struct is static, so the field simply stayed at
+     * its zero-initialised value. One BM1370 per board, so the chip is 0. */
+    result.core_id = core_id;
+    result.small_core_id = small_core_id;
+    result.chip_id = 0;
+    /* result is shared with the register-read path, which does set asic_nr.
+     * Without clearing it here a job response would report whichever chip the
+     * last register read happened to come from. */
+    result.asic_nr = 0;
 
     return &result;
 }

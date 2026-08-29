@@ -23,6 +23,7 @@ typedef struct __attribute__((__packed__))
     uint8_t job_id;
     uint8_t chip_id;
     uint8_t core_id;
+    uint8_t small_core_id;
     uint32_t nonce;
     uint32_t rolled_version;
     // ---- register response
