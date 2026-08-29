@@ -36,6 +36,10 @@ interface FormState {
   poolBUser: string;
   poolBPassword: string | null;
   poolBTLS: number;
+  poolBFbURL: string;
+  poolBFbUser: string;
+  poolBFbPassword: string | null;
+  poolBFbTLS: number;
   dualEnable: number;
   dualRatioA: number;
   dualSliceMs: number;
@@ -57,6 +61,10 @@ const formState = reactive<FormState>({
   poolBUser: '',
   poolBPassword: null,
   poolBTLS: 0,
+  poolBFbURL: '',
+  poolBFbUser: '',
+  poolBFbPassword: null,
+  poolBFbTLS: 0,
   dualEnable: 0,
   dualRatioA: 50,
   dualSliceMs: 2000,
@@ -64,6 +72,11 @@ const formState = reactive<FormState>({
 
 const cfgsFormRef = ref<FormInstance>();
 const minerStatusRef = ref<MinerStatusData>();
+
+/* Which pool B endpoint is actually live. Read from the status the page
+ * already fetches, so it reflects the miner rather than the form. */
+const poolBUsingFailover = computed(
+    () => ((minerStatusRef.value as any)?.poolBUsingFailover ?? 0) === 1);
 const actionStatus = reactive<ActionStatus>({saving: false, restarting: false});
 const activeTab = ref<string>('primary'); // 控制 Tab 切换
 
@@ -172,6 +185,19 @@ const updateSys = async (values: any) => {
         Object.assign(formData, { poolBPass: formState.poolBPassword });
       }
     }
+
+    /* Pool B's failover is independent of pool A's, and of pool B's primary --
+     * it is cleared by emptying the field, not by clearing the primary. */
+    const poolBFb = parseAddress(formState.poolBFbURL);
+    Object.assign(formData, {
+      poolBFbUrl: poolBFb.url,
+      poolBFbPort: poolBFb.url ? poolBFb.port : 0,
+      poolBFbUser: formState.poolBFbUser,
+      poolBFbTLS: formState.poolBFbTLS,
+    });
+    if (formState.poolBFbPassword && formState.poolBFbPassword !== '*****') {
+      Object.assign(formData, { poolBFbPass: formState.poolBFbPassword });
+    }
     Object.assign(formData, {
       dualEnable: formState.dualEnable,
       dualRatioA: formState.dualRatioA,
@@ -239,6 +265,10 @@ onMounted(async () => {
     formState.poolBUser = st.poolBUser ?? '';
     formState.poolBPassword = st.poolBUrl ? '*****' : '';
     formState.poolBTLS = st.poolBTLS ?? 0;
+    formState.poolBFbURL = st.poolBFbUrl ? `${st.poolBFbUrl}:${st.poolBFbPort ?? 3333}` : '';
+    formState.poolBFbUser = st.poolBFbUser ?? '';
+    formState.poolBFbPassword = st.poolBFbUrl ? '*****' : '';
+    formState.poolBFbTLS = st.poolBFbTLS ?? 0;
     formState.dualEnable = st.dualEnable ?? 0;
     formState.dualRatioA = st.dualRatioA ?? 50;
     formState.dualSliceMs = st.dualSliceMs ?? 2000;
@@ -393,6 +423,36 @@ onMounted(async () => {
                 </div>
               </a-form-item>
 
+              <div class="dual-fb">
+                <div class="dual-fb-head">
+                  <span class="ps-switch-label">{{ dpl('dual_fb') }}</span>
+                  <span v-if="formState.poolBFbURL"
+                        class="dual-fb-state"
+                        :class="{ 'is-live': poolBUsingFailover }">
+                    {{ poolBUsingFailover ? dpl('dual_fb_active') : dpl('dual_fb_primary') }}
+                  </span>
+                </div>
+                <div class="dual-hint" style="margin-bottom: .85rem;">{{ dpl('dual_fb_hint') }}</div>
+
+                <a-form-item :label="pl('stratum_host')" name="poolBFbURL">
+                  <a-input v-model:value="formState.poolBFbURL" placeholder="host:port"></a-input>
+                </a-form-item>
+                <a-form-item :label="pl('stratum_user')" name="poolBFbUser">
+                  <a-input v-model:value="formState.poolBFbUser"></a-input>
+                </a-form-item>
+                <a-form-item :label="pl('stratum_password')" name="poolBFbPassword">
+                  <a-input-password v-model:value="formState.poolBFbPassword"></a-input-password>
+                </a-form-item>
+                <a-form-item v-if="appStore.currentModelConfig?.support_tls" name="poolBFbTLS"
+                             :colon="false" style="margin-bottom: 0;">
+                  <div class="ps-switch-row">
+                    <span class="ps-switch-label">{{ pl('stratum_tls') }}</span>
+                    <a-switch :checked="formState.poolBFbTLS === 1"
+                              @change="(checked: boolean) => formState.poolBFbTLS = checked ? 1 : 0" />
+                  </div>
+                </a-form-item>
+              </div>
+
               <div class="dual-split">
                 <div class="dual-split-head">
                   <span class="ps-switch-label">{{ dpl('dual_split') }}</span>
@@ -453,6 +513,36 @@ onMounted(async () => {
 }
 
 /* ---- dual pool ---- */
+.dual-fb {
+  margin: 1.5rem 0 .5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--surface-border);
+}
+
+.dual-fb-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  margin-bottom: .35rem;
+}
+
+.dual-fb-state {
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  padding: .15rem .6rem;
+  border-radius: 999px;
+  border: 1px solid var(--surface-border);
+  color: var(--text-color-secondary);
+  white-space: nowrap;
+}
+
+.dual-fb-state.is-live {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
 .dual-intro {
   border: 1px solid var(--surface-border);
   border-left: 3px solid var(--primary-color);

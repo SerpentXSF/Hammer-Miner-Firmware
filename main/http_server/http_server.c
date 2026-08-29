@@ -1605,6 +1605,7 @@ static esp_err_t GET_system_info(httpd_req_t * req)
     cJSON_AddNumberToObject(root, "poolBFbPort", GLOBAL_STATE->SYSTEM_MODULE.poolB_fb_port);
     cJSON_AddStringToObject(root, "poolBFbUser",
         GLOBAL_STATE->SYSTEM_MODULE.poolB_fb_user ? GLOBAL_STATE->SYSTEM_MODULE.poolB_fb_user : "");
+    cJSON_AddNumberToObject(root, "poolBFbTLS", GLOBAL_STATE->SYSTEM_MODULE.poolB_fb_tls);
     cJSON_AddNumberToObject(root, "poolBUsingFailover", GLOBAL_STATE->SYSTEM_MODULE.poolB_is_using_failover);
     cJSON_AddNumberToObject(root, "poolBSharesAccepted", GLOBAL_STATE->SYSTEM_MODULE.poolB_shares_accepted);
     cJSON_AddNumberToObject(root, "poolBSharesRejected", GLOBAL_STATE->SYSTEM_MODULE.poolB_shares_rejected);
