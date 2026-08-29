@@ -296,7 +296,7 @@ static void bc_i2c_identify(uint8_t addr)
             for (uint8_t b = 0; b < probes[i].len && b < 8; b++) {
                 snprintf(hex + b * 3, sizeof(hex) - b * 3, "%02x ", out[b]);
             }
-            ESP_LOGW(TAG, "    0x%02x %-14s = %s", addr, probes[i].name, hex);
+            ESP_LOGD(TAG, "    0x%02x %-14s = %s", addr, probes[i].name, hex);
         }
     }
 
@@ -316,15 +316,31 @@ void bc_i2c_scan(void)
 {
     int found = 0;
 
+    /*
+     * A NACK is this function's answer, not a fault: it is how a bus reports
+     * that nothing lives at an address, and how a chip reports that it has no
+     * such register. The scan asks both questions deliberately -- a TMP75 has
+     * four registers and gets probed for nineteen -- and the IDF driver logs
+     * every one at ERROR level. A healthy board therefore produced twenty-two
+     * red lines at each boot that read as failing hardware.
+     *
+     * Silence the driver for the duration and restore whatever level was set,
+     * so real I2C faults outside the scan still report normally.
+     */
+    esp_log_level_t prev = esp_log_level_get("i2c.master");
+    esp_log_level_set("i2c.master", ESP_LOG_NONE);
+
     ESP_LOGI(TAG, "Scanning I2C bus (SDA=%d SCL=%d)", GPIO_I2C_SDA_0, GPIO_I2C_SCL_0);
 
     for (uint8_t addr = 0x08; addr < 0x78; addr++) {
         if (i2c_master_probe(i2c_bus_handle[0], addr, 50) == ESP_OK) {
-            ESP_LOGW(TAG, "  device responding at 0x%02x", addr);
+            ESP_LOGI(TAG, "  device responding at 0x%02x", addr);
             bc_i2c_identify(addr);
             found++;
         }
     }
+
+    esp_log_level_set("i2c.master", prev);
 
     if (found == 0) {
         ESP_LOGE(TAG, "  no devices found -- check hashboard power and wiring");
