@@ -229,9 +229,34 @@ void free_psram(void *ptr) {
     heap_caps_free(ptr);
 }
 
+/*
+ * The mining path logs at debug level: every job dequeued, every nonce the
+ * ASIC returns with its difficulty, every share submitted and the pool's
+ * answer. That is the view ESP-Miner and its forks give, and without it the
+ * log page can only say the miner is connected -- it cannot show it working,
+ * which is the thing an operator actually wants to watch.
+ *
+ * Raised per tag rather than globally: at debug the wifi and lwip stacks
+ * out-log the miner several times over and bury it.
+ */
+static void enable_mining_logs(void)
+{
+    static const char *const mining_tags[] = {
+        "asic_result",       /* nonces, their difficulty, share submission */
+        "create_jobs_task",  /* work dequeued and built */
+        "stratum_task",      /* pool responses, accept/reject, timing */
+        "stratum_api",       /* the stratum messages themselves */
+    };
+
+    for (size_t i = 0; i < sizeof(mining_tags) / sizeof(mining_tags[0]); i++) {
+        esp_log_level_set(mining_tags[i], ESP_LOG_DEBUG);
+    }
+}
+
 void app_main(void)
 {
     init_logging_system();
+    enable_mining_logs();
 
     esp_rom_printf("\nSerpentX starting....\n\n");
     ESP_LOGI(TAG, "APP: %s %s", CONFIG_APP_PROJECT_VER, __TIME__);

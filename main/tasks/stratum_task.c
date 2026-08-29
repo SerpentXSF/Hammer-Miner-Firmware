@@ -493,7 +493,7 @@ void stratum_task(void * pvParameters)
 
             STATUM_MODULE.isconnected = true;
 
-            //ESP_LOGI(TAG, "rx: %s", line);  // debug incoming stratum messages
+            ESP_LOGD(TAG, "rx: %s", line);
             STRATUM_V1_parse(&stratum_api_v1_message, line);
             free(line);
 
