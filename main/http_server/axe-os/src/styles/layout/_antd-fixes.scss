@@ -10,6 +10,11 @@
  * Global rather than per page because the components appear on several, and a
  * scoped rule cannot reach a dropdown that renders in a portal at the end of
  * the body.
+ *
+ * This file is a patch over the cause, not a fix for it, and it will grow every
+ * time another component turns out to derive a colour the same way. The real
+ * fix is to give Ant Design literal colours instead of custom properties --
+ * see docs/KNOWN-ISSUES.md.
  */
 
 /* ---- card tabs ----
