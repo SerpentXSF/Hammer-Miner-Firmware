@@ -46,6 +46,19 @@ def main(argv):
     # file only ever states what that board changes.
     defaults = base + ";" + fragment if os.path.exists(base) else fragment
 
+    # ESP-IDF applies SDKCONFIG_DEFAULTS only when it has to create the config,
+    # so once build/<board>/sdkconfig exists it silently wins and later edits to
+    # the base file or the board fragment do not reach the build. Regenerate it
+    # whenever either input is newer -- the two source files are the authority,
+    # and anything set by hand in the generated copy is meant to be disposable.
+    generated = os.path.join(build_dir, "sdkconfig")
+    if os.path.exists(generated):
+        newest_input = max(os.path.getmtime(f)
+                           for f in (base, fragment) if os.path.exists(f))
+        if newest_input > os.path.getmtime(generated):
+            print("config inputs changed; regenerating %s" % generated)
+            os.remove(generated)
+
     # Run idf.py through the interpreter rather than as a bare command: the
     # defaults list is semicolon separated and the paths here contain spaces,
     # which a shell gets wrong on both counts.

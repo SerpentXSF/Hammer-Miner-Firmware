@@ -174,3 +174,28 @@ for what follows from each answer.
 The defect worth acting on is therefore not the weak pad. It is that **the
 OTA endpoint has no authentication at all**, so any host on the network can
 initiate an update at will.
+
+## A bad update now reverts itself
+
+Rollback is enabled, so an image installed over the air boots once in
+`PENDING_VERIFY`. If it does not reach `confirm_running_image()` in `system.c`
+-- it panics, hangs before the system task runs, or reboots -- the bootloader
+puts the previous image back on the next reset.
+
+This matters more here than on most hardware. Recovery of last resort is a
+serial flash, and on these units the ESP32-S3 is a socketed module behind a
+screwed-on lid; an update that boots into a crash loop otherwise means opening
+the case. These images also go to other people through a web flasher, where
+that is not a reasonable thing to ask.
+
+The bar for confirming is that the build is alive and has stayed alive for 60
+seconds, not that it is mining. Tying it to shares would let an unreachable
+pool revert a perfectly good update, which is a worse failure than the one
+being guarded against.
+
+A serially flashed image is `UNDEFINED` rather than `PENDING_VERIFY` and needs
+no confirmation, so this costs one partition read on a normal boot.
+
+Verified by packing a build, installing it through `/api/system/OTA`, and
+watching it confirm itself: `update confirmed after 60s; keeping this image`,
+followed by normal mining.
