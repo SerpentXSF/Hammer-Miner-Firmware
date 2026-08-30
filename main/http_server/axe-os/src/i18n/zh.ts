@@ -297,6 +297,7 @@ const lang = {
         ws_status_connecting: "[WebSocket] 正在连接服务器...",
         ws_status_connected: "[WebSocket] 连接成功。",
         ws_status_disconnected: "[WebSocket] 连接已断开。",
+        ws_status_expired: "[WebSocket] 会话已过期 -- 请重新登录以查看日志。",
         ws_status_error: "[WebSocket] 连接错误。",
         ws_status_create_error: "[WebSocket] 无法创建连接。",
         ws_scroll_stop: "停止滚动",

@@ -335,10 +335,26 @@ export const useAppStore = defineStore("app", {
                     }
                 };
                 socket.onclose = () => {
-                    this.logContent += "\n" + translations.disconnected + "\n";
+                    /*
+                     * An expired session and an ordinary disconnect look
+                     * identical here: the miner cannot answer a websocket
+                     * upgrade with a 401, so it accepts the connection and
+                     * then drops it. Asking the API which one it was turns
+                     * "the log page is broken" into "sign in again".
+                     */
+                    const token = this.token;
                     this.ws = null;
                     this.wsConnected = false;
                     this.wsConnecting = false;
+
+                    fetch("/api/system/info", {
+                        headers: token ? { Authorization: "Bearer " + token } : {},
+                    }).then((res) => {
+                        const expired = res.status === 401 && translations.expired;
+                        this.logContent += "\n" + (expired || translations.disconnected) + "\n";
+                    }).catch(() => {
+                        this.logContent += "\n" + translations.disconnected + "\n";
+                    });
                 };
                 socket.onerror = () => {
                     this.logContent += "\n" + translations.error + "\n";

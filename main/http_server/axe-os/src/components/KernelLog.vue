@@ -73,6 +73,7 @@ onMounted(async () => {
           connecting: ll('ws_status_connecting'),
           connected: ll('ws_status_connected'),
           disconnected: ll('ws_status_disconnected'),
+          expired: ll('ws_status_expired'),
           error: ll('ws_status_error'),
           create_error: ll('ws_status_create_error')
       });

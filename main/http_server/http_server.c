@@ -330,7 +330,48 @@ static esp_err_t GET_wifi_scan(httpd_req_t *req)
 //static httpd_handle_t server = NULL;
 //QueueHandle_t log_queue = NULL;
 
-static int fd = -1;
+/*
+ * Log viewers, by socket. This was one global fd, so opening the log page in a
+ * second tab took the stream away from the first, which then simply sat there
+ * showing nothing with no indication why. A phone and a desktop cannot both
+ * watch a miner, and neither can a browser and a script.
+ *
+ * A dead client is noticed when a send to it fails, which is the only
+ * notification available -- the server is not told when a socket goes away.
+ */
+#define MAX_WS_LOG_CLIENTS 4
+static int ws_log_clients[MAX_WS_LOG_CLIENTS] = { -1, -1, -1, -1 };
+
+static bool ws_log_clients_present(void)
+{
+    for (int i = 0; i < MAX_WS_LOG_CLIENTS; i++) {
+        if (ws_log_clients[i] >= 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void ws_log_client_add(int sockfd)
+{
+    for (int i = 0; i < MAX_WS_LOG_CLIENTS; i++) {
+        if (ws_log_clients[i] == sockfd) {
+            return;                      /* already watching */
+        }
+    }
+    for (int i = 0; i < MAX_WS_LOG_CLIENTS; i++) {
+        if (ws_log_clients[i] < 0) {
+            ws_log_clients[i] = sockfd;
+            ESP_LOGI(TAG, "Added WebSocket log client, fd: %d, slot: %d", sockfd, i);
+            return;
+        }
+    }
+    /* Full: take the oldest slot rather than refuse. A stale entry is the
+     * likely occupant, since the only way one is freed is a failed send. */
+    ESP_LOGW(TAG, "WebSocket log clients full; replacing fd %d in slot 0",
+             ws_log_clients[0]);
+    ws_log_clients[0] = sockfd;
+}
 
 #define REST_CHECK(a, str, goto_tag, ...)                                                                                          \
     do {                                                                                                                           \
@@ -2523,12 +2564,16 @@ void send_log_to_websocket(char *message)
     ws_pkt.len = strlen(message);
     ws_pkt.type = HTTPD_WS_TYPE_TEXT;
 
-    // Ensure server and fd are valid
-    if (server != NULL && fd >= 0) {
-        // Send the WebSocket frame asynchronously
-        if (httpd_ws_send_frame_async(server, fd, &ws_pkt) != ESP_OK) {
-            ESP_LOGW(TAG, "Failed to send to WS, invalidate fd");
-            fd = -1;
+    if (server != NULL) {
+        for (int i = 0; i < MAX_WS_LOG_CLIENTS; i++) {
+            if (ws_log_clients[i] < 0) {
+                continue;
+            }
+            if (httpd_ws_send_frame_async(server, ws_log_clients[i], &ws_pkt) != ESP_OK) {
+                ESP_LOGD(TAG, "log client fd %d went away, freeing slot %d",
+                         ws_log_clients[i], i);
+                ws_log_clients[i] = -1;
+            }
         }
     }
 
@@ -2567,7 +2612,7 @@ esp_err_t echo_handler(httpd_req_t * req)
 
     if (req->method == HTTP_GET) {
         ESP_LOGI(TAG, "Handshake done, the new connection was opened");
-        fd = httpd_req_to_sockfd(req);
+        ws_log_client_add(httpd_req_to_sockfd(req));
         
         #ifdef HTTPD_NEW_LOG
         // 【新增】：发送历史日志
@@ -2988,7 +3033,7 @@ void websocket_log_handler()
             continue;
         }
 
-        if (fd == -1) {
+        if (!ws_log_clients_present()) {
             free((void*)message);
             vTaskDelay(100 / portTICK_PERIOD_MS);
             continue;

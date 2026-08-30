@@ -299,6 +299,7 @@ const lang = {
         ws_status_connecting: "[WebSocket] Connecting to server...",
         ws_status_connected: "[WebSocket] Connection successful.",
         ws_status_disconnected: "[WebSocket] Connection closed.",
+        ws_status_expired: "[WebSocket] Session expired -- sign in again to see the log.",
         ws_status_error: "[WebSocket] Connection error.",
         ws_status_create_error: "[WebSocket] Failed to create connection.",
         ws_scroll_stop: "Stop Scrolling",
