@@ -76,7 +76,20 @@ E serpentx: share. Flash the BC01 build instead.
 E serpentx: ================================================
 ```
 
-`/api/system/info` reports the same as `boardMismatch`.
+`/api/system/info` reports the same as `boardMismatch`, and the display shows
+
+```
+Wrong firmware
+for this board
+```
+
+The screen matters more than it looks. A mismatched board produces exactly the
+symptom the firmware already had a message for -- the chip is found, clocked,
+and silent -- so it used to show **No ASIC response** and then restart, having
+waited three minutes. Rebooting cannot change which pins an image was compiled
+for, so it failed again three minutes later, forever, taking the web interface
+needed to flash the right build away every time. A known mismatch now says what
+it is, immediately, and does not restart.
 
 Only boards whose pinout is actually known are checked — the BC01 because it
 was measured on hardware, the BC04 from the vendor reference. An unrecognised

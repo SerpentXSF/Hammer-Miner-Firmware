@@ -77,6 +77,7 @@ typedef enum{
 	HIGH_TEMPERATURE_ERROR,
 	WIFI_CONNETION_ERROR,
 	NETWORK_ERROR,	/*could not connect to the pool.*/
+	BOARD_MISMATCH_ERROR, /*image built for a different board's pinout.*/
 	SYSTEM_ERROR_MAX_NUM
 }SYSTEM_ERROR;
 
