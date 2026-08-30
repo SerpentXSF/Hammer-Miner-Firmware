@@ -64,18 +64,29 @@ boardversion,data,string,V02
 asicmodel,data,string,BM1370
 sn_str,data,string,AL
 
-# ── ASIC tuning (vendor defaults, unchanged) ─────────────────────────────────
+# ── ASIC tuning ──────────────────────────────────────────────────────────────
+# Voltages are hundredths of a volt for ONE ASIC domain: 120 is 1.20 V, and
+# the BC01 accepts 100 to 130 (CONFIG_TPS546_VOUT_MIN/MAX).
+#
+# The vendor's numbers here were 460-480, which is the BC04 scale -- that board
+# stacks four ASICs in series, so its figures are roughly four times a single
+# domain. On a BC01 they are far outside the permitted range, so the regulator
+# clamped instead of applying them and the core sat at 0.996 V against an
+# intended 1.20 V. The miner ran undervolted rather than dangerously high, but
+# it ran wrong.
 asicfrequency,data,u16,750
-asicvoltage,data,u16,470
+asicvoltage,data,u16,120
 asicnormalf,data,u16,640
-asicnormalvol,data,u16,460
+asicnormalvol,data,u16,120
 asicoverf,data,u16,750
-asicovervol,data,u16,470
-asicovervdef,data,u16,480
+asicovervol,data,u16,120
+asicovervdef,data,u16,120
 oc_enabled,data,u16,1
 
 # ── Thermal and display ──────────────────────────────────────────────────────
-flipscreen,data,u16,1
+# 0 is upright in the BC01 enclosure. The vendor shipped 1, which is correct
+# for the board this template was adapted from and upside down on a BC01.
+flipscreen,data,u16,0
 backlight,data,u16,1
 invertfanpol,data,u16,0
 autofanspeed,data,u16,1
