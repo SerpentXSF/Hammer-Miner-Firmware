@@ -35,7 +35,13 @@ secure/
 Thumbs.db
 *.swp
 
-# The web flasher has to serve its image from its own origin: GitHub release
-# assets are delivered without CORS headers, so a browser cannot fetch one
-# from the Pages site. This is the only .bin that belongs in the repository.
-!docs/flasher/*.bin
+# The web flasher still has to serve its image from its own origin -- release
+# assets carry no CORS headers, so a browser cannot fetch one from the Pages
+# site -- but that image does not belong on this branch. Every release put
+# another 12 MB blob in the project's permanent history, where nothing could
+# remove it afterwards.
+#
+# It lives on gh-pages instead, which tools/publish_flasher.py rewrites as a
+# single orphan commit each time, so the previous image stops being referenced
+# rather than accumulating. Keep the binaries out of here.
+docs/flasher/*.bin

@@ -101,7 +101,38 @@ failure, reproduced deliberately and now announced instead of hidden.
 
 ## Releases
 
-Release artifacts carry the board in the filename
-(`serpentx-bc01-<version>-full.bin`). Only the BC01 is published, because only
-the BC01 has been run on real hardware. The other models can be built from
-source with the command at the top of this page.
+```bash
+python tools/build_board.py bc01
+python tools/make_release.py bc01
+python tools/publish_flasher.py bc01 --push
+```
+
+Artifacts carry the board in the filename (`serpentx-bc01-<version>-full.bin`),
+and `make_release.py` reads that board's build directory and refuses to publish
+a build whose own sdkconfig names a different model than the filename claims.
+The filename is the only thing telling someone which board an image is for, and
+the cost of getting it wrong is a miner that looks broken.
+
+Only the BC01 is published, because only the BC01 has been run on real
+hardware. The other models can be built from source with the command at the top
+of this page.
+
+### Why the flasher image lives on gh-pages
+
+esp-web-tools fetches the firmware with XHR, and GitHub release assets are
+served without CORS headers, so the image has to come from the same origin as
+the page. It therefore has to be somewhere Pages can serve.
+
+Keeping it on `main` meant every release added another 12 MB blob to the
+project's permanent history, where nothing could remove it afterwards.
+`publish_flasher.py` writes `gh-pages` as a single **orphan** commit instead, so
+the previous image stops being referenced rather than accumulating, and the
+branch can be regenerated wholesale at any time. It is generated output, not
+source, which is why the push is a force.
+
+The branch is assembled with git plumbing, so publishing never touches the
+working tree, the index, or the current branch. `.gitignore` keeps flasher
+binaries off `main` so this cannot quietly regress.
+
+Note that history already written is not affected: the blobs from releases up
+to 2.0.8 remain in `main`. Only the growth stops.
