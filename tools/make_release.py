@@ -3,10 +3,10 @@
 
 Produces, into dist/:
 
-    serpentx-bc01-<ver>-full.bin    bootloader + tables + app + web UI
-    serpentx-bc01-<ver>-app.bin     application only, for esptool at 0x20000
-    serpentx-bc01-<ver>-www.bin     web UI only, for esptool at 0x9e0000
-    serpentx-bc01-<ver>-ota.bin     wrapped for the miner's own updater
+    serpentx-<board>-<ver>-full.bin    bootloader + tables + app + web UI
+    serpentx-<board>-<ver>-app.bin     application only, for esptool at 0x20000
+    serpentx-<board>-<ver>-www.bin     web UI only, for esptool at 0x9e0000
+    serpentx-<board>-<ver>-ota.bin     wrapped for the miner's own updater
     manifest.json                   for the esp-web-tools flasher
     SHA256SUMS
 
@@ -18,7 +18,15 @@ the builder's wallet. The published image therefore has no credentials in it,
 and a freshly flashed miner comes up as an access point waiting to be told
 where to mine.
 
-Run after `idf.py build`, with the ESP-IDF environment exported.
+Takes the board to publish, defaulting to bc01:
+
+    python tools/make_release.py bc01
+
+Run after `python tools/build_board.py <board>`, with the ESP-IDF environment
+exported. The board is not cosmetic: it picks which build directory is read and
+it goes in every filename. The boards do not share an ASIC pinout, and an image
+flashed to the wrong one boots, serves its interface, detects the chip and
+never returns a share -- so a mislabelled artifact is worse than a missing one.
 """
 
 import hashlib
@@ -30,25 +38,48 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BUILD = os.path.join(ROOT, "build")
 DIST = os.path.join(ROOT, "dist")
 
-# offset, file — must match partitions.csv
-LAYOUT = [
-    (0x0, os.path.join(BUILD, "bootloader", "bootloader.bin")),
-    (0xD000, os.path.join(BUILD, "partition_table", "partition-table.bin")),
-    (0xE000, os.path.join(DIST, "config-dist.bin")),
-    (0x16000, os.path.join(BUILD, "ota_data_initial.bin")),
-    (0x20000, os.path.join(BUILD, "stayopen-miner.bin")),
-    (0x9E0000, os.path.join(BUILD, "www.bin")),
-]
+
+def layout(build):
+    """offset, file -- must match partitions.csv"""
+    return [
+        (0x0, os.path.join(build, "bootloader", "bootloader.bin")),
+        (0xD000, os.path.join(build, "partition_table", "partition-table.bin")),
+        (0xE000, os.path.join(DIST, "config-dist.bin")),
+        (0x16000, os.path.join(build, "ota_data_initial.bin")),
+        (0x20000, os.path.join(build, "stayopen-miner.bin")),
+        (0x9E0000, os.path.join(build, "www.bin")),
+    ]
 
 
-def version():
-    sdk = os.path.join(ROOT, "sdkconfig")
+def version(build):
+    """Read the version from the config the image was actually built with."""
+    sdk = os.path.join(build, "sdkconfig")
     with open(sdk, encoding="utf-8", errors="replace") as fh:
         m = re.search(r'^CONFIG_APP_PROJECT_VER="([^"]+)"', fh.read(), re.M)
     return (m.group(1).split()[0] if m else "0.0.0")
+
+
+def check_board(build, board):
+    """Refuse to publish a build whose config is not the board being named.
+
+    The filename is the only thing telling someone which board an image is
+    for, and the cost of getting it wrong is a miner that looks broken. The
+    build directory's own sdkconfig is the authority, so compare against it
+    rather than trusting the directory name.
+    """
+    sdk = os.path.join(build, "sdkconfig")
+    if not os.path.exists(sdk):
+        sys.exit("no sdkconfig in %s -- run tools/build_board.py %s first"
+                 % (build, board))
+    with open(sdk, encoding="utf-8", errors="replace") as fh:
+        text = fh.read()
+    m = re.search(r'^CONFIG_DEVICE_MODULE="([^"]+)"', text, re.M)
+    model = m.group(1).lower() if m else "?"
+    if model != board.lower():
+        sys.exit("build in %s is for %s, not %s -- refusing to publish it "
+                 "under the wrong name" % (build, model, board))
 
 
 def sh(cmd):
@@ -74,17 +105,23 @@ def build_config():
 
 
 def main():
-    ver = version()
+    board = (sys.argv[1] if len(sys.argv) > 1 else "bc01").lower()
+    build = os.path.join(ROOT, "build", board)
+
+    check_board(build, board)
+    ver = version(build)
     os.makedirs(DIST, exist_ok=True)
-    print("building release artifacts for %s" % ver)
+    print("building release artifacts for %s %s from %s" % (board, ver, build))
 
     build_config()
 
+    LAYOUT = layout(build)
     for _, path in LAYOUT:
         if not os.path.exists(path):
-            sys.exit("missing %s -- run idf.py build first" % path)
+            sys.exit("missing %s -- run tools/build_board.py %s first"
+                     % (path, board))
 
-    base = "serpentx-bc01-%s" % ver
+    base = "serpentx-%s-%s" % (board, ver)
     full = os.path.join(DIST, base + "-full.bin")
 
     args = [sys.executable, "-m", "esptool", "--chip", "esp32s3", "merge_bin",
@@ -94,9 +131,9 @@ def main():
         args += [hex(off), path]
     sh(args)
 
-    shutil.copy(os.path.join(BUILD, "stayopen-miner.bin"),
+    shutil.copy(os.path.join(build, "stayopen-miner.bin"),
                 os.path.join(DIST, base + "-app.bin"))
-    shutil.copy(os.path.join(BUILD, "www.bin"),
+    shutil.copy(os.path.join(build, "www.bin"),
                 os.path.join(DIST, base + "-www.bin"))
 
     # Image the miner's own updater accepts. The container is obfuscated with
@@ -105,7 +142,7 @@ def main():
     # and protects nothing -- it is here because the firmware's updater expects
     # the format, so an update built any other way is rejected.
     sh([sys.executable, os.path.join(ROOT, "tools", "ota_tool.py"), "pack",
-        os.path.join(BUILD, "stayopen-miner.bin"),
+        os.path.join(build, "stayopen-miner.bin"),
         "--pad", "69cc74aeaf0ce683229d422f54428a54",
         "-o", os.path.join(DIST, base + "-ota.bin")])
 
