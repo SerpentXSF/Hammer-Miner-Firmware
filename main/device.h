@@ -27,6 +27,15 @@ esp_err_t power_on_hashboard(GlobalState *GLOBAL_STATE);
 esp_err_t power_off_hashboard(GlobalState *GLOBAL_STATE);
 void      reset_hash_board(GlobalState *GLOBAL_STATE);
 
+/* True for the boards that drive the fan from LEDC rather than an EMC2302,
+ * and take their hashboard supply through the USB-PD gate. */
+bool device_is_bc01_family(DeviceModel model);
+
+/* Negotiate the USB-PD supply and open the VBUS gate. Everything on the
+ * hashboard -- the fan and the core regulator included -- is unpowered until
+ * this succeeds, so anything that measures them has to run after it. */
+esp_err_t bc01_pd_bringup(GlobalState *GLOBAL_STATE);
+
 esp_err_t set_fan_pwm(GlobalState *GLOBAL_STATE, uint8_t pwm_percent);
 esp_err_t read_fan_rpm(GlobalState *GLOBAL_STATE);
 

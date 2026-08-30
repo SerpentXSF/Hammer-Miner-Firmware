@@ -3,6 +3,7 @@
 
 #include "esp_log.h"
 #include "esp_err.h"
+#include "esp_check.h"
 #include "freertos/FreeRTOS.h"
 
 #include "self_test.h"
@@ -11,6 +12,7 @@
 #include "vcore.h"
 #include "asic.h"
 #include "device.h"
+#include "pwm_fan.h"
 #include "ip_reporter.h"
 #include "network.h"
 #include "main.h"
@@ -24,8 +26,20 @@ static void tests_done(GlobalState * GLOBAL_STATE, bool test_result)
     GLOBAL_STATE->SELF_TEST_MODULE.result = test_result;
     GLOBAL_STATE->SELF_TEST_MODULE.finished = true;
 
+    /*
+     * Record that the test ran whatever the outcome. Writing the flag only on
+     * success meant a failing board restarted, tested, failed and restarted
+     * again without end -- and because the self test runs before the network
+     * comes up, the web interface never appeared, so there was no way in to
+     * see the reason or change anything. An unrecoverable loop is a worse
+     * failure than a board that boots and reports a fault.
+     *
+     * 1 is a pass and 2 a recorded failure, so the result survives the restart
+     * and can still be reported rather than being silently forgotten.
+     */
     if (test_result != true) {
         ESP_LOGW(TAG, "SELF TESTS FAIL !!!");
+        nvs_config_set_u16(NVS_CONFIG_SELF_TEST, 2);
     }else{
         ESP_LOGI(TAG, "SELF_TEST OK !!!");
         nvs_config_set_u16(NVS_CONFIG_SELF_TEST,1);
@@ -246,20 +260,50 @@ esp_err_t test_fan(uint16_t * rpm)
     esp_err_t ret = ESP_FAIL;
     int pwm_conf[] = {0, 50, 80, 100};
 
-	ret = EMC2302_init();
-	if (ret != ESP_OK) {
-        return ret;
-    }
-	ret = EMC2302_installed(false);
-    if (ret != ESP_OK) {
-        return ret;
+    /*
+     * The BC01 family has no EMC2302. Its fan is driven straight from LEDC
+     * with the tachometer counted in hardware, which device.c has done since
+     * bring-up -- but this test still went looking for a controller at 0x2e
+     * and failed when nothing answered.
+     *
+     * That is why a freshly flashed BC01 failed its self test: not a fault on
+     * the board, a test written for a different one. The LEDC path has to be
+     * started here because the test runs before init_all_i2c_dev() does it.
+     */
+    bool ledc_fan = device_is_bc01_family(GLOBAL_STATE->device_model);
+
+    if (ledc_fan) {
+        ESP_RETURN_ON_ERROR(ledc_pwm_init(LEDC_CHANNEL_0), TAG, "fan pwm");
+        ESP_RETURN_ON_ERROR(fan_pcnts_init(LEDC_CHANNEL_0), TAG, "fan tach");
+        fan_pcnts_clear_counter(LEDC_CHANNEL_0);
+    } else {
+        ret = EMC2302_init();
+        if (ret != ESP_OK) {
+            return ret;
+        }
+        ret = EMC2302_installed(false);
+        if (ret != ESP_OK) {
+            return ret;
+        }
     }
 
     for(int i = 0; i < sizeof(pwm_conf)/sizeof(pwm_conf[0]); i++)
     {
-        ret = ESP_ERROR_CHECK_WITHOUT_ABORT(EMC2302_set_fan_speed(pwm_conf[i]));
-        vTaskDelay(pdMS_TO_TICKS(5000));
-        ret = ESP_ERROR_CHECK_WITHOUT_ABORT(EMC2302_get_fan_speed(rpm));
+        if (ledc_fan) {
+            ret = ESP_ERROR_CHECK_WITHOUT_ABORT(ledc_set_pwm(LEDC_CHANNEL_0, pwm_conf[i]));
+            fan_pcnts_clear_counter(LEDC_CHANNEL_0);
+            vTaskDelay(pdMS_TO_TICKS(5000));
+            /* measures over the window it is given, so it matches the delay.
+             * Counted as int, reported as uint16_t like the EMC2302 path. */
+            int counted = 0;
+            ret = ESP_ERROR_CHECK_WITHOUT_ABORT(
+                      fan_pcnts_get_rpm(LEDC_CHANNEL_0, &counted, 5000));
+            *rpm = (uint16_t)(counted < 0 ? 0 : counted);
+        } else {
+            ret = ESP_ERROR_CHECK_WITHOUT_ABORT(EMC2302_set_fan_speed(pwm_conf[i]));
+            vTaskDelay(pdMS_TO_TICKS(5000));
+            ret = ESP_ERROR_CHECK_WITHOUT_ABORT(EMC2302_get_fan_speed(rpm));
+        }
         ESP_LOGI(TAG, "Fan %d%%,speed is %d rpm", pwm_conf[i],*rpm);
         if(pwm_conf[i] < 10)
         {
@@ -305,11 +349,17 @@ bool should_test(void)
     uint16_t self_test = nvs_config_get_u16(NVS_CONFIG_SELF_TEST, 0);
     
     if(0 == self_test){
-        ret = true;
+        ret = true;                 /* never run */
     }else if(1 == self_test){
+        ret = false;                /* passed */
+    }else if(2 == self_test){
+        /* Ran and failed. Reported, not repeated -- retrying it on every boot
+         * is what produced the loop this value exists to break. */
+        ESP_LOGW(TAG, "Self test previously failed; not repeating it");
         ret = false;
     }else{
         ESP_LOGW(TAG, "NVS ERROR: self_test %"PRIu16"", self_test);
+        ret = false;
     }
 
     return ret;
@@ -384,8 +434,22 @@ void self_test(GlobalState *global_state)
         logMessage(GLOBAL_STATE->SELF_TEST_MODULE.message);
     }
 
+    /*
+     * The BC01 family has no W5500, so there is no Ethernet to test. The
+     * network stack already knows this and carries on without one; the self
+     * test did not, and spent forty seconds polling for a link on hardware
+     * that has no socket before declaring the board faulty.
+     *
+     * Absent hardware is not a failed test. It is reported as not applicable
+     * rather than as a pass.
+     */
     char ip[24];
-    if((ret = test_eth(ip)) != ESP_OK){
+    if (device_is_bc01_family(GLOBAL_STATE->device_model)) {
+        ESP_LOGI(TAG, "No Ethernet on this board; skipping ETH test");
+        strcat(GLOBAL_STATE->SELF_TEST_MODULE.message, "ETH n/a\n");
+        logMessage(GLOBAL_STATE->SELF_TEST_MODULE.message);
+    }
+    else if((ret = test_eth(ip)) != ESP_OK){
         ESP_LOGI(TAG, "ETH test failed, %d, %s", ret, esp_err_to_name(ret));
         strcat(GLOBAL_STATE->SELF_TEST_MODULE.message, "ETH fail!\n");
         logMessage(GLOBAL_STATE->SELF_TEST_MODULE.message);

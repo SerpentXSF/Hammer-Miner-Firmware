@@ -374,6 +374,23 @@ void app_main(void)
 
     #if 1
     if(should_test()){
+        /*
+         * The self test measures the fan and the core regulator, and on the
+         * BC01 family both sit behind the USB-PD gate: until the supply is
+         * negotiated they have no power, do not answer, and cannot be
+         * measured. The test ran before any of that and duly reported a fan
+         * turning at 0 rpm on every setting -- a correct measurement of an
+         * unpowered fan, read as a broken board.
+         *
+         * A self-test boot restarts before init_all_peripherals() would
+         * otherwise do this, so it is the only bring-up on this path.
+         */
+        if (device_is_bc01_family(GLOBAL_STATE.device_model) &&
+            bc01_pd_bringup(&GLOBAL_STATE) != ESP_OK) {
+            ESP_LOGE(TAG, "USB-PD bring-up failed; self test cannot measure "
+                          "the hashboard");
+        }
+
         self_test(&GLOBAL_STATE);
         power_off_hashboard(&GLOBAL_STATE);
         if(GLOBAL_STATE.SELF_TEST_MODULE.result)

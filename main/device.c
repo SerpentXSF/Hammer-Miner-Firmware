@@ -109,12 +109,12 @@ static void pd_power_io_on(void)
     gpio_set_level(CONFIG_GPIO_OVERHEATE_ALERT_0, 0);
 }
 
-static bool device_is_bc01_family(DeviceModel model)
+bool device_is_bc01_family(DeviceModel model)
 {
     return model == DEVICE_BC01 || model == DEVICE_BC02 || model == DEVICE_BC01_Pro;
 }
 
-static esp_err_t bc01_pd_bringup(GlobalState *GLOBAL_STATE)
+esp_err_t bc01_pd_bringup(GlobalState *GLOBAL_STATE)
 {
 
     // Status Variables
