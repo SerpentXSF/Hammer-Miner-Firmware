@@ -7,6 +7,7 @@ Produces, into dist/:
     serpentx-<board>-<ver>-app.bin     application only, for esptool at 0x20000
     serpentx-<board>-<ver>-www.bin     web UI only, for esptool at 0x9e0000
     serpentx-<board>-<ver>-ota.bin     wrapped for the miner's own updater
+    serpentx-<board>-<ver>-www-ota.bin web UI, wrapped for the same updater
     manifest.json                   for the esp-web-tools flasher
     SHA256SUMS
 
@@ -145,6 +146,16 @@ def main():
         os.path.join(build, "stayopen-miner.bin"),
         "--pad", "69cc74aeaf0ce683229d422f54428a54",
         "-o", os.path.join(DIST, base + "-ota.bin")])
+
+    # The web UI has its own updater, and it will not take the raw partition
+    # image: it checks for a 0x55 type byte and rejects anything else with
+    # "File error". Publishing only the raw www.bin left no way to update the
+    # interface without a serial cable.
+    sh([sys.executable, os.path.join(ROOT, "tools", "ota_tool.py"), "pack",
+        os.path.join(build, "www.bin"),
+        "--type", "www",
+        "--pad", "69cc74aeaf0ce683229d422f54428a54",
+        "-o", os.path.join(DIST, base + "-www-ota.bin")])
 
     manifest = {
         "name": "SerpentX / Stay Open",

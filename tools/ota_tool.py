@@ -230,7 +230,16 @@ def cmd_pack(args):
         sys.exit("--reserved must be exactly 2 bytes")
 
     header = build_header(payload, reserved)
-    blob = bytes([TYPE_APP]) + xor_pad(header, pad, 0) + xor_pad(payload, pad, HEADER_SIZE)
+
+    # The two update paths differ in more than the type byte. The application
+    # updater deobfuscates the whole image; the web-UI updater deobfuscates the
+    # header only and writes the payload exactly as received, so a www payload
+    # goes out in the clear. Packing a web-UI image like an application one
+    # produces something the miner accepts and then writes as garbage.
+    if args.type == "www":
+        blob = bytes([TYPE_WWW]) + xor_pad(header, pad, 0) + payload
+    else:
+        blob = bytes([TYPE_APP]) + xor_pad(header, pad, 0) + xor_pad(payload, pad, HEADER_SIZE)
     with open(args.output, "wb") as handle:
         handle.write(blob)
     print(f"wrote {len(blob)} bytes to {args.output}")
@@ -267,9 +276,13 @@ def main():
     add_pad_options(p)
     p.set_defaults(func=cmd_unpack)
 
-    p = sub.add_parser("pack", help="build an update image from a raw application image")
+    p = sub.add_parser("pack", help="build an update image from a raw application or web-UI image")
     p.add_argument("image")
     p.add_argument("-o", "--output", required=True)
+    p.add_argument("--type", choices=("app", "www"), default="app",
+                   help="which updater the image is for: the application "
+                        "(0xAA, payload obfuscated) or the web UI (0x55, "
+                        "payload plaintext). Default app.")
     p.add_argument("--reserved", default="0000",
                    help="2 bytes for header[46:48], which the firmware never reads "
                         "(default 0000; stock 2.0.3 carries 8bbb)")
