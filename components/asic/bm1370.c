@@ -460,7 +460,10 @@ task_result * BM1370_process_work(void * pvParameters)
     }
 
     uint8_t job_id = (asic_result.job.id & 0xf0) >> 1;
-    uint8_t core_id = (uint8_t)((ntohl(asic_result.job.nonce) >> 25) & 0x7f); // BM1370 has 80 cores, so it should be coded on 7 bits
+    /* Seven bits of core id. The count is not 80 as this comment used to
+     * claim: with per-core accounting running, a single BC01 reports results
+     * from 117 distinct ids, so the full seven-bit space is live. */
+    uint8_t core_id = (uint8_t)((ntohl(asic_result.job.nonce) >> 25) & 0x7f);
     uint8_t small_core_id = asic_result.job.id & 0x0f; // BM1370 has 16 small cores, so it should be coded on 4 bits
     uint32_t version_bits = (ntohs(asic_result.job.version) << 13); // shift the 16 bit value left 13
     ESP_LOGD(TAG, "Job ID: %02X, Core: %d/%d, Ver: %08" PRIX32, job_id, core_id, small_core_id, version_bits);
