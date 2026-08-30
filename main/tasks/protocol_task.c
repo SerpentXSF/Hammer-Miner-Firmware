@@ -62,6 +62,7 @@ static void rtc_sync(void)
         nvs_config_get_string(NVS_CONFIG_TIME_ZONE, "CST-8");
 
     setenv("TZ", time_zone, 1);
+    tzset();   /* setenv alone is not specified to update the active zone */
     sntp_init_sync(ntp_server,ntp_server_backup);
 }
 

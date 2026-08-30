@@ -13,6 +13,9 @@
 #include "esp_netif_ip_addr.h"
 #include "esp_wifi.h"
 #include "mbedtls/platform.h"
+#include <stdlib.h>
+#include <time.h>
+
 #include "nvs_config.h"
 #include "nvs_device.h"
 #include "main.h"
@@ -325,6 +328,27 @@ void app_main(void)
     if (NVSDevice_init() != ESP_OK){
         ESP_LOGE(TAG, "Failed to init NVS");
         return;
+    }
+
+    /*
+     * Apply the configured timezone here rather than leaving it to the network
+     * task. Log lines are stamped with localtime_r(), and the timezone used to
+     * arrive only when rtc_sync() ran -- which waits on the network -- so every
+     * line logged before that point was stamped UTC and everything after it
+     * local. A single log file stepped four hours sideways partway down, which
+     * makes it unsortable and makes correlating a fault with a wall clock a
+     * guess. Nothing here needs the network: the value is already in NVS.
+     */
+    {
+        /* same fallback as rtc_sync(), so an unset timezone still gives one
+         * consistent stamp rather than two different wrong ones */
+        char * tz = nvs_config_get_string(NVS_CONFIG_TIME_ZONE, "CST-8");
+        if (tz != NULL) {
+            setenv("TZ", tz, 1);
+            tzset();
+            ESP_LOGI(TAG, "Timezone applied: %s", tz);
+            free(tz);
+        }
     }
 
     showLastResetReasonCustom();
