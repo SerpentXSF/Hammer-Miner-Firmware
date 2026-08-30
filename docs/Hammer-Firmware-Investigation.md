@@ -315,6 +315,33 @@ gh api repos/baichuan-org/BC01/commits
 Figures were accurate on 30 August 2026. Repositories change; re-run before
 relying on any number here.
 
+## 7. Preservation
+
+Published repositories can be withdrawn. What is recorded here does not depend
+on them staying up.
+
+Each source repository was cloned in full on 30 August 2026. A git commit id is
+a cryptographic commitment to the entire tree, so a copy can be proven identical
+to what was published by checking its HEAD against these:
+
+| repository | HEAD commit |
+|---|---|
+| `baichuan-org/BC01` | `8dab8f4b1e7b81eea0f3063b09619677a1252dca` |
+| `baichuan-org/BC04` | `059321423fc2608d1acb229e64f466233e24dbff` |
+| `baichuan-org/DC02` | `55d10fd4ca07f16efbe195cd6805a69f790da46e` |
+
+The BC01 id is the same commit this firmware's `main/device.c` already cites for
+the imported USB-PD sequence, so that attribution is checkable against the
+archive independently.
+
+Alongside the clones, the raw API responses and the READMEs quoted above were
+captured verbatim, each recorded with its SHA-256 in a manifest. Those files are
+held outside this repository — they are evidence, not part of the firmware, and
+none of it is anything the licence prevents anyone from redistributing.
+
+Screenshots were deliberately not relied on. An image cannot be verified against
+anything; a commit id and a digest can.
+
 ## Related
 
 - [PROVENANCE.md](PROVENANCE.md) — how this firmware descends from its upstreams

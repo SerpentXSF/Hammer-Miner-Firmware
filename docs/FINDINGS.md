@@ -197,6 +197,97 @@ cannot mine at all. That file is imported here verbatim and credited.
 
 ---
 
+## GPL-3.0 section 6: source alone does not discharge it
+
+The vendor's own release states its purpose plainly:
+
+> In full compliance with the GPL, we are now releasing the corresponding
+> source code.
+
+For a device sold to consumers, releasing source is only half of what the
+licence asks. This section sets out the rest. It is a reading of the licence
+text, not legal advice, and the licence is the authority — not this document.
+
+### What section 6 requires
+
+Section 6 governs conveying a covered work **in object code form**. Where that
+happens inside a *User Product*, the licence adds a requirement beyond
+corresponding source:
+
+> "Installation Information" for a User Product means any methods, procedures,
+> authorization keys, or other information required to install and execute
+> modified versions of a covered work in that User Product from a modified
+> version of its Corresponding Source.
+
+and:
+
+> If you convey an object code work under this section in, or with, or
+> specifically for use in, a User Product, and the conveying occurs as part of a
+> transaction in which the right of possession and use of the User Product is
+> transferred to the recipient in perpetuity or for a fixed term [...] the
+> Corresponding Source conveyed under this section must be accompanied by the
+> Installation Information.
+
+Two conditions, both met here:
+
+- **A User Product.** Section 6 defines this as consumer goods, anything
+  normally used for personal, family or household purposes. A home miner sold
+  to individuals qualifies; the vendor's own listing describes the BC08 as a
+  *"solo home miner"*. Where use is mixed, the licence resolves doubt in favour
+  of coverage.
+- **Ownership transferred.** These are sold outright, not leased.
+
+### What is missing
+
+Installation Information means whatever is *required to install and execute
+modified versions*. On a retail BC01 that is a signing key, a signed-image
+path, or a documented way to burn one's own key. As recorded in finding 6:
+
+- the bootloader boots only vendor-signed images,
+- **both spare key digest slots are revoked**, so no owner key can be burned,
+- **JTAG is permanently disabled**,
+- eFuses cannot be reversed.
+
+So an owner holds the source, changes it, builds it — and cannot run it. No
+key, method or procedure accompanies the release. Section 6 is not satisfied by
+publishing source when the product refuses to execute anything built from it.
+
+The licence anticipates the objection that this compels support, and forecloses
+it:
+
+> The requirement to provide Installation Information does not include a
+> requirement to continue to provide support service, warranty, or updates for a
+> work that has been modified or installed by the recipient.
+
+Nothing obliges the vendor to maintain modified firmware. The obligation is to
+hand over the means to install it. That the released code is unmaintained is
+therefore beside the point — and the vendor's own maintenance disclaimer does
+not reach this.
+
+### Scope, stated precisely
+
+This applies to the devices that shipped with the firmware they released — by
+their description, a pre-production run *"released to the market in limited
+quantities"*. Those units were conveyed to owners, contain GPL-derived object
+code by the vendor's own admission, and are locked against modified images.
+
+It says nothing about THOR OS, NORN OS or GLOD OS. Those are asserted to be
+clean-room and independent of ESP-Miner, they are unpublished, and no one
+outside the vendor can evaluate that. If they carry no GPL-covered code, section
+6 does not reach them. This document takes no position either way.
+
+### Why it matters here
+
+Every alternative this repository documents exists because of that gap. The
+module swap in [HARDWARE-SWAP.md](HARDWARE-SWAP.md) is a hardware answer to a
+software lock-out: it involves no exploit, no key extraction and no defeat of
+Secure Boot, because there is no supported route to defeat. It is what remains
+when Installation Information is withheld.
+
+The two remedies that would remove the need for any of it are the vendor's to
+give: sign a community build, or supply the Installation Information section 6
+already requires.
+
 ## Independent corroboration
 
 D-Central's `DCENT_OS` reached three of the same conclusions from its own
