@@ -1,0 +1,121 @@
+/*
+ * Corrections for Ant Design components whose colours this theme cannot reach.
+ *
+ * The theme is driven by CSS custom properties, and a-config-provider is handed
+ * those as strings -- colorPrimary: 'var(--ant-primary-color)'. Ant Design v4
+ * computes its palettes in JavaScript, so it cannot resolve a custom property:
+ * anything it derives from colorPrimary comes out unusable. The variables work
+ * perfectly well in ordinary CSS, so the affected pieces are set here instead.
+ *
+ * Global rather than per page because the components appear on several, and a
+ * scoped rule cannot reach a dropdown that renders in a portal at the end of
+ * the body.
+ */
+
+/* ---- card tabs ----
+ * Ant Design colours the label on the inner .ant-tabs-tab-btn, not on the tab
+ * itself, so setting a colour on the tab left the label taking a computed
+ * colour close to the tab's own background: the selected tab read as an empty
+ * box, its text present but invisible.
+ */
+.ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active {
+  background-color: var(--ant-primary-color) !important;
+  border-color: var(--ant-primary-color) !important;
+
+  .ant-tabs-tab-btn {
+    /* dark on the bright accent: white on it is barely legible */
+    color: var(--ant-primary-color-text, #020617) !important;
+    font-weight: 600;
+  }
+}
+
+.ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:not(.ant-tabs-tab-active) {
+  .ant-tabs-tab-btn {
+    color: var(--text-color) !important;
+  }
+
+  &:hover .ant-tabs-tab-btn {
+    color: var(--ant-primary-color) !important;
+  }
+}
+
+/* ---- switches ----
+ * The checked fill is derived from colorPrimary too, so an enabled switch
+ * looked the same as a disabled one and there was no way to tell whether a
+ * setting was on.
+ */
+.ant-switch {
+  background-color: var(--surface-border) !important;
+
+  &.ant-switch-checked {
+    background-color: var(--ant-primary-color) !important;
+  }
+
+  &:focus-visible {
+    box-shadow: var(--focus-ring);
+  }
+}
+
+/* ---- pool quick-select dropdown ----
+ * The dropdown renders in a portal at the end of the body, outside the
+ * component that styles it, so the scoped rules sizing these logos never
+ * applied and each one drew at its natural size -- several hundred pixels
+ * tall, covering the form behind it.
+ */
+.pool-quick-select-dropdown {
+  .ant-select-item {
+    min-height: 3.25rem !important;
+    padding: 0.5rem 0.75rem !important;
+    display: flex;
+    align-items: center;
+  }
+
+  .ant-select-item-option-content {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: auto !important;
+    white-space: normal !important;
+  }
+
+  .pool-option {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* the img rule is what was missing; the class rule alone let an <img> with
+   * no intrinsic constraint expand the row */
+  .pool-logo,
+  img {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+    max-width: 1.5rem !important;
+    max-height: 1.5rem !important;
+    object-fit: contain;
+    flex: 0 0 auto;
+    border-radius: 4px;
+  }
+
+  .pool-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .pool-name {
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .pool-addr {
+    font-size: 0.8em;
+    color: var(--text-color-secondary);
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

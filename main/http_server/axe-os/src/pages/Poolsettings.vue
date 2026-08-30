@@ -633,54 +633,9 @@ onMounted(async () => {
 }
 
 /* Tabs 样式修复：高亮选中项，适配暗黑模式 */
-:deep(.ant-tabs-card > .ant-tabs-nav .ant-tabs-tab) {
-  background-color: transparent;
-  border-color: var(--surface-border);
-  color: var(--text-color); 
-  transition: all 0.3s;
-}
-
-:deep(.ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:hover) {
-  color: var(--ant-primary-color);
-}
-
-:deep(.ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active) {
-  background-color: var(--ant-primary-color) !important;
-  border-color: var(--ant-primary-color) !important;
-  color: #fff !important; 
-  font-weight: 500;
-}
-
-.pool-option {
-    display: flex;
-    align-items: center;
-    padding: 4px 0;
-}
-
-.pool-logo {
-    width: 24px;
-    height: 24px;
-    margin-right: 10px;
-    border-radius: 4px; /* Optional rounded corners */
-}
-
-.pool-info {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    line-height: 1.2;
-}
-
-.pool-name {
-    font-weight: 500;
-    font-size: 14px;
-    color: var(--text-color);
-}
-
-.pool-addr {
-    font-size: 11px;
-    color: var(--text-color-secondary);
-}
+/* The option contents render inside a dropdown that Ant Design portals to
+ * the end of the body, so a scoped rule cannot reach them. They are styled in
+ * styles/layout/_antd-fixes.scss instead. */
 
 :deep(.pool-quick-select .ant-select-selector) {
   height: auto !important;
@@ -711,29 +666,5 @@ onMounted(async () => {
   min-width: 15rem;
 }
 
-.ps-switch-row :deep(.ant-switch-checked) {
-  background-color: #34d0b6 !important;
-  border-color: #34d0b6 !important;
-}
 
-
-</style>
-
-<style lang="scss">
-.pool-quick-select-dropdown {
-  .ant-select-item {
-    min-height: 50px !important;
-    padding: 8px 12px !important;
-    align-items: center;
-    display: flex;
-  }
-  
-  .ant-select-item-option-content {
-    white-space: normal !important;
-    height: auto !important;
-    display: flex;
-    align-items: center;
-    width: 100%;
-  }
-}
 </style>

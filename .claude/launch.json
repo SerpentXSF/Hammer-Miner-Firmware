@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "axe-os-preview",
+      "name": "axeos-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "main/http_server/axe-os", "run", "preview", "--", "--port", "4173"],
-      "port": 4173
+      "runtimeArgs": ["--prefix", "main/http_server/axe-os", "run", "dev", "--", "--port", "5273", "--strictPort"],
+      "port": 5273
     }
   ]
 }

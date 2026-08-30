@@ -45,6 +45,9 @@ interface FormState {
 
 const nwWifiModalRef = ref<any>(null);
 const minerStatusRef = ref<NetworkInfo>();
+/* Starts true so the "no password" notice cannot flash up on a miner that
+ * does have one, in the moment before the first status arrives. */
+const authEnabled = ref<boolean>(true);
 const activeTab = ref<string>('wifi'); // 控制当前激活的 Tab
 
 const formState = reactive<FormState>({
@@ -247,6 +250,7 @@ const checkWifiStatus = async () => {
   try {
     const resData = await getMinerStatus('');
     if (validData(resData)) {
+      authEnabled.value = !!(resData as any).authEnabled;
       const info = getNotification(resData.wifiStatus);
       if(info) showNotification(info.msg, info.level);
     }
@@ -317,6 +321,24 @@ onMounted(async () => {
     </a-modal>
 
     <a-card :title="ncl('title')" class="card nw-card" style="border: 1px solid var(--surface-border); box-shadow: none;">
+      <!--
+        Shown only while no API password is set. This is the page people open
+        first on a new miner, and an unset password leaves every endpoint on
+        the network unauthenticated -- which is how the vendor firmware
+        shipped. Saying it here, at the moment the miner is being put on a
+        network, is the only place it reliably gets read.
+      -->
+      <div v-if="!authEnabled" class="nw-auth-notice">
+        <ExclamationCircleFilled class="nw-auth-notice-icon" />
+        <div>
+          <div class="nw-auth-notice-title">{{ ncl('no_password_title') }}</div>
+          <div class="nw-auth-notice-body">
+            {{ ncl('no_password_body') }}
+            <router-link to="/settings">{{ ncl('no_password_link') }}</router-link>
+          </div>
+        </div>
+      </div>
+
       <div class="nw-form-wrap">
       <a-form ref="netCfgFormRef" :wrapper-col="{xs:24, sm: 12}" :model="formState" :hideRequiredMark="true" @finish="updateSys">
         
@@ -445,6 +467,41 @@ onMounted(async () => {
   margin-bottom: 0.5rem;
 }
 
+.nw-auth-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--nw-warn-border, #b45309);
+  border-radius: var(--card-border-radius, 12px);
+  background: rgba(180, 83, 9, 0.12);
+}
+
+.nw-auth-notice-icon {
+  font-size: 1.25rem;
+  color: #f59e0b;
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+
+.nw-auth-notice-title {
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 0.15rem;
+}
+
+.nw-auth-notice-body {
+  color: var(--text-color-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.nw-auth-notice-body a {
+  color: var(--ant-primary-color);
+  font-weight: 600;
+}
+
 .nw-form-wrap {
   margin-top: 1rem;
 }
@@ -515,25 +572,7 @@ onMounted(async () => {
 }
 :deep(.nw-wifi-modal .ant-modal-header) { margin-bottom: 2rem; }
 
-/* Tabs 样式修复：高亮选中项，适配暗黑模式 */
-:deep(.ant-tabs-card > .ant-tabs-nav .ant-tabs-tab) {
-  background-color: transparent;
-  border-color: var(--surface-border);
-  /* [修复] 显式设置默认文字颜色，防止暗黑模式下看不见 */
-  color: var(--text-color); 
-  transition: all 0.3s;
-}
-
-:deep(.ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:hover) {
-  color: var(--ant-primary-color);
-}
-
-:deep(.ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active) {
-  /* [修复] 选中态：使用按钮绿作为背景，极大增强对比度 */
-  background-color: var(--ant-primary-color) !important;
-  border-color: var(--ant-primary-color) !important;
-  /* [修复] 选中文字改为白色，确保清晰可见 */
-  color: #fff !important; 
-  font-weight: 500;
-}
+/* Card tab colours are corrected globally in
+ * styles/layout/_antd-fixes.scss: Ant Design paints the label on an inner
+ * element, so setting a colour on the tab left it invisible. */
 </style>

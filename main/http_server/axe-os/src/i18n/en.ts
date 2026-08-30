@@ -160,6 +160,9 @@ const lang = {
     },
     network: {
         title: 'Network Configuration',
+        no_password_title: 'No API password is set',
+        no_password_body: 'Every setting and control on this miner is reachable by anyone on this network until you set one. Set it now, while you are putting the miner on your network -- ',
+        no_password_link: 'set a password',
         hostname: 'Hostname',
         wifi_ssid: 'Wi-Fi SSID',
         wifi_pwd: 'Wi-Fi Password',

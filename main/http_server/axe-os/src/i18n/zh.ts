@@ -157,6 +157,9 @@ const lang = {
     },
     network: {
         title: '网络配置',
+        no_password_title: '尚未设置 API 密码',
+        no_password_body: '在设置密码之前，本网络中的任何人都可以访问矿机的全部设置与控制。请在将矿机接入网络时一并设置 —— ',
+        no_password_link: '设置密码',
         hostname: '主机名',
         wifi_ssid: '无线网SSID',
         wifi_pwd: '无线网密码',

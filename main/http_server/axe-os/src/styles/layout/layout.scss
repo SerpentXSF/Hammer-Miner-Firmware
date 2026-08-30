@@ -8,3 +8,4 @@
 @import "./_responsive";
 @import "./_utils";
 @import "./_typography";
+@import "./_antd-fixes";   // must come after the theme it corrects
