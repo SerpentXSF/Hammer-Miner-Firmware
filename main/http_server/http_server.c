@@ -941,6 +941,31 @@ static esp_err_t PATCH_update_settings(httpd_req_t * req)
         {
             nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, item->valueint);
 
+            /*
+             * Also store it where the running boot mode will look for it after
+             * a restart. SYSTEM_init reads asicnormalvol in normal mode and
+             * asicovervol in over-frequency mode; asicvoltage is read by
+             * neither. Writing only that key changed the voltage until the next
+             * restart and then silently reverted -- so a client that set a
+             * voltage, restarted to apply it, and read the value back saw its
+             * own setting rejected, with nothing reported as having failed.
+             *
+             * A benchmark hits this on its second measurement and stops. The
+             * API says coreVoltage; it should mean the voltage the miner comes
+             * back up on.
+             */
+            switch (GLOBAL_STATE->SYSTEM_MODULE.boot_mode) {
+                case NORMAL_MODE:
+                    nvs_config_set_u16(NVS_CONFIG_ASIC_NORMAL_VOLTAGE, item->valueint);
+                    break;
+                case OVER_FREQ_MODE:
+                    nvs_config_set_u16(NVS_CONFIG_ASIC_OVER_VOLTAGE, item->valueint);
+                    break;
+                default:
+                    /* user-customised reads asicvoltage directly */
+                    break;
+            }
+
             while(GLOBAL_STATE->HEALTH_MODULE.voltage != item->valueint)
             {
 
@@ -1048,6 +1073,19 @@ static esp_err_t PATCH_update_settings(httpd_req_t * req)
     }
     if ((item = cJSON_GetObjectItem(root, "frequency")) != NULL && item->valueint > 0) {
         nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, item->valueint);
+
+        /* Same as coreVoltage above: the mode that will run after the restart
+         * reads its own key, and asicfrequency is not it. */
+        switch (GLOBAL_STATE->SYSTEM_MODULE.boot_mode) {
+            case NORMAL_MODE:
+                nvs_config_set_u16(NVS_CONFIG_ASIC_NORMAL_FREQ, item->valueint);
+                break;
+            case OVER_FREQ_MODE:
+                nvs_config_set_u16(NVS_CONFIG_ASIC_OVER_FREQ, item->valueint);
+                break;
+            default:
+                break;
+        }
     }
 #ifdef CONFIG_BC04_INDIVIDUAL_FREQ
     if (GLOBAL_STATE->device_model == DEVICE_BC04) {
