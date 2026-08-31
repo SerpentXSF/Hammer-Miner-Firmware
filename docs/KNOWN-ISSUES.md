@@ -56,3 +56,25 @@ that mounts the whole interface, on a day that had already produced three
 firmware releases. Rewriting the theme system while shipping is how something
 breaks quietly. It wants a clear run and a careful look at every component that
 reads an accent colour.
+
+## The global stylesheet is compiled twice
+
+**Where:** `main/http_server/axe-os/src/pages/App.vue`, line 305.
+
+`main.ts` imports `styles/layout/layout.scss` globally. `App.vue` then imports
+the same file again inside a `<style scoped>` block, so every rule in it is
+emitted a second time carrying that component's scope attribute.
+
+Two consequences. The CSS payload is roughly double what it needs to be. And
+the scoped copies cannot reach anything Ant Design renders in a portal — a
+dropdown, a modal — which is the same trap that left the pool logos unstyled
+for as long as they were.
+
+The fix is to delete the `@import` from `App.vue`; the global import in
+`main.ts` already covers it. It is one line, but it is in the component that
+mounts the entire interface, so it wants a build and a look at the running UI
+rather than being done in passing.
+
+Found while checking that the corrections in `_antd-fixes.scss` had reached the
+device: the same rules appeared twice in the built bundle, once with a scope
+attribute and once without.
