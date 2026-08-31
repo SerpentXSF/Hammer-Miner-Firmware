@@ -366,6 +366,36 @@ as discontinued.
 Contact address published on the same page: `info@hammerminer.com`, described as
 the "Official Support Channel".
 
+## 6. Timeline
+
+The vendor's release tags embed the firmware build date, which gives a dated
+record independent of when anything was pushed to GitHub.
+
+| Date | Event | Source |
+|---|---|---|
+| 2025-12-25 | Firmware `V1.0.0` built | tag `V1.0.0-20251225`, DC02-V1-APP |
+| 2026-01-27 | `V2.0.0`, "The first officially released version" | tag + release notes, DC02-APP |
+| 2026-04-08 | `HammerMiner` organisation created | org metadata |
+| 2026-04-10 | First binaries published to GitHub | earliest release publication |
+| 2026-05-06 | Earliest BC01 firmware build in evidence | tag `V2.0.1-20260506` |
+| 2026-06-25 | `BC01-APP` repository created; BC01 binaries published | repo + release metadata |
+| **2026-08-21** | **`baichuan-org` created; all three source repositories published** | org + repo metadata |
+
+The earliest firmware build date the vendor's own tags record is **25 December
+2025**. Corresponding source appeared **21 August 2026**, roughly eight months
+later. For the BC01 specifically, the earliest published firmware build is dated
+6 May 2026, about three and a half months before the source.
+
+**What this does and does not establish.** These are publication and build dates
+taken from vendor-controlled metadata. They do not establish when devices were
+first sold, which is not visible from GitHub. GPL-3.0 §6 requires the
+Corresponding Source to accompany the object code when it is conveyed, or a
+written offer valid for three years to be given in its place. Whether that was
+satisfied depends on when units were conveyed and what accompanied them —
+questions only the vendor and its customers can answer. The dates above
+establish when source became publicly available, and no earlier public source
+release has been found.
+
 ## 7. Preservation
 
 Published repositories can be withdrawn. What is recorded here does not depend
