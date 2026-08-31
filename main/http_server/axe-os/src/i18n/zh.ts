@@ -120,6 +120,8 @@ const lang = {
                 title: '散热',
                 hashboard_temp: '算力板1温度',
                 hashboard_temp1: '算力板2温度',
+                vr_temp: '稳压器 (VR)',
+                vr_temp_hint: '核心电压稳压器。其温度通常高于 ASIC，也往往是提升电压时最先受限的部件。',
                 rpm_of_fan: '风扇1转速',
                 rpm_of_fan1: '风扇2转速',
                 temp_danger: '危险：温度过高'

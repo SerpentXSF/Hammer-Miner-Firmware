@@ -49,6 +49,29 @@ const chartColors = reactive({ primary: '#19e1a5', secondary: '#38bdf8', power: 
 // 如果 store 中还没加，请参照上一条回答修改 store/modules/app/index.ts
 const modelCfg = computed(() => appStore.currentModelConfig);
 
+/*
+ * Core voltage regulator temperature.
+ *
+ * Null when the firmware does not report it, so the row simply does not appear
+ * on a board that has nothing to show rather than reading "0 °C" as though the
+ * regulator were ice cold.
+ *
+ * The thresholds are deliberately not the chip's. A BC01 regulator sits around
+ * 69 °C while the die is at 55 °C, so reusing the ASIC warning level would mark
+ * a perfectly normal board as hot. 85 is a conservative warning for a TPS546,
+ * whose junction rating is far above that -- it is chosen to flag an unusual
+ * climb rather than to mark a limit, and it is not a measured figure for this
+ * board.
+ */
+const VR_WARN_C = 85;
+const VR_SCALE_C = 100;   // full-scale for the bar, not a limit
+
+const vrTemp = computed<number | null>(() => {
+  const v = (appStore.statusRaw as any)?.vrTemp;
+  if (typeof v !== 'number' || !isFinite(v) || v <= 0) return null;
+  return Math.round(v);
+});
+
 // --- uPlot 相关变量 ---
 const chartContainer = ref<HTMLElement | null>(null);
 let uplotInst: uPlot | null = null;
@@ -809,6 +832,24 @@ const gaugeColor = computed(() => {
                 </svg>
               </div>
               
+              <!--
+                The regulator, shown only when the firmware reports it. It runs
+                well above the die -- around 69C against 55C on a BC01 -- and is
+                the part that limits a voltage increase, so it belongs next to
+                the chip temperature rather than buried in an API response.
+              -->
+              <div class="metric-row" style="margin-top:4px;" v-if="vrTemp !== null">
+                <span class="metric-label" :title="dstl('vr_temp_hint')">{{ dstl('vr_temp') }}</span>
+                <span class="metric-value" :style="vrTemp >= VR_WARN_C ? 'color:#fb7185' : ''">
+                  {{ vrTemp }} °C
+                </span>
+              </div>
+              <div class="meter" v-if="vrTemp !== null">
+                <div class="meter-fill"
+                     :style="{ width: Math.min(100, (vrTemp / VR_SCALE_C) * 100) + '%',
+                               background: vrTemp >= VR_WARN_C ? '#f97316' : '' }"></div>
+              </div>
+
               <div class="metric-row" style="margin-top:4px;" v-if="appStore.hasSecondHashBord">
                 <span class="metric-label">{{ dstl('hashboard_temp1') }}</span>
                 <span class="metric-value">{{ statusProc.temp1 > 0 ? statusProc.temp1 : '--' }} °C</span>

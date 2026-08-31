@@ -123,6 +123,8 @@ const lang = {
                 title: 'Thermals',
                 hashboard_temp: 'Hashboard 1',
                 hashboard_temp1: 'Hashboard 2',
+                vr_temp: 'Regulator (VR)',
+                vr_temp_hint: 'The core voltage regulator. It runs hotter than the ASIC and is usually what limits a voltage increase.',
                 rpm_of_fan: 'Fan 1',
                 rpm_of_fan1: 'Fan 2',
                 temp_danger: 'Danger: High Temperature'

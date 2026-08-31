@@ -55,6 +55,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include "vcore.h"
+#include "device.h"
 #include "lvgl_porting.h"
 #include "displays/lvgl_screen.h"
 #include "main.h"
@@ -1615,6 +1616,31 @@ static esp_err_t GET_system_info(httpd_req_t * req)
     cJSON_AddNumberToObject(root, "uptimeSeconds", (esp_timer_get_time() - GLOBAL_STATE->SYSTEM_MODULE.start_time) / 1000000);
     cJSON_AddNumberToObject(root, "asicCount", ASIC_get_asic_count(GLOBAL_STATE));
     cJSON_AddNumberToObject(root, "smallCoreCount", ASIC_get_small_core_count(GLOBAL_STATE));
+    /*
+     * Tuning telemetry. A benchmark needs to know how hard the chip is failing
+     * at a given voltage and frequency, and the counters that answer it were
+     * only reachable per core.
+     *
+     * These are lifetime totals, deliberately. A rolling average computed here
+     * would have to guess at a window; a caller taking the difference between
+     * two reads gets the rate over exactly the interval it cares about, which
+     * is what a per-setting measurement needs. /api/system/cores breaks the
+     * same totals down per core.
+     */
+    cJSON_AddNumberToObject(root, "hwErrorCount", GLOBAL_STATE->SYSTEM_MODULE.recveived_hw);
+    cJSON_AddNumberToObject(root, "noncesFound", GLOBAL_STATE->SYSTEM_MODULE.recveived_nonce);
+
+    /* Regulator temperature. Read all along for the thermal cut-out, never
+     * reported, so anything tuning voltage was blind to the limit that bites
+     * first when voltage goes up. */
+    cJSON_AddNumberToObject(root, "vrTemp", read_power_temp());
+
+    /* What the chip should manage at this frequency, so a caller does not have
+     * to hard-code a core count that a firmware change would silently break. */
+    cJSON_AddNumberToObject(root, "expectedHashrate",
+        (double) GLOBAL_STATE->asic_freqency *
+        ASIC_get_small_core_count(GLOBAL_STATE) * ASIC_get_asic_count(GLOBAL_STATE) / 1000.0);
+
     cJSON_AddStringToObject(root, "ASICModel", GLOBAL_STATE->asic_model_str);
     cJSON_AddStringToObject(root, "DeviceModel", GLOBAL_STATE->device_model_str);
 
