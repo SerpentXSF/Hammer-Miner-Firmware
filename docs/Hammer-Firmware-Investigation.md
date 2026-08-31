@@ -315,6 +315,57 @@ gh api repos/baichuan-org/BC01/commits
 Figures were accurate on 30 August 2026. Repositories change; re-run before
 relying on any number here.
 
+## 5a. The vendor's own site does not lead to the source
+
+<https://www.hammerminer.com/#/service#download>, read 30 August 2026.
+
+The firmware download page offers "APP FIRMWARE" and "WEB FIRMWARE" for BC01,
+BC04, DC02 and DC06. Every download control links to a GitHub releases page in
+the `HammerMiner` organisation:
+
+```
+BC01 APP  -> github.com/HammerMiner/BC01-APP/releases
+BC01 WEB  -> github.com/HammerMiner/BC01-WWW/releases
+BC04 APP  -> github.com/HammerMiner/BC04-APP/releases
+DC02 APP  -> github.com/HammerMiner/DC02-APP/releases
+DC02 WEB  -> github.com/HammerMiner/DC02-WWW/releases
+DC06 APP  -> github.com/HammerMiner/DC06-APP/releases
+DC06 WEB  -> github.com/HammerMiner/DC06-WWW/releases
+```
+
+Those are the repositories shown in section 1 to contain no source — a README
+and compiled `.bin` release assets.
+
+A further link, "Browse All Firmware on GitHub", points to
+`github.com/HammerMiner/` beneath this description:
+
+> Find firmware releases, source code, and documentation for all Hammer Miner
+> devices.
+
+No source code is published in that organisation. The source is in
+`baichuan-org`, which is not linked or named anywhere on the page.
+
+**The consequence is concrete.** An owner following the vendor's own
+instructions to find the source for their device is directed to compiled
+binaries and told that is where the source code is. The corresponding source
+exists, but nothing in the supply chain the owner is given leads to it.
+
+Two other statements from the same page are worth recording, since they bear on
+claims made elsewhere about which devices are current:
+
+> THOR OS [...] ships natively on every new Hammer Miner — THOR X1, THOR P2 and
+> BC08
+
+> Existing Hammer Miner models BC01 and BC04 will receive dedicated THOR OS
+> upgrade packages, keeping already-deployed hardware on the same platform.
+
+The BC04 entry lists "V3.0.2 | 2026-08-02 — Upgrade to new THOR OS Firmware".
+BC01 is therefore described by the vendor as scheduled to receive THOR OS, not
+as discontinued.
+
+Contact address published on the same page: `info@hammerminer.com`, described as
+the "Official Support Channel".
+
 ## 7. Preservation
 
 Published repositories can be withdrawn. What is recorded here does not depend
