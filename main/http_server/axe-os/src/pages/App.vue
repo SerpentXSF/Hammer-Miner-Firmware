@@ -23,12 +23,31 @@ const containerClass = computed(() => {
 
 const showPage = ref<boolean>(false);
 
+/*
+ * Only complain once per outage.
+ *
+ * The poll below runs every ten seconds and used to raise a notification on
+ * every failure. Sitting at the login screen therefore produced a new "data
+ * synchronization failed" toast every ten seconds, stacking down the page
+ * indefinitely -- and the same thing happened if the miner was simply
+ * unplugged. The first failure is news; the sixtieth is not.
+ */
+let syncFailureReported = false;
+
 const syncMinerStatus = async () => {
   try {
     const resData = await getMinerStatus('');
+    syncFailureReported = false;   // recovered: the next failure is news again
     return validData(resData);
-  } catch (e) {
-    showNotification(t('com.msg_sync_error'), 'error');
+  } catch (e: any) {
+    // A 401 is not a failed service, it is a session that needs signing in.
+    // The API layer already routes that; saying the miner is broken as well is
+    // both wrong and alarming.
+    const status = e?.response?.status;
+    if (status !== 401 && !syncFailureReported) {
+      syncFailureReported = true;
+      showNotification(t('com.msg_sync_error'), 'error');
+    }
     console.log(e);
   }
   return null;
@@ -122,6 +141,10 @@ const loadTheme = async () => {
 const syncChartData = async () => {
   // 核心修改：如果 polling 被暂停，则不获取数据
   if (appStore.isPollingPaused) return;
+
+  // Nothing to poll for while signed out. Every request would be refused, and
+  // the login screen has nothing to show from it either way.
+  if (!appStore.isAuthenticated) return;
 
   const statusRaw = await syncMinerStatus();
   // 无论成功失败，都必须调用 maintainDataset，以便触发连续失败判定
