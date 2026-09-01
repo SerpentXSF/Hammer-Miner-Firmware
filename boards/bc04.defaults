@@ -1,13 +1,56 @@
 # Hammer BC04 board configuration.
 #
-# Applied as a fragment on top of the base sdkconfig, so it carries only what
-# differs between boards. Build with tools/build_board.py bc04.
+# Applied as a fragment on top of the base sdkconfig, which is a BC01. Build
+# with tools/build_board.py bc04.
 #
-# Pin assignment taken from the vendor's own reference configuration, not from
-# measurement: no BC04 has been run with this firmware. Treat this file as
-# unverified until one has been, and read docs/BC01-BRINGUP.md first -- the
-# BC01 needed four missing dispatch cases in components/asic/asic.c before it
-# would hash at all, and the BC04 cases deserve the same check.
+# UNVERIFIED. No BC04 has been run with this firmware. Every value below is
+# taken from the vendor's own sdkconfig.bc04-reference in this tree, not from
+# measurement. Read docs/BC01-BRINGUP.md before trusting any of it: the BC01
+# needed four missing dispatch cases in components/asic/asic.c before it would
+# hash at all, and the BC04 cases deserve the same check.
+#
+# This started as three settings -- the UART pins and the model -- and that was
+# not enough. Diffing the two reference configs turned up eight more, two of
+# which would each have produced a miner that boots, looks healthy and never
+# returns a share.
+
 CONFIG_DEVICE_MODULE="BC04"
+
+# ── The two that silently stop it hashing ────────────────────────────────────
+# ASIC UART, swapped against the BC01. Crossed, the chip is detected and never
+# answers.
 CONFIG_GPIO_UART_CHAIN_0_TXD0=17
 CONFIG_GPIO_UART_CHAIN_0_RXD0=18
+
+# ASIC reset. A different pin entirely, and just as fatal to get wrong.
+CONFIG_GPIO_RESET_PIN_0=1
+
+# ── Core voltage: a different scale, not a different number ──────────────────
+# The BC04 runs four ASICs in series, so its core voltage is roughly four times
+# a single domain: about 500 where a BC01 wants 120. The base config caps at
+# 130 for the BC01, and leaving that in place would clamp a BC04 to a quarter of
+# the voltage it needs -- undervolted into uselessness, with nothing reporting a
+# fault. parse_config also clamps asic_vol_default to 480 for this board.
+CONFIG_TPS546_VOUT_MAX=520
+CONFIG_ASIC_VOLTAGE=125
+
+# ── Peripherals the BC04 does not have, or has elsewhere ─────────────────────
+# 255 is the disabled marker. The BC04 has no second I2C bus: on a BC01 that is
+# where the core regulator lives.
+CONFIG_GPIO_I2C_SDA_1=255
+CONFIG_GPIO_I2C_SCL_1=255
+
+# No overheat alert line.
+CONFIG_GPIO_OVERHEATE_ALERT_0=255
+
+# The fan is not on LEDC here -- the BC04 has an EMC2302 controller, which is
+# why the fan half of the self test is written for one and had to be given a
+# BC01 branch rather than replaced.
+CONFIG_GPIO_PWM_0=255
+CONFIG_GPIO_PULSE_COUNTER_0=1255
+
+# ── Not carried over from the BC01 ───────────────────────────────────────────
+# CONFIG_GPIO_PLUG_SENSE has no BC04 equivalent in the vendor reference. The
+# BC01 uses it for the USB-PD stage, which this board does not have: a BC04
+# takes barrel-jack power with no HUSB238A and no VBUS gate, so the PD bring-up
+# in device.c is skipped for it by device_is_bc01_family().

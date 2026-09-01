@@ -99,6 +99,55 @@ Verified by flashing a BC04 image onto a BC01: the message appeared at boot,
 `boardMismatch` came back true, and the hashrate stayed at zero — the original
 failure, reproduced deliberately and now announced instead of hidden.
 
+## Bringing up a BC04
+
+Nothing here has been run on a BC04. `boards/bc04.defaults` is assembled from
+the vendor's own `sdkconfig.bc04-reference` in this tree, and it builds, but a
+configuration that builds is not a board that hashes.
+
+It began as three settings — the model and the two UART pins — and that was not
+enough. Diffing the two reference configurations turned up eight more, and two
+of those would each have produced the same failure the BC01 spent a session on:
+a miner that boots, serves its interface, detects the chip, and never returns a
+share.
+
+| | BC01 | BC04 |
+|---|---|---|
+| ASIC UART TX / RX | 18 / 17 | **17 / 18** |
+| ASIC reset | GPIO 3 | **GPIO 1** |
+| `TPS546_VOUT_MAX` | 130 | **520** |
+| `ASIC_VOLTAGE` | 120 | 125 |
+| Second I2C bus | SDA 11 / SCL 12 | none |
+| Fan | LEDC PWM + tach | EMC2302 |
+| Power | USB-PD, HUSB238A, VBUS gate | barrel jack |
+
+The voltage row is the one that is not obvious. A BC04 runs **four ASICs in
+series**, so its core voltage is roughly four times a single domain — about 500
+where a BC01 wants 120. The base configuration caps at 130 because it is a BC01,
+and a BC04 built without overriding that clamps to a quarter of the voltage it
+needs. Nothing reports a fault; it simply does not work.
+
+Check before anything else:
+
+1. **eFuses.** `esptool.py get_security_info`. If Secure Boot is enforced, stop
+   and read [SECURE-BOOT.md](SECURE-BOOT.md).
+2. **`DEVICE_BC04` in all four dispatch functions** in
+   `components/asic/asic.c` — `ASIC_send_work`, `ASIC_set_version_mask`,
+   `ASIC_set_frequency`, `ASIC_read_registers`. A missing `send_work` case is
+   why the BC01 never hashed.
+3. **Confirm hashing by accepted shares, not by wattage.** The BC01 drew the
+   same ~24 W whether it was hashing or not.
+
+Two things will need BC04 values once it runs: `config.cvs.example` is now
+BC01-specific (voltages near 120, `flipscreen 0`), and the
+[benchmark](https://github.com/SerpentXSF/StayOpen-Hashrate-Benchmark) has
+profiles for `bitaxe` and `bc01` only.
+
+Also expect the self test to run its Ethernet check: that is skipped only for
+the BC01 family, on the grounds that the BC01 has no W5500. If the BC04 has none
+either, it will fail the self test the same way — recorded, not looping, but a
+failure.
+
 ## Releases
 
 ```bash
