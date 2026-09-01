@@ -250,6 +250,32 @@ python tools/ota_tool.py inspect update.bin
 
 ---
 
+## Tuning it after you flash
+
+[**Stay Open Hashrate Benchmark**](https://github.com/SerpentXSF/StayOpen-Hashrate-Benchmark)
+finds the voltage this firmware runs best at, measuring each setting over a
+twenty-minute window and confirming the winner with a soak.
+
+```bash
+python stayopen_benchmark.py <miner-ip> --password YOURPASS --mode efficiency --voltage-step 2 --soak 20
+```
+
+On the BC01 it was developed against, it took the miner from **24.8 W to
+21.3 W** at the same frequency and no hardware errors — 16.61 to 13.92 J/TH.
+That is one chip; run it on yours rather than copying the number.
+
+One thing it found is worth knowing before you tune anything by hand.
+Undervolting this silicon past its limit produces **no hardware errors at all**
+— at 112 cV the chip lost eleven percent of its hashrate and still reported a
+clean error rate. Watching errors alone will walk you straight past the cliff,
+which is why the benchmark also checks delivered hashrate against what the
+frequency should give.
+
+It needs the API fields this firmware added in the release notes for `vrTemp`,
+`hwErrorCount` and `noncesFound`, so flash before running it.
+
+---
+
 ## Tools
 
 | Tool | Purpose |
@@ -270,6 +296,8 @@ python tools/ota_tool.py inspect update.bin
 - [docs/AUTH.md](docs/AUTH.md) â€” how API authentication works, and what it does not cover
 - [docs/SECURE-BOOT.md](docs/SECURE-BOOT.md) â€” check before flashing; some of it is irreversible
 - [docs/HARDWARE-SWAP.md](docs/HARDWARE-SWAP.md) â€” running this on a locked-down retail miner, without an exploit
+- [docs/KNOWN-ISSUES.md](docs/KNOWN-ISSUES.md) — understood, worked around, worth doing properly
+- [docs/Hammer-Firmware-Investigation.md](docs/Hammer-Firmware-Investigation.md) — what the vendor has published, and where
 - [docs/ASIC-ABSTRACTION.md](docs/ASIC-ABSTRACTION.md) â€” the withheld blob, and what replaced it
 
 ---
