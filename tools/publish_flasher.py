@@ -84,10 +84,10 @@ def main():
     # The image is taken from dist/, which make_release.py fills, so the branch
     # always carries an artifact that was actually built for a release rather
     # than whatever happens to be lying in docs/.
-    images = [f for f in os.listdir(DIST) if f.startswith("serpentx-%s-" % board)
+    images = [f for f in os.listdir(DIST) if f.startswith("stay-open-%s-" % board)
               and f.endswith("-full.bin")] if os.path.isdir(DIST) else []
     if len(images) != 1:
-        sys.exit("expected exactly one serpentx-%s-*-full.bin in dist/, found %d"
+        sys.exit("expected exactly one stay-open-%s-*-full.bin in dist/, found %d"
                  " -- run tools/make_release.py %s first"
                  % (board, len(images), board))
     image = images[0]

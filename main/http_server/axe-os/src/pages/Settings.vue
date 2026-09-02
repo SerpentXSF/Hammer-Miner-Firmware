@@ -244,6 +244,19 @@ const checkGithubUpdates = async () => {
     let foundUpdate = false;
 
     if (webRes.status === 'fulfilled' && webRes.value.data) {
+      /*
+       * Compared against the running FIRMWARE version, not against
+       * WEB_VERSION.
+       *
+       * The release tag numbers the firmware -- 2.0.13 -- while the interface
+       * carries its own series, 1.5.3. Comparing one to the other asks whether
+       * 2.0.13 is newer than 1.5.3, which is true forever, so this reported an
+       * interface update on every check no matter what was installed.
+       *
+       * Both images ship together in one release, so the question that actually
+       * has an answer is whether the release is newer than what the miner is
+       * running.
+       */
       let gitWebVersion = webRes.value.data.tag_name;
       const binAsset = pickUpdateAsset(webRes.value.data.assets, 'www');
       
@@ -254,7 +267,8 @@ const checkGithubUpdates = async () => {
           gitWebVersion += ` ${nameParts[nameParts.length - 1]}`;
         }
         
-        if (isVersionNewer(gitWebVersion, WEB_VERSION)) {
+        const localFwForWeb = minerStatusRef.value?.version || '0';
+        if (isVersionNewer(gitWebVersion, localFwForWeb)) {
           remoteWebUrl.value = binAsset.browser_download_url;
           remoteWebReleaseUrl.value = webRes.value.data.html_url || `https://github.com/${UPDATE_REPO_WWW}/releases/tag/${webRes.value.data.tag_name}`;
           remoteWebVersion.value = gitWebVersion;

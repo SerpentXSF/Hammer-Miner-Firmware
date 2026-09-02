@@ -3,11 +3,11 @@
 
 Produces, into dist/:
 
-    serpentx-<board>-<ver>-full.bin    bootloader + tables + app + web UI
-    serpentx-<board>-<ver>-app.bin     application only, for esptool at 0x20000
-    serpentx-<board>-<ver>-www.bin     web UI only, for esptool at 0x9e0000
-    serpentx-<board>-<ver>-ota.bin     wrapped for the miner's own updater
-    serpentx-<board>-<ver>-www-ota.bin web UI, wrapped for the same updater
+    stay-open-<board>-<ver>-full.bin    bootloader + tables + app + web UI
+    stay-open-<board>-<ver>-app.bin     application only, for esptool at 0x20000
+    stay-open-<board>-<ver>-www.bin     web UI only, for esptool at 0x9e0000
+    stay-open-<board>-<ver>-ota.bin     wrapped for the miner's own updater
+    stay-open-<board>-<ver>-www-ota.bin web UI, wrapped for the same updater
     manifest.json                   for the esp-web-tools flasher
     SHA256SUMS
 
@@ -122,7 +122,7 @@ def main():
             sys.exit("missing %s -- run tools/build_board.py %s first"
                      % (path, board))
 
-    base = "serpentx-%s-%s" % (board, ver)
+    base = "stay-open-%s-%s" % (board, ver)
     full = os.path.join(DIST, base + "-full.bin")
 
     args = [sys.executable, "-m", "esptool", "--chip", "esp32s3", "merge_bin",

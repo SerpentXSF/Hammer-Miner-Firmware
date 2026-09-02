@@ -5,7 +5,7 @@ import { default as langZh } from '@/i18n/zh.ts'
  * 当前 Web 版本号
  * 详细变更记录请查阅: src/CHANGELOG.md
  */
-const WEB_VERSION = '1.5.3 20260901';
+const WEB_VERSION = '1.5.4 20260901';
 
 // [新增] 机型配置接口
 export interface ModelConfig {
@@ -392,7 +392,7 @@ const DEVICE_MODELS_INFO: Record<string, ModelConfig> = {
         support_autotune: false,
         support_login: false,
         support_chip_monitoring: false,
-        support_ota_download: false,
+        support_ota_download: true,  // release assets are published for this board
         support_tls: false,
         support_xnsub: false,
 

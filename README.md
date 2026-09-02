@@ -147,7 +147,7 @@ returned. It reads as dead hardware and it is not.
 | BC02, BC04, BC06, BC08 | Yes | No -- build from source, and see `sdkconfig.bc04-reference` |
 
 Every release is named for its board, and so is every image inside it
-(`serpentx-bc01-...`). The device model is also written into the settings
+(`stay-open-bc01-...`). The device model is also written into the settings
 partition, so a miner flashed with the BC01 image reports `DeviceModel: BC01`.
 
 ## Installing
@@ -176,8 +176,8 @@ Your settings are kept — pool, WiFi, password, voltage, frequency, all of it.
 
 | File | Updates |
 |---|---|
-| `serpentx-bc01-<version>-ota.bin` | the firmware |
-| `serpentx-bc01-<version>-www-ota.bin` | the web interface only |
+| `stay-open-bc01-<version>-ota.bin` | the firmware |
+| `stay-open-bc01-<version>-www-ota.bin` | the web interface only |
 
 You do not have to say which is which. The page reads the first byte and routes
 the file itself, and refuses anything that is neither.

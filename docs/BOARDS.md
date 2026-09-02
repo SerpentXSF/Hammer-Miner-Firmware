@@ -156,7 +156,7 @@ python tools/make_release.py bc01
 python tools/publish_flasher.py bc01 --push
 ```
 
-Artifacts carry the board in the filename (`serpentx-bc01-<version>-full.bin`),
+Artifacts carry the board in the filename (`stay-open-bc01-<version>-full.bin`),
 and `make_release.py` reads that board's build directory and refuses to publish
 a build whose own sdkconfig names a different model than the filename claims.
 The filename is the only thing telling someone which board an image is for, and
