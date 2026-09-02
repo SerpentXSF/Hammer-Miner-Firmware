@@ -169,8 +169,29 @@ access point and waits for your network, your pool and your own payout address.
 Nothing mines to anyone else. `tools/make_release.py` builds the artifacts and
 refuses to run if that template has been edited to hold a real address.
 
-To update a miner already running this firmware, upload the `-ota.bin` through
-its own update page; that keeps your settings.
+### Updating a miner already running this firmware
+
+Open the miner's web interface, go to **Settings**, and upload one of these.
+Your settings are kept — pool, WiFi, password, voltage, frequency, all of it.
+
+| File | Updates |
+|---|---|
+| `serpentx-bc01-<version>-ota.bin` | the firmware |
+| `serpentx-bc01-<version>-www-ota.bin` | the web interface only |
+
+You do not have to say which is which. The page reads the first byte and routes
+the file itself, and refuses anything that is neither.
+
+Both are needed to move fully between releases; the web-UI file alone is enough
+when a release only changes the interface. The raw `-app.bin` and `-www.bin` are
+for a serial cable and will be rejected here — they are partition images, not
+update containers.
+
+**After an over-the-air update, the miner boots from the other application
+partition.** A later serial flash of `-app.bin` to `0x20000` will then appear to
+do nothing, because that is no longer the partition being booted. Rewrite
+`ota_data_initial.bin` at `0x16000` in the same command to point back at it, or
+flash the `-full.bin` instead.
 
 ## Building
 
@@ -179,22 +200,39 @@ Requires **ESP-IDF 5.5.1** or later.
 ```bash
 git clone https://github.com/SerpentXSF/StayOpen-Miner-Firmware.git
 cd StayOpen-Miner-Firmware
-idf.py set-target esp32s3
-idf.py build
+python tools/build_board.py bc01
 ```
 
-The web UI is built separately and flashed to the `www` partition:
+Build through `build_board.py` rather than calling `idf.py` directly. It applies
+that board's pin assignments from `boards/<board>.defaults` and builds into
+`build/<board>/`, so two boards cannot overwrite each other's output. The BC01
+and BC04 have their ASIC UART lines swapped, and a build with the wrong pair
+boots, serves its interface, detects the chip and never returns a share — see
+[docs/BOARDS.md](docs/BOARDS.md).
+
+The firmware build runs the web UI build itself and packages the result into the
+`www` partition, so the command above is all that is needed from a clean tree.
+
+It will not do it twice, though. The web UI is an `ExternalProject` with
+`BUILD_ALWAYS OFF`, so **after changing anything under `axe-os/src` you have to
+rebuild it yourself** before the firmware build will pick the change up:
 
 ```bash
-cd main/http_server/axe-os
-npm install
-npm run build
+cd main/http_server/axe-os && npm run build
+cd -  &&  python tools/build_board.py bc01
 ```
 
 ### Provisioning
 
-`config.cvs` is a template. It contains no credentials and no payout
-address â€” fill in your own before flashing, or the build will stop.
+`config.cvs` holds the settings written to the miner's NVS partition, including
+the payout address it mines to. It is not in the repository; `config.cvs.example`
+is the template to copy.
+
+The firmware build does not read it and will not stop without it — only
+`merge_bin.sh` does, and it refuses to run if the file is missing rather than
+producing an image with nobody's address in it. Released images take their
+settings from `config.cvs.example` instead, which is why a freshly flashed miner
+comes up asking for your details rather than mining to whoever built it.
 
 ```bash
 cp config.cvs.example config.cvs
