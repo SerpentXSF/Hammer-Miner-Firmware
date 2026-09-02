@@ -196,6 +196,30 @@ const isVersionNewer = (remoteVer: string, localVerStr: string) => {
   return false;
 };
 
+/*
+ * Pick the asset an update actually accepts.
+ *
+ * A release carries five images. Two of them are update containers the miner
+ * will take -- the application as `-ota.bin`, the interface as `-www-ota.bin`.
+ * The others are raw partition images for a serial cable, and this same page
+ * rejects them: it routes an upload by its first byte, and a partition image
+ * starts 0xE9 rather than 0xAA or 0x55.
+ *
+ * The previous selection took the first asset whose name ended in .bin, which
+ * on an alphabetically ordered release is `-app.bin`. So checking for updates
+ * here offered a file that this page refuses -- the one path where the miner
+ * hands the user the wrong thing and then blames the file.
+ */
+const pickUpdateAsset = (assets: any[] | undefined, kind: 'app' | 'www') => {
+  const bins = (assets || []).filter((a: any) => a?.name?.endsWith('.bin'));
+  const isWww = (n: string) => /-www-ota\.bin$/i.test(n);
+  const isApp = (n: string) => /-ota\.bin$/i.test(n) && !isWww(n);
+  const wanted = kind === 'www' ? isWww : isApp;
+  // Only ever an update container. Falling back to "any .bin" is what produced
+  // the bug; a release without the right container has no update to offer.
+  return bins.find((a: any) => wanted(a.name)) || null;
+};
+
 const checkGithubUpdates = async () => {
   otaChecking.value = true;
   checkOtaStatus.value = sel('remote_ota_checking');
@@ -221,7 +245,7 @@ const checkGithubUpdates = async () => {
 
     if (webRes.status === 'fulfilled' && webRes.value.data) {
       let gitWebVersion = webRes.value.data.tag_name;
-      const binAsset = webRes.value.data.assets?.find((a: any) => a.name.endsWith('.bin'));
+      const binAsset = pickUpdateAsset(webRes.value.data.assets, 'www');
       
       if (binAsset) {
         // extract string preceding .bin, split by _, typically `www_1.3.5_20260310.bin` gives `20260310`
@@ -242,8 +266,12 @@ const checkGithubUpdates = async () => {
 
     if (fwRes.status === 'fulfilled' && fwRes.value.data) {
       let gitFwVersion = fwRes.value.data.tag_name;
-      const binAsset = fwRes.value.data.assets?.find((a: any) => a.name.toLowerCase().includes(currentModel.toLowerCase()) && a.name.endsWith('.bin'))
-                       || fwRes.value.data.assets?.find((a: any) => a.name.endsWith('.bin'));
+      // Prefer a container naming this board, then any application container.
+      const fwAssets = fwRes.value.data.assets || [];
+      const forThisModel = fwAssets.filter((a: any) =>
+        a?.name?.toLowerCase().includes(currentModel.toLowerCase()));
+      const binAsset = pickUpdateAsset(forThisModel, 'app')
+                       || pickUpdateAsset(fwAssets, 'app');
       
       if (binAsset) {
         // extract string preceding .bin, split by _

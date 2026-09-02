@@ -5,7 +5,7 @@ import { default as langZh } from '@/i18n/zh.ts'
  * 当前 Web 版本号
  * 详细变更记录请查阅: src/CHANGELOG.md
  */
-const WEB_VERSION = '1.5.2 20260901';
+const WEB_VERSION = '1.5.3 20260901';
 
 // [新增] 机型配置接口
 export interface ModelConfig {
