@@ -8,8 +8,8 @@ import {MinerStatusData} from "@/api/type.ts";
 import {useI18n} from "vue-i18n";
 import { WEB_VERSION, UPDATE_REPO_WWW, UPDATE_REPO_APP } from "../util/const.ts";
 import {useAppStore} from "@/store";
-import {getMinerStatus, URL as APP_URL, restartMiner} from "@/api";
-import {showNotificationLoading, validData, getUrl} from "@/util/utils.ts";
+import {getMinerStatus, URL as APP_URL} from "@/api";
+import {showNotificationLoading, validData} from "@/util/utils.ts";
 
 const {t} = useI18n();
 const appStore = useAppStore(); 
@@ -136,15 +136,19 @@ const processFirmwareFile = async (file: File | Blob) => {
         }, 30000);
       } else {
         uploadStatusMessage.value += t('settings.upload_status_success_website') + '\n';
-        
-        try {
-          uploadStatusMessage.value += "Sending restart command...\n";
-          await restartMiner(getUrl(window.location.host));
-        } catch (e) {
-          console.error("Restart failed:", e);
-          uploadStatusMessage.value += "Warning: Failed to send restart command.\n";
-        }
 
+        /*
+         * The miner restarts itself once the write verifies, so there is no
+         * restart to send from here any more. Sending one anyway raced the
+         * reboot it was asking for and reported "Failed to send restart
+         * command" for an update that had in fact succeeded.
+         *
+         * Leaving it to the device also covers the callers that are not this
+         * page: the partition is written but the running server still serves
+         * the old mount, so anything that posted to /api/system/OTAWWW and
+         * did not restart was left looking at an interface that had not
+         * changed, or at the recovery page.
+         */
         showNotificationLoading(t('com.msg_restarting_system'), 30);
         
         setTimeout(() => {

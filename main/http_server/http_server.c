@@ -2103,11 +2103,27 @@ esp_err_t POST_WWW_update(httpd_req_t * req)
     }
     ESP_LOGI(TAG, "WWW Update SHA256 OK. Update Successful.");
 
-    httpd_resp_sendstr(req, "WWW update complete\n");
+    httpd_resp_sendstr(req, "WWW update complete, rebooting now!\n");
 
     snprintf(GLOBAL_STATE->SYSTEM_MODULE.firmware_update_status, 20, "Finished...");
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     GLOBAL_STATE->SYSTEM_MODULE.is_firmware_update = false;
+
+    /*
+     * Restart, the way the application update above already does.
+     *
+     * The partition is written by this point but the running server is still
+     * serving the old mount, so without this the answer was "WWW update
+     * complete" followed by every page staying exactly as it was -- or, if
+     * the previous contents were damaged, by the built-in recovery page. Both
+     * look like an update that silently failed, and the only way out was to
+     * know that a restart was owed.
+     *
+     * Only reached once the SHA256 above matched, so a partial or corrupt
+     * upload does not get a reboot; it gets the error and leaves the running
+     * interface alone.
+     */
+    restart_with_reason("Web interface update complete");
 
     return ESP_OK;
 }
@@ -2493,11 +2509,17 @@ esp_err_t POST_WWW_update(httpd_req_t * req)
         ESP_LOGI(TAG, "WWW update complete\n");
     }
 
-    httpd_resp_sendstr(req, "WWW update complete\n");
+    httpd_resp_sendstr(req, "WWW update complete, rebooting now!\n");
 
     snprintf(GLOBAL_STATE->SYSTEM_MODULE.firmware_update_status, 20, "Finished...");
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     GLOBAL_STATE->SYSTEM_MODULE.is_firmware_update = false;
+
+    /* Same reasoning as the obfuscated handler above: the partition is
+     * written but the running server still serves the old mount, so without a
+     * restart a successful update is indistinguishable from one that did
+     * nothing. */
+    restart_with_reason("Web interface update complete");
 
     return ESP_OK;
 }
