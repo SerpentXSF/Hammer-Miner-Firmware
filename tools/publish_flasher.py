@@ -1,7 +1,11 @@
 """Publish the web flasher to the gh-pages branch.
 
-    python tools/publish_flasher.py bc01          # build the branch
-    python tools/publish_flasher.py bc01 --push   # and force-push it
+    python tools/publish_flasher.py bc01              # build the branch
+    python tools/publish_flasher.py bc01 bc04 --push  # both boards, pushed
+
+Every board named is published together, each with its own image and its own
+manifest-<board>.json, because the page offers a choice between them and a
+branch carrying only one of the pair is a flash that cannot work.
 
 The flasher has to serve the firmware image from the same origin as the page:
 esp-web-tools fetches it with XHR, and GitHub release assets do not send CORS
@@ -74,30 +78,46 @@ def mktree(entries):
 
 
 def main():
-    board = (sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-")
-             else "bc01").lower()
+    boards = [a.lower() for a in sys.argv[1:] if not a.startswith("-")] or ["bc01"]
     push = "--push" in sys.argv
 
     if not os.path.isdir(SRC):
         sys.exit("no %s to publish" % SRC)
 
-    # The image is taken from dist/, which make_release.py fills, so the branch
-    # always carries an artifact that was actually built for a release rather
+    # Images are taken from dist/, which make_release.py fills, so the branch
+    # always carries artifacts that were actually built for a release rather
     # than whatever happens to be lying in docs/.
-    images = [f for f in os.listdir(DIST) if f.startswith("stay-open-%s-" % board)
-              and f.endswith("-full.bin")] if os.path.isdir(DIST) else []
-    if len(images) != 1:
-        sys.exit("expected exactly one stay-open-%s-*-full.bin in dist/, found %d"
-                 " -- run tools/make_release.py %s first"
-                 % (board, len(images), board))
-    image = images[0]
+    #
+    # Every board named has to be complete before anything is published. A
+    # branch carrying one board's image and another board's manifest is worse
+    # than not publishing: the page offers a flash that cannot work.
+    images = {}
+    for board in boards:
+        found = [f for f in os.listdir(DIST)
+                 if f.startswith("stay-open-%s-" % board)
+                 and f.endswith("-full.bin")] if os.path.isdir(DIST) else []
+        if len(found) != 1:
+            sys.exit("expected exactly one stay-open-%s-*-full.bin in dist/, "
+                     "found %d -- run tools/make_release.py %s first"
+                     % (board, len(found), board))
+        manifest = os.path.join(DIST, "manifest-%s.json" % board)
+        if not os.path.exists(manifest):
+            sys.exit("dist/manifest-%s.json is missing -- run "
+                     "tools/make_release.py %s first" % (board, board))
+        images[board] = (found[0], manifest)
 
     flasher = []
     for name in sorted(os.listdir(SRC)):
         full = os.path.join(SRC, name)
-        if os.path.isfile(full) and not name.endswith(".bin"):
+        if os.path.isfile(full) and not name.endswith(".bin") \
+                and not name.startswith("manifest"):
             flasher.append(("100644", "blob", blob(full), name))
-    flasher.append(("100644", "blob", blob(os.path.join(DIST, image)), image))
+    for board in boards:
+        image, manifest = images[board]
+        flasher.append(("100644", "blob", blob(os.path.join(DIST, image)), image))
+        flasher.append(("100644", "blob", blob(manifest),
+                        "manifest-%s.json" % board))
+    flasher.sort(key=lambda e: e[3])
 
     root = [
         ("100644", "blob", blob_bytes(b"", "nojekyll"), ".nojekyll"),
@@ -107,7 +127,8 @@ def main():
 
     tree = mktree(root)
     commit = git("commit-tree", tree, "-m",
-                 "Publish flasher for %s (%s)" % (board, image))
+                 "Publish flasher for %s"
+                 % ", ".join("%s (%s)" % (b, images[b][0]) for b in boards))
     git("update-ref", "refs/heads/" + BRANCH, commit)
 
     print("built %s as a single orphan commit %s" % (BRANCH, commit[:12]))

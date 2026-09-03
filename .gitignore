@@ -45,3 +45,6 @@ Thumbs.db
 # single orphan commit each time, so the previous image stops being referenced
 # rather than accumulating. Keep the binaries out of here.
 docs/flasher/*.bin
+
+# Python bytecode from tools/
+__pycache__/

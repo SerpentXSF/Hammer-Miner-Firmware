@@ -8,11 +8,12 @@ Produces, into dist/:
     stay-open-<board>-<ver>-www.bin     web UI only, for esptool at 0x9e0000
     stay-open-<board>-<ver>-ota.bin     wrapped for the miner's own updater
     stay-open-<board>-<ver>-www-ota.bin web UI, wrapped for the same updater
-    manifest.json                   for the esp-web-tools flasher
+    manifest-<board>.json           for the esp-web-tools flasher
     SHA256SUMS
 
-The NVS image inside the full build is generated from **config.cvs.example**,
-never from a local config.cvs. That distinction matters: config.cvs is flashed
+The NVS image inside the full build is generated from that board's
+**config.<board>.cvs.example** (config.cvs.example for the BC01), never from a
+local config.cvs. That distinction matters: config.cvs is flashed
 verbatim and holds WiFi credentials and a payout address, so shipping one would
 hand out the builder's network password and point other people's hashrate at
 the builder's wallet. The published image therefore has no credentials in it,
@@ -88,20 +89,66 @@ def sh(cmd):
     subprocess.run(cmd, check=True, cwd=ROOT)
 
 
-def build_config():
+def config_template(board):
+    """The provisioning template for this board.
+
+    Per board, because the values are not interchangeable. A BC01's 120 is
+    1.20 V for one ASIC domain; applied to a BC04 it is 1.20 V across four in
+    series, 0.30 V each, and the board will not run. The BC01 keeps the
+    historical filename; every other board gets config.<board>.cvs.example.
+    """
+    per_board = os.path.join(ROOT, "config.%s.cvs.example" % board)
+    if os.path.exists(per_board):
+        return per_board
+    return os.path.join(ROOT, "config.cvs.example")
+
+
+def check_template_board(src, board):
+    """Refuse a template whose devicemodel is not the board being published.
+
+    This used to read config.cvs.example unconditionally, so a BC04 release
+    would have shipped a BC01 NVS: devicemodel BC01, 1.20 V across four
+    domains, flipscreen upside down, and Ethernet left enabled on a board that
+    stops passing packets the moment it powers its hashboard. The image would
+    have flashed, booted, tripped the board-mismatch guard and never hashed.
+
+    The filenames are checked elsewhere; this checks the settings inside.
+    """
+    model = None
+    with open(src, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            if line.startswith("devicemodel,"):
+                parts = line.strip().split(",")
+                if len(parts) >= 4:
+                    model = parts[3].strip().lower()
+                break
+    if model is None:
+        sys.exit("%s has no devicemodel row; refusing to publish"
+                 % os.path.basename(src))
+    if model != board:
+        sys.exit("%s sets devicemodel %s but this is a %s release -- add a "
+                 "config.%s.cvs.example rather than publishing another "
+                 "board's settings"
+                 % (os.path.basename(src), model.upper(), board.upper(), board))
+
+
+def build_config(board):
     """NVS image from the example template, never from a local config.cvs."""
     idf = os.environ.get("IDF_PATH")
     if not idf:
         sys.exit("IDF_PATH is not set -- export the ESP-IDF environment first")
     gen = os.path.join(idf, "components", "nvs_flash",
                        "nvs_partition_generator", "nvs_partition_gen.py")
-    src = os.path.join(ROOT, "config.cvs.example")
+    src = config_template(board)
     out = os.path.join(DIST, "config-dist.bin")
+
+    check_template_board(src, board)
 
     text = open(src, encoding="utf-8", errors="replace").read()
     if "REPLACE-WITH-YOUR-BTC-ADDRESS" not in text:
-        sys.exit("config.cvs.example has been edited to contain a real "
-                 "address; refusing to publish it")
+        sys.exit("%s has been edited to contain a real address; refusing to "
+                 "publish it" % os.path.basename(src))
+    print("provisioning from %s" % os.path.basename(src))
     sh([sys.executable, gen, "generate", src, out, "0x6000"])
 
 
@@ -114,7 +161,7 @@ def main():
     os.makedirs(DIST, exist_ok=True)
     print("building release artifacts for %s %s from %s" % (board, ver, build))
 
-    build_config()
+    build_config(board)
 
     LAYOUT = layout(build)
     for _, path in LAYOUT:
@@ -158,7 +205,7 @@ def main():
         "-o", os.path.join(DIST, base + "-www-ota.bin")])
 
     manifest = {
-        "name": "SerpentX / Stay Open",
+        "name": "SerpentX / Stay Open (%s)" % board.upper(),
         "version": ver,
         "home_assistant_domain": None,
         "new_install_prompt_erase": False,
@@ -167,7 +214,11 @@ def main():
             "parts": [{"path": base + "-full.bin", "offset": 0}],
         }],
     }
-    with open(os.path.join(DIST, "manifest.json"), "w",
+    # Per board. One manifest.json could only ever describe one board, so
+    # publishing a second silently replaced the first and the flasher offered
+    # whichever was released last under both names.
+    manifest_name = "manifest-%s.json" % board
+    with open(os.path.join(DIST, manifest_name), "w",
               encoding="utf-8", newline="\n") as fh:
         json.dump(manifest, fh, indent=2)
         fh.write("\n")
