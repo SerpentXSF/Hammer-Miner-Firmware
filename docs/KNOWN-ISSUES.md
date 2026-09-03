@@ -2,15 +2,16 @@
 
 Things that are understood, worked around, and worth doing properly.
 
-## BC04 Ethernet stops working the moment the hashboard powers up
+## BC04 Ethernet had to be started after the hashboard (fixed)
 
-**Where:** the hardware, as far as every measurement can tell. The software
-side is `network_eth_recover()` in `main/network.c`, which attempts a fix and
-does not achieve one.
+**Status: fixed** in `main/network.c` and `main/main.c` -- Ethernet is started
+after `init_all_peripherals()` rather than before it. Kept here because the
+wrong diagnosis stood for a while and the reasoning is worth not repeating.
 
 A BC04 brings its W5500 up cleanly: link, DHCP lease, DNS, NTP. Then the core
 regulator switches on and **70 ms later** every socket command times out, for
-good.
+good -- *if the controller was already running at that moment*. That last
+clause is the whole thing, and it took far too long to test.
 
 ```
 I (10658) vcore: Set ASIC voltage = 4.80V
@@ -34,8 +35,13 @@ Eliminated by test, not by argument:
 | Socket wedged, restart clears it | `esp_eth_stop()` cannot even reset the PHY |
 
 Seventy milliseconds is the switching transient itself, and the driver reports
-a link *state* change rather than only failed commands, so this reads as the
-16 A core regulator resetting or browning out the W5500.
+a link *state* change rather than only failed commands. That was read as the
+16 A core regulator resetting or browning out the W5500 -- a hardware fault.
+
+**It is not.** Every experiment above disturbed a controller that was already
+running; none initialised one after the transient. Doing that works and keeps
+working. Five eliminated hypotheses were mistaken for a complete set, and
+"therefore hardware" followed from an argument rather than a measurement.
 
 **What a real fix would look like.** `esp_eth_start()` only reopens socket 0.
 It never re-runs `emac_w5500_init()`, which is what resets the chip, writes the
@@ -52,10 +58,16 @@ driver never emitted `ETH_EVENT_STOP`, so the netif is still attached;
 reboot loop for as long as Ethernet is enabled. This was tried on hardware and
 cost nine boots.
 
-**Meanwhile:** run a BC04 on WiFi. `eth_on` and `wifi_on` are settable through
-`PATCH /api/system` and reported by `/api/system/info`, so Ethernet can be
-turned off without a factory restore -- which matters, because a factory
-restore also discards the WiFi credentials that are the only remaining way in.
+**Verified** on hardware at 750 MHz, both with WiFi alongside and with WiFi
+switched off entirely -- the latter being what a freshly flashed miner is.
+Ethernet-only: 6218 GH/s, 50 accepted shares, none rejected, no hardware
+errors, the API served over the Ethernet interface, and the WiFi address
+correctly gone.
+
+`eth_on` and `wifi_on` are settable through `PATCH /api/system` and reported
+by `/api/system/info`, so either can be changed without a factory restore --
+which matters, because a factory restore also discards the WiFi credentials
+that may be the only remaining way in.
 
 Related, and worth fixing whatever the cause turns out to be: when Ethernet
 takes a lease the firmware switches the setup access point off, and never

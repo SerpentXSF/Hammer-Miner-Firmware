@@ -30,18 +30,20 @@ subnetMask,data,string,255.255.255.0
 gateway,data,string,192.168.1.1
 dns,data,string,192.168.1.1
 
-# ── Ethernet is off, deliberately ────────────────────────────────────────────
-# A BC04 has a W5500 and it works right up until the hashboard is powered:
-# roughly 70 ms after the core rail steps to 4.8 V every socket command starts
-# timing out and never recovers. The interface keeps its address and passes
-# nothing, so the miner looks networked on the LAN and cannot reach a pool.
+# ── Ethernet ─────────────────────────────────────────────────────────────────
+# A BC04's W5500 has to be started AFTER the hashboard is powered. One that is
+# already running when the core rail steps to 4.8 V stops answering about 70 ms
+# later and never recovers -- it keeps its address and passes nothing, so the
+# miner looks networked and reaches no pool. The firmware now starts it at the
+# right point and Ethernet works: a BC04 hashing at 750 MHz serves its own API
+# over it with no errors.
 #
-# Leaving this at the firmware default of 1 produces a miner that appears
-# healthy and never submits a share. Run a BC04 on WiFi until that is fixed.
-# docs/KNOWN-ISSUES.md has the measurements and what a real fix requires.
+# Verified both with WiFi alongside and with WiFi switched off entirely, which
+# is what a freshly flashed miner is: 6218 GH/s on Ethernet alone, 50 accepted
+# shares, none rejected, no hardware errors.
 #
-# It can also be toggled at runtime: PATCH /api/system {"eth_on": 1}.
-eth_on,data,u16,0
+# docs/KNOWN-ISSUES.md has the measurements and the wrong turns.
+eth_on,data,u16,1
 wifi_on,data,u16,1
 
 # ── REQUIRED: your pool and YOUR OWN payout address ──────────────────────────

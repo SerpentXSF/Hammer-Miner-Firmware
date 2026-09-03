@@ -90,20 +90,23 @@
     99&nbsp;W, 65&nbsp;&deg;C, no hardware errors &mdash; or 5.1&nbsp;TH/s at
     72&nbsp;W if you would rather have the efficiency.</p>
 
-    <div class="card stop">
-      <h2>Ethernet does not work on a BC04. Use WiFi.</h2>
-      <p>The W5500 links, takes a DHCP lease and resolves DNS perfectly &mdash;
-      and then roughly <strong>70&nbsp;milliseconds after the hashboard powers
-      up</strong>, every socket command starts timing out and never recovers.
-      The interface keeps its address and passes nothing, so the miner looks
-      networked and reaches no pool.</p>
-      <p>Ethernet is therefore <strong>disabled in this image</strong> and the
-      miner comes up as a WiFi access point for setup. That is deliberate:
-      leaving it on produces a board that appears healthy and mines nothing.
-      Clock rate, task starvation, supply sag, pin conflicts and driver
-      restarts were all ruled out by measurement &mdash;
-      <a href="https://github.com/SerpentXSF/StayOpen-Miner-Firmware/blob/main/docs/KNOWN-ISSUES.md">KNOWN-ISSUES.md</a>
-      has the numbers.</p>
+    <div class="card">
+      <h2 style="margin-top:0">Ethernet and WiFi both work</h2>
+      <p>Ethernet on a BC04 had to be started <em>after</em> the hashboard is
+      powered rather than before it &mdash; a controller already running when
+      the core rail steps up stops answering about 70&nbsp;ms later and never
+      recovers. The firmware now starts it at the right point, and a BC04
+      hashing at 750&nbsp;MHz serves its own interface over Ethernet with no
+      errors.</p>
+      <p>Confirmed both ways: with WiFi alongside, and with WiFi switched off
+      entirely &mdash; which is what this image is until you set it up. On
+      Ethernet alone it mined at 6.2&nbsp;TH/s with no rejected shares and no
+      hardware errors.</p>
+      <p>So <strong>plug in a cable and it works</strong>. If you would rather
+      set up over WiFi, the miner also raises an access point named
+      <code>HAMMER_xxxx</code> on first boot.</p>
+      <p><a href="https://github.com/SerpentXSF/StayOpen-Miner-Firmware/blob/main/docs/KNOWN-ISSUES.md">KNOWN-ISSUES.md</a>
+      has the measurements, including the four wrong theories that came first.</p>
     </div>
 
     <div class="card stop">

@@ -29,6 +29,10 @@ bool network_is_connected(void);
 
 /* Restart the Ethernet controller. Boards that power a hashboard off the
  * same supply can leave the W5500 wedged when that rail comes up. */
+/* Bring up Ethernet that network_init() deferred until the hashboard was
+ * powered. Returns ESP_ERR_INVALID_STATE when nothing was deferred. */
+esp_err_t network_eth_start(void);
+
 esp_err_t network_eth_recover(void);
 
 #endif /* NETWORK_H_ */

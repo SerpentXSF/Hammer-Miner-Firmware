@@ -438,13 +438,17 @@ void app_main(void)
 
     ESP_ERROR_CHECK(init_all_peripherals(&GLOBAL_STATE));
 
-    /* The hashboard rail has just come up. On a BC04 that inrush leaves the
-     * Ethernet controller wedged -- it keeps its address and stops passing
-     * traffic -- and nothing in the driver retries. Restart it here, once,
-     * now that the supply has settled. Boards without Ethernet return
-     * ESP_ERR_INVALID_STATE and are unaffected. */
+    /* The hashboard rail has just come up and settled.
+     *
+     * If network_init() left Ethernet alone because WiFi could carry the boot,
+     * this is where it starts -- after the transient rather than through it.
+     * Otherwise the controller has been running all along and, on a BC04, has
+     * already stopped answering; try restarting it. Boards with no Ethernet,
+     * or nothing deferred, return ESP_ERR_INVALID_STATE and are unaffected. */
     if (network_get_info().eth_on) {
-        network_eth_recover();
+        if (network_eth_start() != ESP_OK) {
+            network_eth_recover();
+        }
     }
 
     /*Serial Init and detect the asic.*/

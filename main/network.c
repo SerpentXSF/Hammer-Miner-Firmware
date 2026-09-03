@@ -382,6 +382,10 @@ void network_eth_init_test(void)
 /* The controller this board is using, retained so it can be restarted. */
 static esp_eth_handle_t s_eth_handle = NULL;
 
+/* Set when network_init() chose to leave Ethernet until after the hashboard
+ * is powered; read by network_eth_start(). */
+static bool eth_deferred = false;
+
 void network_eth_init(void)
 {
 	// Initialize Ethernet driver
@@ -440,6 +444,26 @@ void network_eth_init(void)
  * own init and reopens its socket, which is the cheapest thing that can
  * clear that state.
  */
+/*
+ * Bring Ethernet up now, if network_init() deferred it.
+ *
+ * Called from main() once the hashboard is powered and settled, which is the
+ * one ordering nothing has tested: whether a W5500 initialised after the
+ * transient behaves, rather than one that was running through it.
+ */
+esp_err_t network_eth_start(void)
+{
+    if (!eth_deferred) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    eth_deferred = false;
+
+    ESP_LOGI(TAG, "Starting Ethernet now the hashboard is up");
+    network_eth_init();
+    network_config_eth_static_ip();
+    return ESP_OK;
+}
+
 esp_err_t network_eth_recover(void)
 {
     if (NULL == s_eth_handle) {
@@ -491,11 +515,28 @@ void network_init(void * globalState)
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     start_rest_server((void *) globalState);
 
+	/*
+	 * Ethernet is not started here. It is started after the hashboard is
+	 * powered, by network_eth_start() from main().
+	 *
+	 * On a BC04 a W5500 that is already running when the core rail steps up
+	 * to power the hashboard stops answering about 70 ms later and never
+	 * recovers -- the interface keeps its address and passes nothing. One
+	 * initialised *after* that transient is fine and stays fine, which is
+	 * the whole of the fix: it is an ordering problem, not the hardware
+	 * fault it looked like for a long time.
+	 *
+	 * Deferring it unconditionally matters most for the case that cannot
+	 * fall back on WiFi. A freshly flashed miner has no WiFi credentials, so
+	 * bringing Ethernet up early "because it is the only way in" would hand
+	 * exactly those users the broken ordering. They get the setup access
+	 * point to configure from, and a working Ethernet interface a few
+	 * seconds later.
+	 */
 	if(netWork_Info.eth_on)
 	{
-		network_eth_init();
-		network_config_eth_static_ip();
-		vTaskDelay(pdMS_TO_TICKS(200));
+		eth_deferred = true;
+		ESP_LOGI(TAG, "Ethernet deferred until the hashboard is powered");
 	}
 
 	if(netWork_Info.wifi_on)
@@ -507,9 +548,27 @@ void network_init(void * globalState)
 
 	if((netWork_Info.wifi_on == 0) && (netWork_Info.eth_on == 0))
 	{
+		/* Neither interface asked for: Ethernet is the last resort, and
+		 * there is no hashboard power-up to wait for that would help. */
 		network_eth_init();
 		network_config_eth_static_ip();
 		vTaskDelay(pdMS_TO_TICKS(200));
+	}
+
+	/*
+	 * Nothing below can produce an Ethernet address any more, so waiting for
+	 * one would hang until the timeout restarted the miner. When Ethernet is
+	 * deferred and WiFi cannot supply an address either -- no credentials,
+	 * or switched off -- carry on and let main() power the board and start
+	 * Ethernet. The setup access point stays up throughout, so a miner in
+	 * that state is still reachable to be configured.
+	 */
+	if(eth_deferred &&
+	   (netWork_Info.wifi_on == 0 || netWork_Info.wifi_ssid[0] == '\0'))
+	{
+		ESP_LOGI(TAG, "No WiFi to wait for; continuing so Ethernet can start "
+		              "after the hashboard");
+		return;
 	}
 
 	while(1)

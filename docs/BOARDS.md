@@ -219,15 +219,19 @@ it is set to `1` once it passes — and on this board it is a genuinely useful
 check: it exercises the fan through all four PWM steps and confirms all four
 ASICs before the miner ever tries to mine.
 
-### The BC04 has Ethernet, and it does not survive hashing
+### The BC04 has Ethernet, and it is an ordering problem
 
-This page used to warn that the BC04 might have no W5500 and would fail the
-self test's Ethernet check. **The opposite is true on both counts.** The board
-has a W5500, it passes the check, and it takes a DHCP lease, resolves DNS and
-syncs NTP without complaint.
+This page has been wrong about this twice. It first warned that the BC04
+might have no W5500 and would fail the self test's Ethernet check -- the
+opposite is true on both counts. It then said the W5500 was being reset or
+browned out by the core regulator, a hardware fault no software could touch.
+That was also wrong.
 
-Then the hashboard is powered, and **70 ms later** every socket command starts
-timing out and never recovers:
+**Ethernet works. It has to be started after the hashboard, not before.**
+
+The symptom was real enough. A W5500 that is already running when the core
+rail steps up to power the hashboard stops answering about 70 ms later and
+never recovers:
 
 ```
 I (10658) vcore: Set ASIC voltage = 4.80V
@@ -236,39 +240,49 @@ E        esp_eth: eth_on_state_changed(151): ethernet mac set link failed
 ```
 
 The interface keeps its address and silently stops passing packets, so the
-miner looks networked and cannot reach a pool. Ruled out by measurement, not
-by argument:
+miner looks networked and cannot reach a pool. These were all eliminated by
+measurement and none of them was the cause:
 
 - **SPI clock.** 16 MHz is the W5500's rated ceiling; 8 MHz behaves identically.
 - **Task starvation.** `volc_delay()` is a plain `vTaskDelay`.
-- **Supply sag.** 12.30 V idle to 12.125 V under 85 W — 1.4 %, and the failure
-  begins before the ASICs are clocked at all.
+- **Supply sag.** 12.30 V idle to 12.125 V under 85 W -- 1.4 %.
 - **Pin or bus conflict.** Nothing else uses SPI2, and `power_on_hashboard()`
   only writes a voltage over I2C. No GPIO is touched between the two events.
 - **A wedged socket.** `esp_eth_stop()` cannot even reset the PHY afterwards.
 
-Seventy milliseconds is the switching transient itself, and the driver reports
-a *link state* change rather than only failed commands, so the PHY side is
-affected too. The likeliest reading is that bringing up the 16 A core
-regulator resets or browns out the W5500 — a hardware interaction on this
-board, which is why no software change touched it.
+Five hypotheses eliminated is not the same as all of them, and the conclusion
+drawn from that -- "therefore hardware" -- was the mistake. **Every one of
+those experiments disturbed a controller that was already running.** None
+tried initialising one *after* the transient. That case works, and keeps
+working: a BC04 hashing at 750 MHz serves its own API over Ethernet with zero
+W5500 errors.
 
-`network_eth_recover()` in `main/network.c` exists for this and **does not fix
-it.** `esp_eth_start()` only reopens socket 0; it never re-runs
-`emac_w5500_init()`, which is what writes the MAC and sets MACRAW mode, so a
-controller that came back blank stays blank. A real fix would be a full
-`esp_eth_driver_uninstall()` and re-init once the rail settles.
+So `network_init()` no longer starts Ethernet at all. `main()` calls
+`network_eth_start()` once `init_all_peripherals()` has powered the board and
+the supply has settled.
 
-Do not be tempted to "improve" that function by starting anyway when the stop
-fails. A failed stop means the driver never emitted `ETH_EVENT_STOP`, the
-netif is still attached, and starting again trips
-`assert failed: netif_add (netif already added)` — a reboot loop for as long
-as Ethernet is enabled. That was tried, and it cost nine boots to learn.
+`network_eth_recover()` remains for a controller that is already wedged, and
+still cannot help one: `esp_eth_start()` only reopens socket 0, never re-running
+`emac_w5500_init()` which writes the MAC and sets MACRAW mode. Do not be
+tempted to "improve" it by starting anyway when the stop fails -- a failed stop
+means the driver never emitted `ETH_EVENT_STOP`, the netif is still attached,
+and starting again trips `assert failed: netif_add (netif already added)`, a
+reboot loop for as long as Ethernet is enabled. That was tried, and it cost
+nine boots to learn.
 
-**Run a BC04 on WiFi.** `eth_on` and `wifi_on` are settable through
-`PATCH /api/system` and reported by `/api/system/info`, so Ethernet can be
-turned off without a factory restore — which matters, because a factory
-restore also discards the WiFi credentials that are the only way back in.
+**Verified both ways on hardware**, at 750 MHz with the board hashing:
+
+| Case | Result |
+|---|---|
+| WiFi + Ethernet | both interfaces serve the API, 0 W5500 errors |
+| **Ethernet only**, no WiFi credentials | 6218 GH/s, 50 shares, 0 rejected, 0 hardware errors, served over Ethernet |
+
+The second is the one that matters for a freshly flashed miner, which has no
+WiFi credentials. Deferral is therefore unconditional, and the published image
+ships with Ethernet **on**.
+
+`eth_on` and `wifi_on` are settable through `PATCH /api/system` and reported by
+`/api/system/info`, so either can be changed without a factory restore.
 
 ## Releases
 
