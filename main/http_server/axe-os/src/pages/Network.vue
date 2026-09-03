@@ -260,6 +260,39 @@ const checkWifiStatus = async () => {
 
 let refreshIntervalRef: any = 0;
 onUnmounted(() => clearInterval(refreshIntervalRef));
+/*
+ * What the Ethernet port is actually doing, rather than a fixed instruction.
+ *
+ * ethStatus is the firmware's own string -- "ETH GetIP", "ETH Link Up",
+ * "ETH Link Down", "ETH Started", "ETH Stopped". ethConnected folds the first
+ * two together, and ethIP is the address it is reachable at.
+ *
+ * An empty status early in a boot is expected rather than a fault: on a BC04
+ * Ethernet is deliberately started after the hashboard is powered, because a
+ * controller already running through that transient stops answering.
+ */
+const ethState = computed(() => {
+  const st: any = minerStatusRef.value || {};
+  const status: string = st.ethStatus || '';
+
+  if (st.eth_on === 0) {
+    return {text: t('network.eth_off'), tone: 'is-off'};
+  }
+  if (st.ethConnected === 1 && st.ethIP) {
+    return {text: `${t('network.eth_connected')} ${st.ethIP}`, tone: 'is-up'};
+  }
+  if (status.includes('Link Up')) {
+    return {text: t('network.eth_linked'), tone: 'is-up'};
+  }
+  if (status.includes('Link Down') || status.includes('Stopped')) {
+    return {text: t('network.eth_no_cable'), tone: 'is-down'};
+  }
+  if (!status) {
+    return {text: t('network.eth_starting'), tone: ''};
+  }
+  return {text: t('network.eth_no_cable'), tone: 'is-down'};
+});
+
 onMounted(async () => {
   await checkWifiStatus();
   refreshIntervalRef = setInterval(checkWifiStatus, 15000);
@@ -393,9 +426,13 @@ onMounted(async () => {
 
           <a-tab-pane key="ethernet" :tab="t('network.ethernet')" v-if="appStore.hasEthernet">
              <div class="tab-content">
-               <div class="nw-static-hint">
-                  <ClusterOutlined /> 
-                  {{ t('network.ethernet_hint') || 'Ethernet has priority over Wi-Fi when connected.' }}
+               <!-- Live, not a fixed instruction. This read "plug in the
+                    network cable" whether or not one was plugged in, and
+                    whether or not Ethernet was even enabled, so a working
+                    link looked identical to a broken one. -->
+               <div class="nw-static-hint" :class="ethState.tone">
+                  <ClusterOutlined />
+                  {{ ethState.text }}
                </div>
 
                <a-form-item :label="ncl('is_static_ip')" name="eth_nettype">
@@ -510,6 +547,11 @@ onMounted(async () => {
 .tab-content {
   padding-top: 20px;
 }
+
+/* Tones for the live Ethernet status: connected, no link, switched off. */
+.nw-static-hint.is-up { color: #22c55e; }
+.nw-static-hint.is-down { color: #eab308; }
+.nw-static-hint.is-off { opacity: .65; }
 
 .nw-static-hint {
   font-size: 0.9rem;

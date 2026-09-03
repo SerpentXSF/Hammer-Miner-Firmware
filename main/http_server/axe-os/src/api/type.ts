@@ -96,6 +96,8 @@ export interface MinerStatusData {
   wifiStatus: string,
   wifiRSSI: number;
   ethStatus: string;
+  ethIP?: string;
+  eth_on?: number;
   ethConnected: number;
   apEnabled: number,
   sharesAccepted: number,

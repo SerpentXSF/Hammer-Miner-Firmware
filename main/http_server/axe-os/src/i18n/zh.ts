@@ -185,6 +185,11 @@ const lang = {
         // [新增] Network.vue 重构所需字段
         ethernet: '有线网络 (Ethernet)',
         ethernet_hint: '插入网线即可自动连接。有线网络优先级高于 Wi-Fi。',
+        eth_off: '以太网已关闭。请在下方启用并重启后使用有线网口。',
+        eth_no_cable: '无连接。请插入网线 — 会自动连接，并优先于 Wi-Fi。',
+        eth_linked: '网线已连接，正在等待路由器分配地址。',
+        eth_connected: '已连接',
+        eth_starting: '以太网正在启动，将在算力板上电后不久就绪。',
         wifi_settings: '无线网络配置',
         ip_settings: 'IP 地址设置',
         ip_shared_hint: '注意：以下 IP 设置将应用于当前活动的网络接口（有线或 Wi-Fi）。'

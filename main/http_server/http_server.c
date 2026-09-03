@@ -1645,6 +1645,10 @@ static esp_err_t GET_system_info(httpd_req_t * req)
     cJSON_AddStringToObject(root, "ethStatus", ethInfo.eth_status);
     cJSON_AddNumberToObject(root, "ethConnected", (ethInfo.eth_get_ip || strstr(ethInfo.eth_status, "Link Up") != NULL) ? 1 : 0);
     cJSON_AddNumberToObject(root, "eth_on", nvs_config_get_u16(NVS_CONFIG_ETH_ON, 1));
+    /* The address the miner is actually reachable at over the wire.
+     * Captured all along in eth_ip_str and never reported, so the web
+     * interface could only ever show a static "plug in a cable" hint. */
+    cJSON_AddStringToObject(root, "ethIP", ethInfo.eth_ip_str);
     cJSON_AddNumberToObject(root, "wifi_on", nvs_config_get_u16(NVS_CONFIG_WIFI_ON, 1));
 
     cJSON_AddNumberToObject(root, "apEnabled", GLOBAL_STATE->SYSTEM_MODULE.ap_enabled);

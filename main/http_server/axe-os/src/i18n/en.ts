@@ -187,6 +187,11 @@ const lang = {
         warning: 'Compatible exclusively with 2.4GHz Wi-Fi networks.',
         ethernet: 'Ethernet (Wired)',
         ethernet_hint: 'Plug in the network cable to connect automatically. Ethernet has priority over Wi-Fi.',
+        eth_off: 'Ethernet is turned off. Enable it below and restart to use the wired port.',
+        eth_no_cable: 'No link. Plug in a network cable — it connects automatically, and takes priority over Wi-Fi.',
+        eth_linked: 'Cable connected, waiting for an address from your router.',
+        eth_connected: 'Connected on',
+        eth_starting: 'Ethernet is starting. It comes up shortly after the hashboard powers on.',
         wifi_settings: 'Wi-Fi Configuration',
         ip_settings: 'IP Configuration',
         ip_shared_hint: 'Note: These IP settings apply to the active network interface (Ethernet or Wi-Fi).'
