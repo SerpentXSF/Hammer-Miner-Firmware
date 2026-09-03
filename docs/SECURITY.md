@@ -267,6 +267,54 @@ If you are running stock Hammer firmware and are not yet ready to reflash:
 
 ---
 
+## Keeping credentials out of this repository
+
+An API password was committed here on 2026-08-27 as `.api-password.txt` and
+stayed in a public repository until 2026-09-03. It was the live password on
+two miners.
+
+**The history was rewritten and it did not make the secret unrecoverable.**
+That is the part worth internalising. After `git filter-repo` removed the file
+from all 98 commits and the branch was force-pushed, the old commits still
+resolved by SHA on GitHub, the blob API still returned its 22 bytes, and
+`raw.githubusercontent.com` still served it at the old commit. GitHub keeps
+unreachable objects until it garbage-collects, which it does on its own
+schedule and not on request; every existing clone and fork kept the value too.
+
+So the only fix that worked was **changing the password on the devices**.
+Rewriting history is worth doing, but treat it as tidying up, not containment:
+once a secret reaches a remote, it is compromised.
+
+To have GitHub drop the unreachable objects, open a support request naming the
+repository and asking them to run garbage collection. Do that *after*
+rotating, not instead of it.
+
+### The hook
+
+`.githooks/pre-commit` refuses to commit device credentials. Enable it once
+per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+It refuses, against the staged content rather than the working tree:
+
+- files that look like credentials by name (`*api-password*`, `*.pem`,
+  signing keys)
+- any `*.cvs` provisioning file that is not a `.example` template
+- a filled-in `apipassword`, `wifipass`, `stratumpass`, `influx_token` or
+  similar **in any file, whatever it is called** -- the earlier leak was in a
+  file called `.api-password.txt`, but the next one need not be
+- a `stratumuser` that is not the `REPLACE-WITH-YOUR-...` placeholder
+
+The templates ship those keys with empty values, so they pass. Override with
+`git commit --no-verify` when you genuinely mean it.
+
+A hook is not a security boundary -- it runs only where it is enabled, and
+`--no-verify` bypasses it. It is there to catch the accident, which is what
+actually happened.
+
 ## Reporting
 
 Security issues in *this* repository can be raised as a GitHub issue, or

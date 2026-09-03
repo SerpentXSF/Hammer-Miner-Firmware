@@ -1,0 +1,89 @@
+#!/bin/sh
+# Refuse to commit device credentials.
+#
+# An API password was committed here on 2026-08-27 and sat in a public
+# repository for a week. Rewriting history afterwards does not undo that:
+# GitHub keeps unreachable objects, so the blob stayed readable by SHA long
+# after the force-push, and every clone and fork still had it. The only real
+# fix was changing the password on the devices. This hook exists so the next
+# one is refused before it is ever written.
+#
+# Enable once per clone:
+#
+#     git config core.hooksPath .githooks
+#
+# Deliberate exception, when you actually mean it:
+#
+#     git commit --no-verify
+#
+# Checked against the staged content, not the working tree, so a file that is
+# clean on disk but staged dirty cannot slip through.
+
+fail=0
+
+note() {
+    if [ "$fail" -eq 0 ]; then
+        echo "pre-commit: refusing to commit credentials" >&2
+        echo >&2
+    fi
+    fail=1
+    echo "  $1" >&2
+}
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+
+for path in $staged; do
+    case "$path" in
+        # Provisioning files are flashed verbatim into NVS and hold the WiFi
+        # password, the API password and a payout address. Only the .example
+        # templates belong in the repository.
+        *api-password*|*api_password*)
+            note "$path -- looks like a credential file"
+            ;;
+        *.cvs)
+            case "$path" in
+                *.example) ;;
+                *) note "$path -- provisioning file; commit only the .example" ;;
+            esac
+            ;;
+        # Signing keys. Losing control of one is worse than losing the repo.
+        *.pem|*secure_boot*.key|*signing*.key|*.p12|*.pfx)
+            note "$path -- looks like a private key"
+            ;;
+    esac
+done
+
+# Content check: a filled-in credential inside any staged text file, whatever
+# the file is called. The templates ship these keys with empty values, so an
+# empty value passes and a real one does not.
+for path in $staged; do
+    git diff --cached -- "$path" 2>/dev/null | grep -q '^+' || continue
+
+    hits=$(git show ":$path" 2>/dev/null |
+           grep -nE '^(apipassword|wifipass|influx_token|stratumpass|fbstratumpass|poolBPass),[^,]*,[^,]*,.+' ||
+           true)
+    if [ -n "$hits" ]; then
+        note "$path -- has a filled-in credential:"
+        echo "$hits" | sed 's/^/      /' | cut -c1-60 >&2
+    fi
+
+    # A payout address that is not the placeholder.
+    addr=$(git show ":$path" 2>/dev/null |
+           grep -nE '^(stratumuser|fbstratumuser|poolBUser),' |
+           grep -vi 'REPLACE-WITH-YOUR' || true)
+    if [ -n "$addr" ]; then
+        note "$path -- has a real payout address"
+    fi
+done
+
+if [ "$fail" -ne 0 ]; then
+    echo >&2
+    echo "  Nothing was committed. If a value here has already reached a" >&2
+    echo "  remote, change it on the device -- removing it from git is not" >&2
+    echo "  enough. See docs/SECURITY.md." >&2
+    echo >&2
+    echo "  To override deliberately: git commit --no-verify" >&2
+    exit 1
+fi
+
+exit 0
