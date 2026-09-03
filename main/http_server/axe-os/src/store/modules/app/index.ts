@@ -46,7 +46,15 @@ export const useAppStore = defineStore("app", {
         wsConnecting: false,
         wsConnected: false,
         logContent: "",
-        needsRestart: false,
+        /*
+         * Pool and network settings are written to NVS but reported from
+         * GLOBAL_STATE, which is only loaded at boot -- so a saved change
+         * reads back as the old value until the miner restarts. Both of
+         * these survive a page reload, otherwise reloading loses the fact
+         * that anything is pending and the form silently shows stale data.
+         */
+        needsRestart: sessionStorage.getItem("needsRestart") === "1",
+        pendingSettings: JSON.parse(sessionStorage.getItem("pendingSettings") || "{}"),
         consecutiveFailures: 0,
 
         isPollingPaused: false,
@@ -90,6 +98,19 @@ export const useAppStore = defineStore("app", {
     actions: {
         setInfo(partial: Partial<AppState>) {
             this.$patch(partial);
+        },
+        /* Remember what was saved but is not live yet, so the form that saved
+         * it does not read back the running value and look like it failed. */
+        markPending(values: Record<string, any>) {
+            const merged = { ...this.pendingSettings, ...values };
+            this.$patch({ needsRestart: true, pendingSettings: merged });
+            sessionStorage.setItem("needsRestart", "1");
+            sessionStorage.setItem("pendingSettings", JSON.stringify(merged));
+        },
+        clearPending() {
+            this.$patch({ needsRestart: false, pendingSettings: {} });
+            sessionStorage.removeItem("needsRestart");
+            sessionStorage.removeItem("pendingSettings");
         },
         onMenuToggle() {
             if (isDesktop()) {

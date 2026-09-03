@@ -206,10 +206,13 @@ const updateSys = async (values: any) => {
 
     await updateSystem('', formData);
     showNotification(t('com.msg_save_success'), 'success')
-    appStore.setInfo({ needsRestart: true });
+    /* Pool settings are stored in NVS but reported from the running miner, so
+     * until it restarts the API still answers with the old values. Remember
+     * what was sent, or leaving this page and coming back shows the previous
+     * worker name and reads as a save that silently failed. */
+    appStore.markPending(formData);
   } catch (err) {
     showNotification(t('com.msg_save_failed'), 'error')
-    appStore.setInfo({ needsRestart: false });
   } finally {
     actionStatus.saving = false;
   }
@@ -221,7 +224,7 @@ const restart = async () => {
   }
   actionStatus.restarting = true;
   try {
-    appStore.setInfo({ needsRestart: false });
+    appStore.clearPending();
     await restartMiner('');
     showNotificationLoading(t('com.msg_restarting_system'), 30);
     setTimeout(() => {
@@ -244,6 +247,49 @@ watch(
     },
 );
 
+/*
+ * Show settings that were saved but are not live yet.
+ *
+ * The API reports pool settings from GLOBAL_STATE, which is populated at boot,
+ * so a saved change reads back as the old value until the miner restarts.
+ * Repopulating the form from that made a successful save look like it had been
+ * discarded -- the user renames a worker, saves, comes back, and sees the old
+ * name. Both pools behave this way; it is not specific to pool B.
+ */
+const applyPendingOverFormState = () => {
+  const pending = appStore.pendingSettings || {};
+  if (!Object.keys(pending).length) {
+    return;
+  }
+
+  if (pending.poolBUrl) {
+    formState.poolBURL = `${pending.poolBUrl}:${pending.poolBPort ?? 3333}`;
+  }
+  if (pending.poolBFbUrl) {
+    formState.poolBFbURL = `${pending.poolBFbUrl}:${pending.poolBFbPort ?? 3333}`;
+  }
+  if (pending.stratumURL) {
+    formState.stratumURL = `${pending.stratumURL}:${pending.stratumPort ?? 3333}`;
+  }
+  if (pending.fallbackStratumURL) {
+    formState.fallbackStratumURL =
+        `${pending.fallbackStratumURL}:${pending.fallbackStratumPort ?? 3333}`;
+  }
+
+  const direct: Array<keyof typeof formState> = [
+    'stratumUser', 'fallbackStratumUser', 'stratumTLS', 'fallbackStratumTLS',
+    'stratumExtranonceSubscribe', 'fallbackStratumExtranonceSubscribe',
+    'poolBUser', 'poolBTLS', 'poolBFbUser', 'poolBFbTLS',
+    'dualEnable', 'dualRatioA', 'dualSliceMs',
+  ] as any;
+
+  direct.forEach((k) => {
+    if (pending[k as string] !== undefined) {
+      (formState as any)[k] = pending[k as string];
+    }
+  });
+};
+
 onMounted(async () => {
   await syncMinerStatus();
   if (minerStatusRef.value) {
@@ -260,6 +306,8 @@ onMounted(async () => {
     formState.fallbackStratumTLS = minerStatusRef.value.fallbackStratumTLS ?? 0;
     formState.fallbackStratumExtranonceSubscribe = minerStatusRef.value.fallbackStratumExtranonceSubscribe ?? 0;
 
+    /* What the miner is running. Anything saved since is layered over it
+     * below -- see appStore.pendingSettings. */
     const st: any = minerStatusRef.value;
     formState.poolBURL = st.poolBUrl ? `${st.poolBUrl}:${st.poolBPort ?? 3333}` : '';
     formState.poolBUser = st.poolBUser ?? '';
@@ -272,6 +320,8 @@ onMounted(async () => {
     formState.dualEnable = st.dualEnable ?? 0;
     formState.dualRatioA = st.dualRatioA ?? 50;
     formState.dualSliceMs = st.dualSliceMs ?? 2000;
+
+    applyPendingOverFormState();
   }
 })
 </script>
@@ -280,6 +330,10 @@ onMounted(async () => {
   <div>
     <a-card :title="pl('title')" class="card ps-card" style="border: 1px solid var(--surface-border); box-shadow: none;">
       <div class="ps-form-wrap">
+      <!-- Saved settings live in NVS but the miner reports what it booted
+           with, so say plainly that a restart is still owed. -->
+      <a-alert v-if="appStore.needsRestart" type="warning" show-icon
+               class="ps-pending-alert" :message="t('com.restart_pending_banner')"/>
       <a-form ref="cfgsFormRef" :wrapper-col="{xs:24, sm: 12}" :model="formState" :hideRequiredMark="true"
               @finish="updateSys">
         
@@ -626,6 +680,10 @@ onMounted(async () => {
 .ps-action-btn {
   margin-right: 10px;
   margin-bottom: 10px;
+}
+
+.ps-pending-alert {
+  margin-bottom: 16px;
 }
 
 .ps-restart-hint {

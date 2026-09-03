@@ -32,6 +32,9 @@ export interface AppState {
   logContent: string;
 
   needsRestart: boolean;
+  /* Settings written to NVS that the running miner has not picked up yet.
+   * Keyed by the field name the API uses. */
+  pendingSettings: Record<string, any>;
   consecutiveFailures: number; // [新增] 连续失败计数
 
   isPollingPaused: boolean;

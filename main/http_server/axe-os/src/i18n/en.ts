@@ -22,6 +22,7 @@ const lang = {
         restart_pending: 'Pending Restart',
         restart: 'RESTART',
         restart_hint: 'You must restart this device after saving for changes to take effect.',
+        restart_pending_banner: 'Saved. These settings are stored but the miner is still running the previous ones — restart to apply them.',
         msg_save_success: 'Successfully saved.',
         msg_save_failed: 'Save failed',
         msg_reset_success: 'Successfully reset.',

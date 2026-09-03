@@ -22,6 +22,7 @@ const lang = {
         restart_pending: '等待重启',
         restart: '重启',
         restart_hint: '保存后必须重启此设备，更改才能生效。',
+        restart_pending_banner: '已保存。设置已写入，但矿机仍在使用之前的设置，请重启以生效。',
         msg_save_success: "保存成功.",
         msg_save_failed: "保存失败.",
         msg_reset_success: '重置成功.',
