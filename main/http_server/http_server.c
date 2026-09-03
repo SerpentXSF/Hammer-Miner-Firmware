@@ -1110,6 +1110,17 @@ static esp_err_t PATCH_update_settings(httpd_req_t * req)
         nvs_config_set_u16(NVS_CONFIG_ASIC_OVER_FREQ, item->valueint);
     }
 
+    /* Ethernet could only be turned back on by a factory restore, which also
+     * throws away the WiFi credentials -- so a board whose Ethernet misbehaves
+     * had no way back except reflashing NVS over USB. Takes effect at the next
+     * restart, like the other network settings. */
+    if ((item = cJSON_GetObjectItem(root, "eth_on")) != NULL) {
+        nvs_config_set_u16(NVS_CONFIG_ETH_ON, item->valueint ? 1 : 0);
+    }
+    if ((item = cJSON_GetObjectItem(root, "wifi_on")) != NULL) {
+        nvs_config_set_u16(NVS_CONFIG_WIFI_ON, item->valueint ? 1 : 0);
+    }
+
     if ((item = cJSON_GetObjectItem(root, "flipscreen")) != NULL) {
         nvs_config_set_u16(NVS_CONFIG_FLIP_SCREEN, item->valueint);
     }
@@ -1633,6 +1644,8 @@ static esp_err_t GET_system_info(httpd_req_t * req)
     NetWorkInfo ethInfo = network_get_info();
     cJSON_AddStringToObject(root, "ethStatus", ethInfo.eth_status);
     cJSON_AddNumberToObject(root, "ethConnected", (ethInfo.eth_get_ip || strstr(ethInfo.eth_status, "Link Up") != NULL) ? 1 : 0);
+    cJSON_AddNumberToObject(root, "eth_on", nvs_config_get_u16(NVS_CONFIG_ETH_ON, 1));
+    cJSON_AddNumberToObject(root, "wifi_on", nvs_config_get_u16(NVS_CONFIG_WIFI_ON, 1));
 
     cJSON_AddNumberToObject(root, "apEnabled", GLOBAL_STATE->SYSTEM_MODULE.ap_enabled);
     cJSON_AddNumberToObject(root, "sharesAccepted", GLOBAL_STATE->SYSTEM_MODULE.shares_accepted);
