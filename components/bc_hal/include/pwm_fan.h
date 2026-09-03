@@ -77,4 +77,9 @@ esp_err_t fan_pcnts_get_rpm(ledc_channel_t pwm_channel, int *ret_pcounts, uint32
 
 bool check_fan_ok(uint16_t *pwm_config, uint16_t *fan_rpm, int fan_num, int max_fan_speed, int fan_check_param);
 void lotto_set_pwm_according_to_temperature(FanInputInfo *fan_info);
+
+/* Where lotto_set_pwm_according_to_temperature() writes its duty cycle.
+ * Defaults to LEDC; boards with a fan controller register their own. */
+typedef esp_err_t (*fan_output_fn)(int pwm_percent);
+void pwm_fan_set_output(fan_output_fn fn);
 #endif

@@ -478,6 +478,31 @@ void mini_set_pwm_according_to_temperature(
 }
 
 
+/*
+ * Where the automatic thermal controller below writes its duty cycle.
+ *
+ * The controller used to call ledc_set_pwm() directly, which is correct only
+ * on boards whose fan hangs off LEDC. A BC04 drives its fans through an
+ * EMC2302 and never initialises LEDC, so the first temperature reading after
+ * the ASICs came up aborted the miner inside ledc_set_pwm's ESP_ERROR_CHECK
+ * and it rebooted into the same failure every time.
+ *
+ * The output is a hook rather than a model test because this is the hardware
+ * layer: it has no business knowing which board it is on. device.c registers
+ * the right sink once it has identified the board.
+ */
+static esp_err_t fan_output_ledc(int pwm_percent)
+{
+    return ledc_set_pwm(LEDC_CHANNEL_0, pwm_percent);
+}
+
+static fan_output_fn fan_output = fan_output_ledc;
+
+void pwm_fan_set_output(fan_output_fn fn)
+{
+    fan_output = (NULL != fn) ? fn : fan_output_ledc;
+}
+
 void lotto_set_pwm_according_to_temperature(FanInputInfo *fan_info)
 {
     bool executed = false;
@@ -500,7 +525,7 @@ void lotto_set_pwm_according_to_temperature(FanInputInfo *fan_info)
     if ((temp_highest >= MAX_FAN_TEMP) && (fan_info->pwm_config[0] != MAX_PWM_PERCENT)) {
         bak_last_pwm = fan_info->pwm_config[0];
         fan_info->pwm_config[0] = MAX_PWM_PERCENT;
-        ledc_set_pwm(LEDC_CHANNEL_0, fan_info->pwm_config[0]);
+        fan_output(fan_info->pwm_config[0]);
 
         executed = true;
         fan_info->b_max_fan_pwm = true;
@@ -509,7 +534,7 @@ void lotto_set_pwm_according_to_temperature(FanInputInfo *fan_info)
         ESP_LOGI(TAG, "Temp: %d, Max Fan,  back up PWM %d.", temp_highest, fan_info->pwm_config[0]);
     } else if ((temp_highest <= MAX_FAN_TEMP_QUIT) && (fan_info->pwm_config[0] == MAX_PWM_PERCENT)) {
         fan_info->pwm_config[0] = (bak_last_pwm + STEP_FAN_TEMP);
-        ledc_set_pwm(LEDC_CHANNEL_0, fan_info->pwm_config[0]);
+        fan_output(fan_info->pwm_config[0]);
 
         fan_info->b_max_fan_pwm = false;
         fan_info->b_max_fan_pwm_quit = true;
@@ -520,7 +545,7 @@ void lotto_set_pwm_according_to_temperature(FanInputInfo *fan_info)
     /*The low temperaturen protection and quit mechanism of hash board.*/
     if (temp_highest <= MIN_FAN_TEMP) {
         fan_info->pwm_config[0] = MIN_PWM_PERCENT;
-        ledc_set_pwm(LEDC_CHANNEL_0, fan_info->pwm_config[0]);
+        fan_output(fan_info->pwm_config[0]);
 
         fan_info->b_min_fan_pwm = true;
         fan_info->b_min_fan_pwm_quit = false;
@@ -529,7 +554,7 @@ void lotto_set_pwm_according_to_temperature(FanInputInfo *fan_info)
 
     } else if (temp_highest >= MIN_FAN_TEMP_QUIT && fan_info->pwm_config[0] == MIN_PWM_PERCENT) {
         fan_info->pwm_config[0] = enter_50_degree_pwm - 40;  /*40 degree.*/
-        ledc_set_pwm(LEDC_CHANNEL_0, fan_info->pwm_config[0]);
+        fan_output(fan_info->pwm_config[0]);
 
         fan_info->b_min_fan_pwm = false;
         fan_info->b_min_fan_pwm_quit = true;
@@ -557,7 +582,7 @@ void lotto_set_pwm_according_to_temperature(FanInputInfo *fan_info)
                 fan_info->b_in_increase_temperature_flow = false;
                 ESP_LOGD(TAG, "Increase-temperature 5 is done.");
             }
-            ledc_set_pwm(LEDC_CHANNEL_0, fan_info->pwm_config[0]);
+            fan_output(fan_info->pwm_config[0]);
         }
     }
 
@@ -607,7 +632,7 @@ void lotto_set_pwm_according_to_temperature(FanInputInfo *fan_info)
                     last_pwm_percent = fan_pwm_low_limit;
 
                 fan_info->pwm_config[0] = last_pwm_percent;
-                ledc_set_pwm(LEDC_CHANNEL_0, fan_info->pwm_config[0]);
+                fan_output(fan_info->pwm_config[0]);
                 ESP_LOGD(TAG, "decrease pwm %d, temp %d <= %d",
                     fan_info->pwm_config[0], temp_highest,
                     start_temperature_of_continuous_need_to_decrease_pwm);
@@ -621,7 +646,7 @@ void lotto_set_pwm_according_to_temperature(FanInputInfo *fan_info)
                 }
 
                 fan_info->pwm_config[0] = last_pwm_percent;
-                ledc_set_pwm(LEDC_CHANNEL_0, fan_info->pwm_config[0]);
+                fan_output(fan_info->pwm_config[0]);
                 ESP_LOGD(TAG, "low increase pwm %d, temp %d <= %d",
                     fan_info->pwm_config[0], temp_highest,
                     start_temperature_of_continuous_need_to_decrease_pwm);
@@ -648,7 +673,7 @@ void lotto_set_pwm_according_to_temperature(FanInputInfo *fan_info)
             }
 
             fan_info->pwm_config[0] = last_pwm_percent;
-            ledc_set_pwm(LEDC_CHANNEL_0, fan_info->pwm_config[0]);
+            fan_output(fan_info->pwm_config[0]);
             ESP_LOGD(TAG, "increase pwm %d, temp %d",
                 fan_info->pwm_config[0], temp_highest);
 

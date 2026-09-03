@@ -361,6 +361,19 @@ esp_err_t device_thermal_addresses(DeviceModel model, uint8_t *primary,
 }
 
 
+/* Fan output for boards whose fans hang off an EMC2302 rather than LEDC.
+ * Registered with pwm_fan_set_output() once the board has been identified. */
+static esp_err_t fan_output_emc2302(int pwm_percent)
+{
+    if (pwm_percent < 0) {
+        pwm_percent = 0;
+    } else if (pwm_percent > 100) {
+        pwm_percent = 100;
+    }
+
+    return EMC2302_set_fan_speed((uint8_t) pwm_percent);
+}
+
 esp_err_t init_all_i2c_dev(GlobalState *GLOBAL_STATE)
 {
     esp_err_t ret = ESP_FAIL;
@@ -400,6 +413,12 @@ esp_err_t init_all_i2c_dev(GlobalState *GLOBAL_STATE)
         if (ESP_OK != ret) {
             return ret;
         }
+
+        /* The automatic thermal controller writes through a hook that
+         * defaults to LEDC. On this board there is no LEDC fan, so point it
+         * at the controller that is actually fitted -- otherwise the first
+         * temperature reading after the ASICs start aborts the miner. */
+        pwm_fan_set_output(fan_output_emc2302);
     }
 
     const device_thermal_profile_t *profile = find_thermal_profile(GLOBAL_STATE->device_model);
@@ -532,9 +551,13 @@ esp_err_t read_fan_rpm(GlobalState *GLOBAL_STATE)
         return ret;
     }
 
-    ESP_ERROR_CHECK(EMC2302_get_fan_speed(GLOBAL_STATE->HEALTH_MODULE.fan_rpm));
+    /* Not ESP_ERROR_CHECK: this runs every two seconds in the health loop,
+     * and a single I2C hiccup reading a tachometer is not worth aborting the
+     * miner for. The caller already treats a bad read as a fan fault. */
+    esp_err_t ret = ESP_ERROR_CHECK_WITHOUT_ABORT(
+                        EMC2302_get_fan_speed(GLOBAL_STATE->HEALTH_MODULE.fan_rpm));
     GLOBAL_STATE->HEALTH_MODULE.fan_rpm[1] = 0;
-    return ESP_OK;
+    return ret;
 }
 
 void reset_hash_board(GlobalState *GLOBAL_STATE)
