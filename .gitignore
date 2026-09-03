@@ -48,3 +48,9 @@ docs/flasher/*.bin
 
 # Python bytecode from tools/
 __pycache__/
+
+# Never commit a live API password. One was tracked here from 26db064
+# until it was noticed; treat anything that reached a public remote as
+# compromised and change it on the device rather than only deleting it.
+.api-password.txt
+*api-password*
