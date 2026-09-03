@@ -146,8 +146,10 @@ Check before anything else:
 3. **Confirm hashing by accepted shares, not by wattage.** The BC01 drew the
    same ~24 W whether it was hashing or not.
 
-`config.cvs.example` is still BC01-specific (voltages near 120,
-`flipscreen 0`). The
+Provisioning templates are per board, for the same reason the build
+directories are: `config.cvs.example` for a BC01, `config.bc04.cvs.example` for
+a BC04. One file edited by hand for whichever board is in front of you is how
+a BC01 ends up at 0.996 V. The
 [benchmark](https://github.com/SerpentXSF/StayOpen-Hashrate-Benchmark) now has
 a BC04 profile and has been run against one.
 
@@ -166,6 +168,32 @@ the winner:
 hashrate falls with it, so the real-world efficiency gain is nearer 3.5%. The
 BC01 found 15% for nothing; a BC04 ships closer to its optimum and there is no
 equivalent free lunch.
+
+### And what overclocking is worth
+
+Sweeping upward from the vendor's own over-frequency point, capped at their
+480 ceiling rather than the regulator's 520:
+
+| Setting | Hashrate | Power | J/TH | Chip / VR | Fan |
+|---|---|---|---|---|---|
+| 640 MHz / 448 | 5081 GH/s | 71.6 W | 14.01 | 51 / 56 °C | 81% |
+| **750 MHz / 470** | **6117 GH/s** | 98.6 W | 16.11 | 65 / 73 °C | **100%** |
+| 775 MHz / 470 | — | — | — | **over 62 °C** | 100% |
+
+**This board is cooling-limited, not silicon-limited.** The sweep never came
+near a voltage or error limit; it stopped because the chip passed 62 °C at
+775 MHz with the fan already pinned at 100% since 750. Error rate was 0.00%
+throughout, and the 750 MHz soak delivered 6117 GH/s against a rated 6120.
+
+750/470 is the vendor's own over-frequency profile, and it is also the
+practical ceiling. It costs 38% more power for 20% more hashrate and leaves
+6 °C between a steady 65 °C and the firmware's 71 °C cutout, with no fan left
+to give -- in one room, at one ambient temperature. Treat it as the top of the
+range rather than a setting to leave unattended in a warm room.
+
+Both profiles are worth keeping: `asicnormalf`/`asicnormalvol` at 640/448 and
+`asicoverf`/`asicovervol` at 750/470, with `boot_mode` selecting between them
+(0 normal, 1 over-frequency). That way neither has to be re-measured to switch.
 
 The 440 row is the one worth remembering: the chip lost **11.6% of its hashrate
 at a zero error rate**. Undervolting a BM1370 past its limit does not

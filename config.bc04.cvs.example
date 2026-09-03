@@ -2,30 +2,25 @@ key,type,encoding,value
 main,namespace,,
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Hammer BC01 / BC01 Pro provisioning template.
+# Hammer BC04 provisioning template.
 #
-#   cp config.cvs.example config.cvs
+#   cp config.bc04.cvs.example config-bc04.cvs
 #
-# For a BC04, use config.bc04.cvs.example. Its voltages are four times these
-# and mean the same thing -- four ASIC domains in series rather than one -- and
-# crossing the two is the mistake the vendor shipped on this very board. See
-# the ASIC tuning note below.
+# For a BC01, use config.cvs.example instead. The two are kept apart on
+# purpose: the only thing separating a working BC01 from one running at 0.996 V
+# is a handful of numbers that look plausible on either board, and the vendor
+# shipped exactly that mistake. See docs/BOARDS.md.
 #
-# config.cvs is gitignored. Never commit one with real credentials: it is
+# config*.cvs is gitignored. Never commit one with real credentials: it is
 # flashed verbatim into the NVS partition and is readable from any device
 # image.
-#
-# The vendor's released config.cvs shipped factory WiFi credentials
-# (GOKJ / GOKJ666888), an InfluxDB token, and payout addresses belonging to
-# a third party, with telemetry enabled by default. See docs/SECURITY.md
-# finding 3. Everything below is either a placeholder or a technical default
-# carried over unchanged.
 # ─────────────────────────────────────────────────────────────────────────────
 
-hostname,data,string,hammer
+hostname,data,string,HammerBC04
 
 # ── REQUIRED: your network ───────────────────────────────────────────────────
-# Leave blank to have the miner start its own access point for setup.
+# Leave blank to have the miner start its own access point for setup. It
+# appears as HAMMER_xxxx on 192.168.4.1.
 wifissid,data,string,
 wifipass,data,string,
 
@@ -35,12 +30,29 @@ subnetMask,data,string,255.255.255.0
 gateway,data,string,192.168.1.1
 dns,data,string,192.168.1.1
 
+# ── Ethernet is off, deliberately ────────────────────────────────────────────
+# A BC04 has a W5500 and it works right up until the hashboard is powered:
+# roughly 70 ms after the core rail steps to 4.8 V every socket command starts
+# timing out and never recovers. The interface keeps its address and passes
+# nothing, so the miner looks networked on the LAN and cannot reach a pool.
+#
+# Leaving this at the firmware default of 1 produces a miner that appears
+# healthy and never submits a share. Run a BC04 on WiFi until that is fixed.
+# docs/KNOWN-ISSUES.md has the measurements and what a real fix requires.
+#
+# It can also be toggled at runtime: PATCH /api/system {"eth_on": 1}.
+eth_on,data,u16,0
+wifi_on,data,u16,1
+
 # ── REQUIRED: your pool and YOUR OWN payout address ──────────────────────────
 # stratumuser must be an address you control. A miner left on a placeholder
 # mines for whoever owns that address, not for you.
+#
+# Give each miner its own worker suffix. Two miners sharing one name report as
+# a single worker and their shares merge.
 stratumurl,data,string,solo.ckpool.org
 stratumport,data,u16,3333
-stratumuser,data,string,REPLACE-WITH-YOUR-BTC-ADDRESS.hammer
+stratumuser,data,string,REPLACE-WITH-YOUR-BTC-ADDRESS.HammerBC04
 stratumpass,data,string,x
 stratumdiff,data,u64,10000
 stratumtls,data,u16,0
@@ -49,7 +61,7 @@ stratumxnsub,data,u16,0
 
 fbstratumurl,data,string,solo.ckpool.org
 fbstratumport,data,u16,3333
-fbstratumuser,data,string,REPLACE-WITH-YOUR-BTC-ADDRESS.hammer
+fbstratumuser,data,string,REPLACE-WITH-YOUR-BTC-ADDRESS.HammerBC04
 fbstratumpass,data,string,x
 fbstratumdiff,data,u64,10000
 stratumfbtls,data,u16,0
@@ -63,43 +75,52 @@ stratumfbxnsub,data,u16,0
 apipassword,data,string,
 
 # ── Device identity ──────────────────────────────────────────────────────────
-# devicemodel selects the hardware profile: BC01, BC02, BC04, BC06, BC08.
-devicemodel,data,string,BC01
-boardversion,data,string,V02
+devicemodel,data,string,BC04
+boardversion,data,string,V05
 asicmodel,data,string,BM1370
 sn_str,data,string,AL
 
 # ── ASIC tuning ──────────────────────────────────────────────────────────────
-# Voltages are hundredths of a volt for ONE ASIC domain: 120 is 1.20 V, and
-# the BC01 accepts 100 to 130 (CONFIG_TPS546_VOUT_MIN/MAX).
+# Voltages are hundredths of a volt for FOUR ASIC DOMAINS IN SERIES. 460 is
+# 4.60 V across the string, about 1.15 V each -- so the numbers are roughly
+# four times a BC01's and mean the same thing. A BC01's 120 applied here is
+# 1.20 V across four chips, which is 0.30 V each and will not run.
 #
-# The vendor's numbers here were 460-480, which is the BC04 scale -- that board
-# stacks four ASICs in series, so its figures are roughly four times a single
-# domain. On a BC01 they are far outside the permitted range, so the regulator
-# clamped instead of applying them and the core sat at 0.996 V against an
-# intended 1.20 V. The miner ran undervolted rather than dangerously high, but
-# it ran wrong.
+# The firmware clamps the default at 480 (NVSDevice_parse_config) and the
+# regulator ceiling is CONFIG_TPS546_VOUT_MAX, 520 for this board.
+#
+# These are the vendor's own shipped values. Measured on one unit at 640 MHz:
+# 460 draws 77.1 W, and a benchmarked 448 draws 71.6 W at 97% of rated
+# hashrate. Tune with the Stay Open Hashrate Benchmark rather than by guessing:
+# undervolting a BM1370 past its limit costs hashrate at a zero error rate, so
+# nothing reports a fault.
 asicfrequency,data,u16,750
-asicvoltage,data,u16,120
+asicvoltage,data,u16,470
 asicnormalf,data,u16,640
-asicnormalvol,data,u16,120
+asicnormalvol,data,u16,460
 asicoverf,data,u16,750
-asicovervol,data,u16,120
-asicovervdef,data,u16,120
+asicovervol,data,u16,470
+asicovervdef,data,u16,480
 oc_enabled,data,u16,1
 
+# boot_mode picks which pair above is used: 0 normal (asicnormalf/vol),
+# 1 over-frequency (asicoverf/vol). 0 is the conservative start.
+boot_mode,data,u16,0
+
 # ── Thermal and display ──────────────────────────────────────────────────────
-# 0 is upright in the BC01 enclosure. The vendor shipped 1, which is correct
-# for the board this template was adapted from and upside down on a BC01.
-flipscreen,data,u16,0
+# 1 is upright on a BC04 -- the opposite of a BC01, where it is 0.
+flipscreen,data,u16,1
 backlight,data,u16,1
+# The BC04 fan is an EMC2302, not LEDC PWM.
 invertfanpol,data,u16,0
 autofanspeed,data,u16,1
 fanspeed,data,u16,80
 overheat_mode,data,u16,0
 
+# 0 means RUN the self test, not skip it; it sets itself to 1 on passing.
+# Worth leaving at 0 for a first flash: it exercises the fan through four PWM
+# steps and confirms all four ASICs before the miner tries to mine.
 selftest,data,u16,0
-boot_mode,data,u16,1
 
 # ── Time ─────────────────────────────────────────────────────────────────────
 ntp_main,data,string,pool.ntp.org
