@@ -19,11 +19,11 @@ main/http_server/axe-os/playwright-report/
 *.bin
 !main/http_server/axe-os/public/**/*.bin
 www.bin
-config.bin
+config*.bin
 
 # Provisioning: holds WiFi credentials, the API password and your payout
 # address. Copy config.cvs.example and fill it in; never commit the result.
-config.cvs
+config*.cvs
 
 # Signing keys. Losing these means never updating a Secure Boot device again.
 secure/

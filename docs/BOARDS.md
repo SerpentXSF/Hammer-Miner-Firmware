@@ -40,8 +40,10 @@ applied as a fragment on top of the base `sdkconfig`, which carries the tuning
 that is not board specific — PSRAM, partition layout, log levels — so a board
 file only ever states what that board changes.
 
-The BC04 pin assignment comes from the vendor's own reference configuration.
-**No BC04 has been run with this firmware.** Treat that file as unverified.
+The BC04 pin assignment comes from the vendor's own reference configuration
+and has since been **confirmed on hardware** — a BC04 running this build
+detects all four ASICs and mines. See [Bringing up a BC04](#bringing-up-a-bc04)
+for what it does and what it does not do.
 
 ## The trap this exists to close
 
@@ -101,15 +103,21 @@ failure, reproduced deliberately and now announced instead of hidden.
 
 ## Bringing up a BC04
 
-Nothing here has been run on a BC04. `boards/bc04.defaults` is assembled from
-the vendor's own `sdkconfig.bc04-reference` in this tree, and it builds, but a
-configuration that builds is not a board that hashes.
+**A BC04 has now been run with this firmware.** It passes its self test,
+detects four BM1370s, and mines — measured 3 September 2026 at 640 MHz /
+460 cV: 26 accepted shares, none rejected, no hardware errors in 204 nonces,
+85 W, chip 53 °C against a 57 °C regulator. `boards/bc04.defaults` is
+confirmed correct as written.
 
-It began as three settings — the model and the two UART pins — and that was not
-enough. Diffing the two reference configurations turned up eight more, and two
-of those would each have produced the same failure the BC01 spent a session on:
-a miner that boots, serves its interface, detects the chip, and never returns a
-share.
+Three things had to be fixed before it would run, and one is still open. All
+of them are below.
+
+The board file began as three settings — the model and the two UART pins —
+and that was not enough. Diffing the two reference configurations turned up
+eight more, and two of those would each have produced the same failure the
+BC01 spent a session on: a miner that boots, serves its interface, detects the
+chip, and never returns a share. Every one of those eight proved correct on
+hardware; none of them was the thing that actually broke.
 
 | | BC01 | BC04 |
 |---|---|---|
@@ -138,15 +146,79 @@ Check before anything else:
 3. **Confirm hashing by accepted shares, not by wattage.** The BC01 drew the
    same ~24 W whether it was hashing or not.
 
-Two things will need BC04 values once it runs: `config.cvs.example` is now
-BC01-specific (voltages near 120, `flipscreen 0`), and the
+Two things still need BC04 values: `config.cvs.example` is BC01-specific
+(voltages near 120, `flipscreen 0`), and the
 [benchmark](https://github.com/SerpentXSF/StayOpen-Hashrate-Benchmark) has
 profiles for `bitaxe` and `bc01` only.
 
-Also expect the self test to run its Ethernet check: that is skipped only for
-the BC01 family, on the grounds that the BC01 has no W5500. If the BC04 has none
-either, it will fail the self test the same way — recorded, not looping, but a
-failure.
+### What a BC04 actually wants
+
+Taken from the vendor's own `config.cvs` for this board, not guessed:
+
+| | |
+|---|---|
+| `devicemodel` / `boardversion` | `BC04` / `V05` |
+| Normal profile | 640 MHz @ **460** |
+| Over-frequency profile | 750 MHz @ **470**, ceiling 480 |
+| `flipscreen` | **1** — the opposite of a BC01 |
+| Core voltage reported | ~4.79 V; four ASIC domains in series |
+| Draw | **~85 W**, roughly 16–18 A on the core rail |
+
+`selftest` is worth leaving at `0` on a first flash. `0` means *run it* —
+it is set to `1` once it passes — and on this board it is a genuinely useful
+check: it exercises the fan through all four PWM steps and confirms all four
+ASICs before the miner ever tries to mine.
+
+### The BC04 has Ethernet, and it does not survive hashing
+
+This page used to warn that the BC04 might have no W5500 and would fail the
+self test's Ethernet check. **The opposite is true on both counts.** The board
+has a W5500, it passes the check, and it takes a DHCP lease, resolves DNS and
+syncs NTP without complaint.
+
+Then the hashboard is powered, and **70 ms later** every socket command starts
+timing out and never recovers:
+
+```
+I (10658) vcore: Set ASIC voltage = 4.80V
+E (10728) w5500.mac: w5500_send_command(210): send command timeout
+E        esp_eth: eth_on_state_changed(151): ethernet mac set link failed
+```
+
+The interface keeps its address and silently stops passing packets, so the
+miner looks networked and cannot reach a pool. Ruled out by measurement, not
+by argument:
+
+- **SPI clock.** 16 MHz is the W5500's rated ceiling; 8 MHz behaves identically.
+- **Task starvation.** `volc_delay()` is a plain `vTaskDelay`.
+- **Supply sag.** 12.30 V idle to 12.125 V under 85 W — 1.4 %, and the failure
+  begins before the ASICs are clocked at all.
+- **Pin or bus conflict.** Nothing else uses SPI2, and `power_on_hashboard()`
+  only writes a voltage over I2C. No GPIO is touched between the two events.
+- **A wedged socket.** `esp_eth_stop()` cannot even reset the PHY afterwards.
+
+Seventy milliseconds is the switching transient itself, and the driver reports
+a *link state* change rather than only failed commands, so the PHY side is
+affected too. The likeliest reading is that bringing up the 16 A core
+regulator resets or browns out the W5500 — a hardware interaction on this
+board, which is why no software change touched it.
+
+`network_eth_recover()` in `main/network.c` exists for this and **does not fix
+it.** `esp_eth_start()` only reopens socket 0; it never re-runs
+`emac_w5500_init()`, which is what writes the MAC and sets MACRAW mode, so a
+controller that came back blank stays blank. A real fix would be a full
+`esp_eth_driver_uninstall()` and re-init once the rail settles.
+
+Do not be tempted to "improve" that function by starting anyway when the stop
+fails. A failed stop means the driver never emitted `ETH_EVENT_STOP`, the
+netif is still attached, and starting again trips
+`assert failed: netif_add (netif already added)` — a reboot loop for as long
+as Ethernet is enabled. That was tried, and it cost nine boots to learn.
+
+**Run a BC04 on WiFi.** `eth_on` and `wifi_on` are settable through
+`PATCH /api/system` and reported by `/api/system/info`, so Ethernet can be
+turned off without a factory restore — which matters, because a factory
+restore also discards the WiFi credentials that are the only way back in.
 
 ## Releases
 
@@ -162,9 +234,11 @@ a build whose own sdkconfig names a different model than the filename claims.
 The filename is the only thing telling someone which board an image is for, and
 the cost of getting it wrong is a miner that looks broken.
 
-Only the BC01 is published, because only the BC01 has been run on real
-hardware. The other models can be built from source with the command at the top
-of this page.
+Only the BC01 is published. A BC04 has now been run on real hardware and
+mines, but its Ethernet does not survive the hashboard powering up, so a
+published image would hand BC04 owners a miner that needs WiFi without saying
+so. That gets published once the Ethernet question is closed. Either model can
+be built from source with the command at the top of this page.
 
 ### Why the flasher image lives on gh-pages
 

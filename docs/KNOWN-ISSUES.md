@@ -2,6 +2,66 @@
 
 Things that are understood, worked around, and worth doing properly.
 
+## BC04 Ethernet stops working the moment the hashboard powers up
+
+**Where:** the hardware, as far as every measurement can tell. The software
+side is `network_eth_recover()` in `main/network.c`, which attempts a fix and
+does not achieve one.
+
+A BC04 brings its W5500 up cleanly: link, DHCP lease, DNS, NTP. Then the core
+regulator switches on and **70 ms later** every socket command times out, for
+good.
+
+```
+I (10658) vcore: Set ASIC voltage = 4.80V
+E (10728) w5500.mac: w5500_send_command(210): send command timeout
+E        esp_eth: eth_on_state_changed(151): ethernet mac set link failed
+```
+
+Nothing runs in software between those two lines -- the failure lands inside a
+plain `vTaskDelay`, before the ASICs are reset or clocked. The interface keeps
+its address and stops passing packets, so the miner looks networked and cannot
+reach a pool.
+
+Eliminated by test, not by argument:
+
+| Theory | Result |
+|---|---|
+| SPI clock too fast for the bus | 16 MHz and 8 MHz behave identically |
+| Driver task starved during power-up | `volc_delay()` is a plain `vTaskDelay` |
+| Supply browning out | 12.30 V to 12.125 V under 85 W -- 1.4 % |
+| GPIO or SPI bus conflict | Nothing else uses SPI2; power-on only writes I2C |
+| Socket wedged, restart clears it | `esp_eth_stop()` cannot even reset the PHY |
+
+Seventy milliseconds is the switching transient itself, and the driver reports
+a link *state* change rather than only failed commands, so this reads as the
+16 A core regulator resetting or browning out the W5500.
+
+**What a real fix would look like.** `esp_eth_start()` only reopens socket 0.
+It never re-runs `emac_w5500_init()`, which is what resets the chip, writes the
+MAC into `SHAR` and puts socket 0 into MACRAW -- so a controller that came back
+blank stays blank no matter how many times it is restarted. Recovery has to be
+a full `esp_eth_driver_uninstall()` and re-init after the rail settles, which
+also means retaining the mac, phy and netif-glue handles that
+`example_eth_init()` currently drops on the floor.
+
+**Do not start after a failed stop.** A failed `esp_eth_stop()` means the
+driver never emitted `ETH_EVENT_STOP`, so the netif is still attached;
+`esp_eth_start()` then re-enters `esp_netif_action_start` and trips
+`assert failed: netif_add (netif already added)`, panicking the miner into a
+reboot loop for as long as Ethernet is enabled. This was tried on hardware and
+cost nine boots.
+
+**Meanwhile:** run a BC04 on WiFi. `eth_on` and `wifi_on` are settable through
+`PATCH /api/system` and reported by `/api/system/info`, so Ethernet can be
+turned off without a factory restore -- which matters, because a factory
+restore also discards the WiFi credentials that are the only remaining way in.
+
+Related, and worth fixing whatever the cause turns out to be: when Ethernet
+takes a lease the firmware switches the setup access point off, and never
+brings it back if Ethernet later dies. That is how a BC04 ends up holding an
+IP address, passing nothing, with no way to reach it.
+
 ## Ant Design is handed CSS variables it cannot read
 
 **Where:** `main/http_server/axe-os/src/pages/App.vue`, the `a-config-provider`
