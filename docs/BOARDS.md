@@ -287,9 +287,28 @@ ships with Ethernet **on**.
 ## Releases
 
 ```bash
+python tools/ship.py bc01 bc04 --push --github
+```
+
+That builds every board, packages it, publishes the flasher and cuts the
+GitHub release, all at the version the build produced. Doing those as four
+separate commands is how they drift: the flasher once served 2.0.15 while the
+newest release was 2.0.14 and carried BC01 files only, so a BC04 owner reading
+the releases page would have concluded the board was unsupported while the
+flasher was already handing out a working image for it. `ship.py` refuses if
+the boards were built at different versions, if a board has no artifacts, or
+if the tag is already released.
+
+It deliberately does not bump the version. Edit `CONFIG_APP_PROJECT_VER` in
+`sdkconfig` first -- publishing different content under a version that has
+already been released is what makes a version number worthless.
+
+The individual steps still exist and still work:
+
+```bash
 python tools/build_board.py bc01
 python tools/make_release.py bc01
-python tools/publish_flasher.py bc01 --push
+python tools/publish_flasher.py bc01 bc04 --push
 ```
 
 Artifacts carry the board in the filename (`stay-open-bc01-<version>-full.bin`),

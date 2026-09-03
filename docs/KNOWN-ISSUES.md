@@ -2,6 +2,27 @@
 
 Things that are understood, worked around, and worth doing properly.
 
+## A www update reports success and keeps serving the recovery page
+
+`POST /api/system/OTAWWW` answers `WWW update complete` as soon as it has
+written the partition, but the interface being served does not change until
+the miner restarts. Until then `WWWVersion` reads empty and every page is the
+built-in **WWW Recovery** screen, which looks exactly like a failed update.
+
+Worse, an *interrupted* www upload leaves the partition damaged and the miner
+serving that recovery page indefinitely. That is the recovery page doing its
+job -- the API and mining are untouched, so a second upload fixes it -- but
+nothing says so. Observed after a connection reset mid-upload: the miner kept
+hashing at 6.2 TH/s with the web interface gone.
+
+So after any www update: **restart, then check `WWWVersion`.** A blank one
+means the partition has been written but not remounted, or the write did not
+finish.
+
+The fix is for the handler to restart itself once the write is verified, the
+way the app OTA already does, rather than leaving the caller to know that.
+
+
 ## BC04 Ethernet had to be started after the hashboard (fixed)
 
 **Status: fixed** in `main/network.c` and `main/main.c` -- Ethernet is started
