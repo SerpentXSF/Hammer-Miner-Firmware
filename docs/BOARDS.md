@@ -146,10 +146,32 @@ Check before anything else:
 3. **Confirm hashing by accepted shares, not by wattage.** The BC01 drew the
    same ~24 W whether it was hashing or not.
 
-Two things still need BC04 values: `config.cvs.example` is BC01-specific
-(voltages near 120, `flipscreen 0`), and the
-[benchmark](https://github.com/SerpentXSF/StayOpen-Hashrate-Benchmark) has
-profiles for `bitaxe` and `bc01` only.
+`config.cvs.example` is still BC01-specific (voltages near 120,
+`flipscreen 0`). The
+[benchmark](https://github.com/SerpentXSF/StayOpen-Hashrate-Benchmark) now has
+a BC04 profile and has been run against one.
+
+### What tuning is worth on a BC04
+
+A full efficiency sweep at 640 MHz, ten-minute windows, twenty-minute soak on
+the winner:
+
+| Core voltage | Power | J/TH measured | Hashrate | HW errors |
+|---|---|---|---|---|
+| 460 (shipped normal) | 77.1 W | 14.52 | 5312 GH/s (102%) | 0.00% |
+| **448** | **71.6 W** | **14.01** | 5107 GH/s (98%) | 0.00% |
+| 440 — rejected | ~68 W | — | 4618 GH/s (**88%**) | 0.00% |
+
+**Expect less than a BC01 gives up.** Power falls about 7%, but delivered
+hashrate falls with it, so the real-world efficiency gain is nearer 3.5%. The
+BC01 found 15% for nothing; a BC04 ships closer to its optimum and there is no
+equivalent free lunch.
+
+The 440 row is the one worth remembering: the chip lost **11.6% of its hashrate
+at a zero error rate**. Undervolting a BM1370 past its limit does not
+necessarily corrupt work, it just produces less of it, and nothing in the
+hardware-error counters notices. Anything tuning by error rate alone will
+choose that setting and call the board healthy.
 
 ### What a BC04 actually wants
 
