@@ -27,4 +27,8 @@ void network_init(void * globalState);
 NetWorkInfo  network_get_info(void);
 bool network_is_connected(void);
 
+/* Restart the Ethernet controller. Boards that power a hashboard off the
+ * same supply can leave the W5500 wedged when that rail comes up. */
+esp_err_t network_eth_recover(void);
+
 #endif /* NETWORK_H_ */

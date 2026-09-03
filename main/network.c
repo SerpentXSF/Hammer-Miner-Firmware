@@ -379,6 +379,9 @@ void network_eth_init_test(void)
     }
 }
 
+/* The controller this board is using, retained so it can be restarted. */
+static esp_eth_handle_t s_eth_handle = NULL;
+
 void network_eth_init(void)
 {
 	// Initialize Ethernet driver
@@ -414,6 +417,65 @@ void network_eth_init(void)
     for (int i = 0; i < eth_port_cnt; i++) {
         ESP_ERROR_CHECK(esp_eth_start(eth_handles[i]));
     }
+
+    /* Kept so the controller can be restarted later; see
+     * network_eth_recover(). */
+    s_eth_handle = eth_handles[0];
+}
+
+/*
+ * Stop and restart the Ethernet controller.
+ *
+ * A BC04 leases an address, resolves DNS and syncs NTP happily, and then
+ * roughly half a second after the core rail steps up to power the hashboard
+ * every socket command starts timing out and never stops. The SPI reads and
+ * writes themselves keep succeeding -- it is the W5500's command register
+ * that stops clearing -- and nothing between those two events runs in
+ * software at all: the failure lands inside a plain vTaskDelay, before the
+ * ASICs have even been reset or clocked. That points at the inrush when the
+ * rail comes up leaving the controller wedged.
+ *
+ * Nothing in the driver notices or retries, so the miner keeps an interface
+ * that has an IP and cannot pass a packet. A stop/start re-runs the W5500's
+ * own init and reopens its socket, which is the cheapest thing that can
+ * clear that state.
+ */
+esp_err_t network_eth_recover(void)
+{
+    if (NULL == s_eth_handle) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    ESP_LOGW(TAG, "Restarting the Ethernet controller after hashboard power-up");
+
+    /*
+     * The stop must be allowed to fail the whole operation. esp_eth_stop()
+     * resets the PHY and waits for the link, which a W5500 that has stopped
+     * answering will never report -- but its failure also means the driver
+     * never emitted ETH_EVENT_STOP, so the netif is still attached and
+     * running. Starting again from there re-enters esp_netif_action_start
+     * and trips `assert failed: netif_add (netif already added)`, which
+     * panics the miner into a reboot loop for as long as Ethernet is
+     * enabled. Restarting a controller that cannot be stopped is not
+     * something this can do.
+     */
+    esp_err_t ret = esp_eth_stop(s_eth_handle);
+    if (ESP_OK != ret) {
+        ESP_LOGE(TAG, "esp_eth_stop failed (%s); leaving Ethernet down",
+                 esp_err_to_name(ret));
+        return ret;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(200));
+
+    ret = esp_eth_start(s_eth_handle);
+    if (ESP_OK != ret) {
+        ESP_LOGE(TAG, "esp_eth_start failed: %s", esp_err_to_name(ret));
+    } else {
+        ESP_LOGI(TAG, "Ethernet controller restarted");
+    }
+
+    return ret;
 }
 
 void network_init(void * globalState)
