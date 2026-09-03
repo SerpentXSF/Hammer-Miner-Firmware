@@ -2,25 +2,37 @@
 
 Things that are understood, worked around, and worth doing properly.
 
-## A www update reports success and keeps serving the recovery page
+## A www update needed a restart the caller had to know about (fixed)
 
-`POST /api/system/OTAWWW` answers `WWW update complete` as soon as it has
-written the partition, but the interface being served does not change until
-the miner restarts. Until then `WWWVersion` reads empty and every page is the
-built-in **WWW Recovery** screen, which looks exactly like a failed update.
+**Status: fixed.** The handler restarts itself once the SHA256 verifies, the
+way the application update always did, and `Settings.vue` no longer sends a
+restart of its own.
 
-Worse, an *interrupted* www upload leaves the partition damaged and the miner
-serving that recovery page indefinitely. That is the recovery page doing its
-job -- the API and mining are untouched, so a second upload fixes it -- but
-nothing says so. Observed after a connection reset mid-upload: the miner kept
-hashing at 6.2 TH/s with the web interface gone.
+`POST /api/system/OTAWWW` used to answer `WWW update complete` as soon as it
+had written the partition, while the running server kept serving the old
+mount. `WWWVersion` read empty and every page was the built-in **WWW
+Recovery** screen, which looks exactly like a failed update.
 
-So after any www update: **restart, then check `WWWVersion`.** A blank one
-means the partition has been written but not remounted, or the write did not
-finish.
+Correcting what this entry said before: the web interface was never affected.
+`Settings.vue` always sent its own restart after a www upload, so a user
+updating through the page would not have seen this. The exposure was every
+other caller -- scripts, `curl`, anything posting to the endpoint directly --
+which is how it was found and how it was tested.
 
-The fix is for the handler to restart itself once the write is verified, the
-way the app OTA already does, rather than leaving the caller to know that.
+An *interrupted* upload is still worth knowing about: it leaves the partition
+damaged and the miner on the recovery page until another upload succeeds. The
+API and mining are untouched throughout -- the board kept hashing at 6.2 TH/s
+with no web interface at all -- so a second upload fixes it.
+
+Verified by posting a container straight to the API with no client restart:
+the answer is now `WWW update complete, rebooting now!`, and the miner returns
+on its own at 87 seconds uptime serving the real interface.
+
+**Separately, and not explained:** a large upload to this endpoint over
+*Ethernet* resets mid-transfer on a BC04, repeatably, where the same upload
+over WiFi succeeds. Nothing is damaged -- a partial write fails its checksum
+and is rejected, and mining carries on -- but until it is understood, update
+the web interface over WiFi on this board.
 
 
 ## BC04 Ethernet had to be started after the hashboard (fixed)
