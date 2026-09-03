@@ -210,6 +210,18 @@ const isVersionNewer = (remoteVer: string, localVerStr: string) => {
  * here offered a file that this page refuses -- the one path where the miner
  * hands the user the wrong thing and then blames the file.
  */
+/*
+ * Boards that run another board's build, deliberately.
+ *
+ * A BC01 Pro is a BC01 as far as the image is concerned -- same ASIC pinout,
+ * same driver -- and no artifact is named for it, so without this it would
+ * find nothing and be told there is no update. Anything not listed here has
+ * to match its own name.
+ */
+const ASSET_MODEL_ALIAS: Record<string, string> = {
+  'BC01-Pro': 'BC01',
+};
+
 const pickUpdateAsset = (assets: any[] | undefined, kind: 'app' | 'www') => {
   const bins = (assets || []).filter((a: any) => a?.name?.endsWith('.bin'));
   const isWww = (n: string) => /-www-ota\.bin$/i.test(n);
@@ -258,7 +270,18 @@ const checkGithubUpdates = async () => {
        * running.
        */
       let gitWebVersion = webRes.value.data.tag_name;
-      const binAsset = pickUpdateAsset(webRes.value.data.assets, 'www');
+      /*
+       * The web interface is genuinely board-independent -- every board's
+       * -www-ota.bin in a release is byte-identical -- so any of them is the
+       * right one, and preferring this board's is presentation rather than
+       * correctness. Unlike the application container below, where taking
+       * another board's file installs the wrong firmware.
+       */
+      const wwwAssets = webRes.value.data.assets || [];
+      const wwwModel = (ASSET_MODEL_ALIAS[currentModel] || currentModel).toLowerCase();
+      const binAsset = pickUpdateAsset(
+        wwwAssets.filter((a: any) => a?.name?.toLowerCase().includes(wwwModel)), 'www')
+        || pickUpdateAsset(wwwAssets, 'www');
       
       if (binAsset) {
         // extract string preceding .bin, split by _, typically `www_1.3.5_20260310.bin` gives `20260310`
@@ -280,13 +303,26 @@ const checkGithubUpdates = async () => {
 
     if (fwRes.status === 'fulfilled' && fwRes.value.data) {
       let gitFwVersion = fwRes.value.data.tag_name;
-      // Prefer a container naming this board, then any application container.
+      /*
+       * The application container has to name this board, with no fallback.
+       *
+       * A release carries every published board now, so "this board's file, or
+       * else any file" resolves to whichever board sorts first -- BC02, BC08
+       * and BC01-Pro were all being offered the BC01 image. The boards do not
+       * share an ASIC pinout, so installing another board's build produces a
+       * miner that boots, detects its chip and never returns a share. The
+       * board-mismatch guard catches it and says so on screen, but it is still
+       * a wasted update and a miner that looks broken.
+       *
+       * A board with no build published is offered nothing, which is the
+       * truthful answer.
+       */
       const fwAssets = fwRes.value.data.assets || [];
+      const assetModel = (ASSET_MODEL_ALIAS[currentModel] || currentModel).toLowerCase();
       const forThisModel = fwAssets.filter((a: any) =>
-        a?.name?.toLowerCase().includes(currentModel.toLowerCase()));
-      const binAsset = pickUpdateAsset(forThisModel, 'app')
-                       || pickUpdateAsset(fwAssets, 'app');
-      
+        a?.name?.toLowerCase().includes(assetModel));
+      const binAsset = pickUpdateAsset(forThisModel, 'app');
+
       if (binAsset) {
         // extract string preceding .bin, split by _
         const nameParts = binAsset.name.replace('.bin', '').split('_');
