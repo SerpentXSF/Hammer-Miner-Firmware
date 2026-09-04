@@ -344,6 +344,24 @@ void bc_i2c_scan(void)
 
     if (found == 0) {
         ESP_LOGE(TAG, "  no devices found -- check hashboard power and wiring");
+        /*
+         * An empty bus has two very different causes and the scan cannot tell
+         * them apart: the devices are unpowered, or they are powered and not
+         * answering. The pull-ups separate them, because they are fed from the
+         * same rail as the devices.
+         *
+         *   SDA/SCL show EXTERNAL PULL-UP -> the rail is up and the bus is
+         *                                    intact; the devices themselves
+         *                                    are dead or absent
+         *   SDA/SCL floating              -> no pull-ups, so no rail: the
+         *                                    hashboard supply is missing
+         *   SDA/SCL driven low            -> the bus is shorted down
+         *
+         * Only worth the two seconds when there is nothing on the bus at all,
+         * which is why it does not run on a healthy boot.
+         */
+        ESP_LOGW(TAG, "  surveying the bus pins to tell 'unpowered' from 'dead'");
+        hammer_gpio_pullup_survey();
     } else {
         ESP_LOGI(TAG, "  %d device(s) found", found);
     }
