@@ -174,6 +174,69 @@ confirm is the part that protects it -- with `eth_deferred` false the timeout
 constant is the same `5*60*5` it always was and the new branch is unreachable,
 so its behaviour is unchanged. The fix itself needs a BC04 to sign off.
 
+## The radio came up before the supply it runs on (fixed)
+
+**Status: fixed** in `main/main.c` and `main/device.c`. Affects the **BC01
+family only** -- BC01, BC02, BC01_Pro, the boards powered over USB-C PD.
+Present in every release up to and including 2.0.19.
+
+`network_init()` brought the WiFi radio up at about **2 seconds**.
+`bc01_pd_bringup()` did not negotiate the power contract until about
+**12 seconds**, inside `init_all_peripherals()`. For those ten seconds the
+board took its largest current step -- WiFi transmit -- on whatever USB-C
+offers before a PD contract exists.
+
+With the display module's own USB-C plugged into a computer, that second 5 V
+source carries the step and nothing is visible. On its own, which is how a
+miner actually runs, a BC01 with a replacement LilyGO module reset at five to
+ten seconds and did it again on every boot, indefinitely.
+
+**Our firmware made the miner require a USB connection in order to boot.**
+
+It presented as location-dependent -- fine on the bench, a reboot loop in
+another room -- which sent the diagnosis after WiFi signal strength for a
+while. It was not the location. The bench had a USB cable in it and the other
+room did not. Measured on the bench, controlling for that:
+
+| Condition | Result |
+|---|---|
+| Module USB-C connected, cold boot | boots, mines |
+| Module USB-C removed, already running | keeps running, 78 minutes unbroken |
+| Module USB-C removed, software restart | boots fine -- rails never dropped |
+| **Module USB-C removed, cold power cycle** | **reboot loop, 12 of 24 polls reachable** |
+
+Only a genuine power-on reproduced it, which is why the first two attempts to
+reproduce came back clean and briefly cleared the firmware.
+
+The fix is ordering: `bc01_pd_bringup()` now runs before `network_init()`, so
+the contract exists and VBUS is gated on before the radio is started. The
+self test already did this, for the same reason -- everything behind the PD
+gate is unpowered until the contract exists -- and the rest of the boot needed
+it just as much. `bc01_pd_bringup()` is idempotent now, since two callers
+reach it and the ladder walks the adapter down to 5 V and back on every run.
+
+Verified on hardware, on the board that failed:
+
+```
+I (1609) device: PD Negotiation: Read adapter capability first, 5-15V
+I (2709) device: Negotiation success: 15V
+I (3409) device: VBUS output enabled
+I (3589) wifi:mode : sta ...
+```
+
+Cold boot with no USB attached: no reboots across 30 polls, uptime continuous,
+mining at 1565 GH/s. The same board, the same cable removed, looped on every
+attempt before this change.
+
+**Not a hardware-damage path.** The hashboard is not powered until about 14
+seconds and the loop reset at five to ten, so the ASICs and the core regulator
+were never energised. See [HARDWARE-SAFETY.md](HARDWARE-SAFETY.md).
+
+**This did not affect the BC04.** That board takes 12 V on an XT-30 and has no
+USB-PD path at all; `bc01_pd_bringup()` is gated behind
+`device_is_bc01_family()`, which does not include it. Its boot logs contain
+zero PD lines, healthy and faulted alike, against six on a BC01.
+
 ## A failed temperature read looked like a cold board (fixed)
 
 **Status: fixed** in `components/bc_hal/TMP75.c`, `main/device.c` and

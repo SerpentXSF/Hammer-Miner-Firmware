@@ -128,6 +128,20 @@ Both toggles now treat an absent WiFi stack as a configuration, not an error.
 
 **Verified on hardware**, Ethernet-only on the BC04.
 
+### 2.4 The radio came up before the supply it runs on (fixed 2026-09-04)
+
+BC01 family only. WiFi was started at ~2 s; the USB-C PD contract was not
+negotiated until ~12 s. For ten seconds the board took its largest current
+step on its smallest supply, and a BC01 with a replacement LilyGO module
+reset at five to ten seconds on every boot unless a second 5 V source -- the
+module's own USB-C, plugged into a computer -- was there to carry it.
+
+**The firmware made the miner require a USB connection in order to boot.**
+Fixed by negotiating PD before `network_init()`. Not a damage path: the
+hashboard is not powered until ~14 s and the loop reset before that.
+
+Full write-up in [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
+
 ---
 
 ## 3. What a reboot loop does and does not do
@@ -173,11 +187,34 @@ Honest summary. "Verified" means observed on hardware, not merely built.
 | Fan-fault trip | **Not verified** |
 | Ethernet stall watchdog (2.2) | Verified on a BC04 with a dead I2C bus, with and without WiFi |
 | Absent-WiFi-stack tolerance (2.3) | Verified on a BC04, Ethernet only |
+| PD negotiated before the radio (2.4) | Verified on a BC01: cold boot, no USB, no reboots across 30 polls |
 
 The unverified rows are not claims that the protection works. They are
 protections whose trigger has not been reached on hardware here.
 
 ---
+
+## 4a. The pattern behind all of these
+
+Four defects in two days, and they are the same mistake wearing different
+clothes: **doing something before the thing it depends on.**
+
+* Ethernet started before the hashboard rail had settled, so the controller
+  died 70 ms into the transient
+* Ethernet then deferred behind a hashboard init that, on a broken board,
+  never finished -- so it never started at all
+* the WiFi radio brought up before the power contract that has to carry it
+* thermal protection acting on a sensor reading whose success was never
+  checked
+
+Each was found by testing a configuration nobody had tried: a board with a
+dead bus, a miner with no WiFi credentials, a cold boot with no USB attached.
+None of them show up on a healthy board on a bench with everything plugged
+in, which is exactly the configuration firmware gets tested in.
+
+The general lesson is worth more than any of the four fixes: **when ordering
+matters, say out loud what depends on what, and test the boot with each
+dependency absent.**
 
 ## 5. If you are running this firmware
 
@@ -191,6 +228,9 @@ protections whose trigger has not been reached on hardware here.
 * An observed temperature of 0 in the API means the hashboard was never
   initialised, which is different from -60 and usually means the I2C bus is
   gone entirely. `docs/BOARDS.md` covers reading an empty bus scan.
+* **BC01 family, 2.0.19 or earlier:** if your miner boots only while a USB
+  cable is plugged into the display module, that is the PD ordering defect in
+  section 2.4, not a faulty board. It is fixed in later builds.
 
 ---
 
