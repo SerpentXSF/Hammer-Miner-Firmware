@@ -33,4 +33,14 @@ esp_err_t TMP75_init(uint8_t slave_addr, int temperature_sensor_index);
 esp_err_t TMP75_installed(int temperature_sensor_index);
 int8_t    TMP75_read_temperature(int temperature_sensor_index);
 
+/*
+ * Same read, but able to say it failed.
+ *
+ * TMP75_read_temperature() reports a failed read as -60 C, and a caller that
+ * cannot tell that apart from a real reading will conclude the board is
+ * freezing. Callers that act on temperature -- thermal protection, fan
+ * control -- must use this one.
+ */
+esp_err_t TMP75_get_temperature(int temperature_sensor_index, int8_t *out);
+
 #endif 

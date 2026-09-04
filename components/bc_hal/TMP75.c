@@ -30,6 +30,36 @@ esp_err_t TMP75_installed(int temperature_sensor_index)
     return result;
 }
 
+esp_err_t TMP75_get_temperature(int temperature_sensor_index, int8_t *out)
+{
+    uint8_t data[2] = {0, 0};
+    int8_t temperature;
+
+    if (NULL == out) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if(bc_i2c_register_read(tmp75_dev_handles[temperature_sensor_index], TMP75_TEMP_REG, data, 2))
+    {
+        ESP_LOGW(TAG, "Read Temperature fail");
+        return ESP_FAIL;
+    }
+
+    if(data[0] & 0x80){
+        temperature = (int8_t)data[0];
+    }else{
+        temperature = data[0] & 0x7f;
+    }
+
+    *out = temperature;
+    return ESP_OK;
+}
+
+/*
+ * Kept for callers that only display the value. -60 on failure is the
+ * inherited sentinel; anything that acts on temperature must use
+ * TMP75_get_temperature() instead, which can say that it failed.
+ */
 int8_t TMP75_read_temperature(int temperature_sensor_index)
 {
     uint8_t data[2] = {0, 0};

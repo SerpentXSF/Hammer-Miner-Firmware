@@ -136,6 +136,7 @@ void health_maintenance_task(void *pvParameters)
     max_fan_speed = 0;
     fan_check_param = MINI_FAN_CHECK_PARAM;
     num_of_pwm_channel = 1;
+    int temp_read_failures = 0;
 
     while(1){
         /*get the infomation from power every 10 seconds.*/
@@ -170,7 +171,35 @@ void health_maintenance_task(void *pvParameters)
             /*get the temperature from sensor.*/
             read_internal_temperature_sensor(&(healthModule->cpu_temperature));
             /*get the temperature from hash board.*/
-            read_hash_board_temperature(GLOBAL_STATE);
+            if(ESP_OK != read_hash_board_temperature(GLOBAL_STATE))
+            {
+                /*
+                 * No usable temperature. Not the same as a cold board, and
+                 * the difference matters: with no reading the overheat test
+                 * below cannot fire and the fan curve would drive the fan
+                 * down to its minimum, so carrying on means hashing at full
+                 * power with nothing watching the heat.
+                 *
+                 * Three in a row before acting, because a single dropped I2C
+                 * transaction is not a dead sensor and this loop runs every
+                 * two seconds. Sustained, it takes the same exit as an
+                 * overheat: power off, fan to 100%, restart.
+                 */
+                if(++temp_read_failures >= 3)
+                {
+                    GLOBAL_STATE->SYSTEM_MODULE.overheat_mode = 1;
+                    ESP_LOGE(TAG, "WARNING: hashboard temperature unreadable "
+                                  "%d times running -- powering down rather "
+                                  "than mining blind.", temp_read_failures);
+                    break;
+                }
+                ESP_LOGW(TAG, "hashboard temperature read failed (%d/3)",
+                         temp_read_failures);
+            }
+            else
+            {
+                temp_read_failures = 0;
+            }
 
             /*overheat protection.*/
             if(healthModule->control_board_temperature > MAX_ENV_TEMP

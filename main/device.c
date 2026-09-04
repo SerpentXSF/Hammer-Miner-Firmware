@@ -461,14 +461,43 @@ static bool device_has_second_sensor(DeviceModel model)
     return NULL != profile && 0 != profile->secondary_addr;
 }
 
+/*
+ * Read the hashboard sensors, and say so when a read fails.
+ *
+ * This used to store whatever TMP75_read_temperature() handed back and return
+ * ESP_OK unconditionally. That function reports a failed read as -60 C, so a
+ * dead sensor or a dropped I2C bus did not look like a failure to anything
+ * upstream -- it looked like a very cold hashboard. The consequences ran the
+ * wrong way in both places that use the number: thermal protection compares
+ * against 71 C and never tripped, and the fan curve saw -60, decided the board
+ * was below its 30 C floor, and dropped the fan to its 18% minimum. A sensor
+ * failure therefore made the firmware cool the board *less* while leaving it
+ * hashing at full power, with nothing watching the temperature.
+ *
+ * The reading is still stored on failure, because the web interface wants
+ * something to show. The return value is what callers must act on.
+ */
 esp_err_t read_hash_board_temperature(GlobalState *GLOBAL_STATE)
 {
     esp_err_t ret = ESP_OK;
+    int8_t value = 0;
 
-    GLOBAL_STATE->HEALTH_MODULE.board_temperature[0] = TMP75_read_temperature(0);
-    if (device_has_second_sensor(GLOBAL_STATE->device_model)) {
-        GLOBAL_STATE->HEALTH_MODULE.board_temperature[1] = TMP75_read_temperature(1);
+    if (ESP_OK == TMP75_get_temperature(0, &value)) {
+        GLOBAL_STATE->HEALTH_MODULE.board_temperature[0] = value;
+    } else {
+        GLOBAL_STATE->HEALTH_MODULE.board_temperature[0] = -60;
+        ret = ESP_FAIL;
     }
+
+    if (device_has_second_sensor(GLOBAL_STATE->device_model)) {
+        if (ESP_OK == TMP75_get_temperature(1, &value)) {
+            GLOBAL_STATE->HEALTH_MODULE.board_temperature[1] = value;
+        } else {
+            GLOBAL_STATE->HEALTH_MODULE.board_temperature[1] = -60;
+            ret = ESP_FAIL;
+        }
+    }
+
     return ret;
 }
 
