@@ -1,4 +1,4 @@
-#ifndef EMC2103_H_
+#ifndef EMC2302_H_
 #define EMC2302_H_
 
 #include <esp_err.h>
@@ -43,4 +43,4 @@ esp_err_t EMC2302_set_fan_speed(uint8_t percent);
 esp_err_t EMC2302_get_fan_speed1(uint16_t *dst);
 esp_err_t EMC2302_get_fan_speed2(uint16_t *dst);
 esp_err_t EMC2302_get_fan_speed(uint16_t *dst);
-#endif /* EMC2103_H_ */
+#endif /* EMC2302_H_ */

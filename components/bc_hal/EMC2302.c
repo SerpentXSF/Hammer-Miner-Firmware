@@ -8,7 +8,7 @@
 
 #include "EMC2302.h"
 
-static const char * TAG = "EMC2103";
+static const char * TAG = "EMC2302";
 
 static i2c_master_dev_handle_t EMC2302_dev_handle;
 
