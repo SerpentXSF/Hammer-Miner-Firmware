@@ -174,6 +174,103 @@ confirm is the part that protects it -- with `eth_deferred` false the timeout
 constant is the same `5*60*5` it always was and the new branch is unreachable,
 so its behaviour is unchanged. The fix itself needs a BC04 to sign off.
 
+## A failed temperature read looked like a cold board (fixed)
+
+**Status: fixed** in `components/bc_hal/TMP75.c`, `main/device.c` and
+`main/tasks/health_maintennance.c`. Present in every release up to and
+including **2.0.19**. Full write-up, including exposure by board and
+verification status, in [HARDWARE-SAFETY.md](HARDWARE-SAFETY.md).
+
+`TMP75_read_temperature()` reports a failed I2C read as **-60 C**, and
+`read_hash_board_temperature()` stored that and returned `ESP_OK` regardless.
+Nothing upstream could tell a dead sensor from a very cold board, and both
+consumers of the number ran the wrong way:
+
+* thermal protection compares against 71 C, so `-60 > 71` is false and it
+  never tripped
+* the fan curve compares against `MIN_FAN_TEMP` (30 C), so `-60` put the fan
+  at `MIN_PWM_PERCENT`, **18%**
+
+A sensor or bus failure therefore made the firmware cool the board *less*
+while it kept hashing at full power, with nothing watching the heat.
+
+The BC01 is the more exposed board. On a BC04 fan RPM comes over the same I2C
+bus, so a total bus loss already aborted the health loop and rebooted -- crude,
+but it stopped the mining; the exposure there is a partial failure, the TMP75
+at 0x48 dead while the EMC2302 at 0x2e still answers. A BC01 reads RPM from a
+pulse counter, so nothing aborts and it would sit at 18% fan, blind.
+
+Inherited from upstream, so stock firmware very likely carries it too. It
+ships here, so it is fixed here.
+
+`TMP75_get_temperature()` can now report failure, `read_hash_board_temperature()`
+returns an error, and the health loop takes the overheat exit -- power off, fan
+100%, restart -- after three consecutive failures, about six seconds. Three
+rather than one, because a single dropped transaction is not a dead sensor.
+
+**Not verified on hardware.** The only BC04 here has a shorted I2C bus, and the
+whole health loop is gated behind `interface_initalized`, which that board
+never sets. It needs a working board with an induced sensor failure.
+
+## Switching off an access point that was never on (fixed)
+
+**Status: fixed** in `components/connect/connect.c`, with a guard in
+`main/network.c`.
+
+`wifi_softap_off()` called `ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA))`
+unconditionally. With `wifi_on=0` there is no WiFi stack, the call answers
+`ESP_ERR_WIFI_NOT_INIT`, and `ESP_ERROR_CHECK` aborts:
+
+```
+ESP_ERROR_CHECK failed: esp_err_t 0x3001 (ESP_ERR_WIFI_NOT_INIT)
+file: "./components/connect/connect.c" line 256
+func: wifi_softap_off
+```
+
+On an Ethernet-only miner that is a reboot loop with no way in -- come up, take
+a lease, try to tidy away an access point that does not exist, panic, repeat.
+
+The abort was latent for any `wifi_on=0` configuration. What made it reachable
+was the settle task added with the Ethernet stall watchdog, which drops the
+setup access point once Ethernet has an address. Found the same day by
+actually running the Ethernet-only configuration rather than assuming it
+worked, which is the argument for testing the fault configurations and not
+only the healthy one.
+
+Both softap toggles now treat an absent WiFi stack as a configuration rather
+than an error, and the settle task checks `wifi_on` before asking. Verified on
+hardware, Ethernet-only on a BC04.
+
+## Peripheral init could strand a board with no way in (fixed)
+
+**Status: fixed** in `main/main.c` and `main/network.c`.
+
+`init_all_peripherals()` talks to the hashboard over I2C and, on a board whose
+bus is dead, does not return -- measured at over four minutes on the BC04 here,
+with every API call printing `i2c handle not initialized`. Everything after
+that call is unreachable, including the Ethernet start, so a miner in that
+state with no WiFi credentials has no management interface at all.
+
+A watchdog now starts Ethernet if init has not finished in 90 seconds. It
+waits on `interface_initalized` rather than running on a bare timer, because
+the reason Ethernet is deferred at all is that a W5500 already running when the
+core rail steps up stops answering for good. Ethernet therefore starts either
+after the hashboard is up or after it is known not to be coming up, never in
+between. A healthy BC04 sets the flag around 35 s.
+
+Verified on the failed BC04, with and without WiFi:
+
+```
+E (104159) serpentx: Peripheral init has not finished in 90 s -- the hashboard
+                     is not coming up. Starting Ethernet anyway
+I (106189) NETWORK: Ethernet Link Up
+I (108689) esp_netif_handlers: eth ip: 192.168.50.31
+```
+
+A DHCP lease needs a full four-way exchange, so this also established that the
+failed board's W5500, SPI bus and PHY all work and the fault is confined to the
+I2C and hashboard domain.
+
 ## Ant Design is handed CSS variables it cannot read
 
 **Where:** `main/http_server/axe-os/src/pages/App.vue`, the `a-config-provider`

@@ -330,6 +330,7 @@ It needs the API fields this firmware added in the release notes for `vrTemp`,
 
 - [docs/PROVENANCE.md](docs/PROVENANCE.md) — where this code came from, with evidence
 - [docs/SECURITY.md](docs/SECURITY.md) — findings, fixes, and mitigations for stock firmware
+- [docs/HARDWARE-SAFETY.md](docs/HARDWARE-SAFETY.md) — what stands between a fault and a damaged board, and which of those protections are actually tested
 - [docs/OTA-FORMAT.md](docs/OTA-FORMAT.md) — the update container, and why its obfuscation is not encryption
 - [docs/AUTH.md](docs/AUTH.md) — how API authentication works, and what it does not cover
 - [docs/SECURE-BOOT.md](docs/SECURE-BOOT.md) — check before flashing; some of it is irreversible
