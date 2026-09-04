@@ -127,13 +127,38 @@ hardware; none of them was the thing that actually broke.
 | `ASIC_VOLTAGE` | 120 | 125 |
 | Second I2C bus | SDA 11 / SCL 12 | none |
 | Fan | LEDC PWM + tach | EMC2302 |
-| Power | USB-PD, HUSB238A, VBUS gate | barrel jack |
+| Power | USB-PD, HUSB238A, VBUS gate | **XT-30**, 12 V, 115 W rated |
 
 The voltage row is the one that is not obvious. A BC04 runs **four ASICs in
 series**, so its core voltage is roughly four times a single domain — about 500
 where a BC01 wants 120. The base configuration caps at 130 because it is a BC01,
 and a BC04 built without overriding that clamps to a quarter of the voltage it
 needs. Nothing reports a fault; it simply does not work.
+
+### When the I2C scan comes up empty
+
+An empty bus has two very different causes and the scan cannot tell them
+apart: the devices are unpowered, or they are powered and not answering. So
+when nothing responds, the firmware now surveys the bus pins and says which:
+
+```
+E hammer-i2c:   no devices found -- check hashboard power and wiring
+W hammer-i2c:   surveying the bus pins to tell 'unpowered' from 'dead'
+W hammer-i2c:   GPIO43  pu=0 pd=0  driven low externally
+W hammer-i2c:   GPIO44  pu=0 pd=0  driven low externally
+```
+
+Read it as: **EXTERNAL PULL-UP** on SDA/SCL means the rail is up and the bus is
+intact, so the devices themselves are dead or absent. **floating** means no
+pull-ups and therefore no rail -- the hashboard supply is missing. **driven
+low** means the bus is shorted down.
+
+That last case is not hypothetical. One BC04 here failed exactly that way
+after two weeks: all three devices vanished at once, the supply measured 12.3 V
+at the XT-30, and the other nets on the same board still showed working
+pull-ups. Three devices on one bus do not fail together -- the bus was shorted,
+and the survey is what distinguished that from a dead supply in about ninety
+seconds.
 
 Check before anything else:
 
