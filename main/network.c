@@ -424,7 +424,10 @@ static void network_settle_task(void *arg)
         vTaskDelay(pdMS_TO_TICKS(200));
 
         if (netWork_Info.eth_get_ip || netWork_Info.wifi_get_ip) {
-            if (netWork_Info.eth_get_ip && !netWork_Info.wifi_get_ip) {
+            /* wifi_on guards the access point work: with WiFi switched off
+             * there is no stack to talk to and nothing to tidy away. */
+            if (netWork_Info.wifi_on && netWork_Info.eth_get_ip
+                    && !netWork_Info.wifi_get_ip) {
                 wifi_softap_off();
                 ESP_LOGI(TAG, "eth get ip, wifi ap off");
                 esp_log_level_set("wifi", CONFIG_LOG_DEFAULT_LEVEL_INFO);
@@ -440,7 +443,9 @@ static void network_settle_task(void *arg)
          * under them is the one thing this must not do, so the clock is held
          * at zero for as long as they are there.
          */
-        if (esp_wifi_ap_get_sta_list(&sta_list) == ESP_OK && sta_list.num > 0) {
+        if (netWork_Info.wifi_on
+                && esp_wifi_ap_get_sta_list(&sta_list) == ESP_OK
+                && sta_list.num > 0) {
             idle = 0;
             continue;
         }

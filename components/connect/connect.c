@@ -250,17 +250,42 @@ void toggle_wifi_softap(void)
     }
 }
 
+/*
+ * Turning the access point on or off when WiFi was never started is not a
+ * programming error, it is a configuration: a miner with wifi_on=0 has no
+ * WiFi stack to change the mode of. esp_wifi_set_mode() answers
+ * ESP_ERR_WIFI_NOT_INIT, and under ESP_ERROR_CHECK that aborted the miner.
+ *
+ * On a board reachable only over Ethernet that abort is a reboot loop: come
+ * up, take a lease, tidy away an access point that does not exist, panic,
+ * repeat -- with no WiFi and therefore no other way in. Found exactly that
+ * way on a BC04 running Ethernet-only.
+ */
 void wifi_softap_off(void)
 {
+    esp_err_t ret = esp_wifi_set_mode(WIFI_MODE_STA);
+
+    if (ESP_ERR_WIFI_NOT_INIT == ret) {
+        ESP_LOGD(TAG, "No WiFi stack; nothing to switch off");
+        return;
+    }
+    ESP_ERROR_CHECK(ret);
+
     ESP_LOGI(TAG, "ESP_WIFI Access Point Off");
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     network_set_wifi_ap_status(false);
 }
 
 void wifi_softap_on(void)
 {
+    esp_err_t ret = esp_wifi_set_mode(WIFI_MODE_APSTA);
+
+    if (ESP_ERR_WIFI_NOT_INIT == ret) {
+        ESP_LOGW(TAG, "No WiFi stack; cannot bring the access point up");
+        return;
+    }
+    ESP_ERROR_CHECK(ret);
+
     ESP_LOGI(TAG, "ESP_WIFI Access Point On");
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     network_set_wifi_ap_status(true);
 }
 
