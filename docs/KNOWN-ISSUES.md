@@ -114,6 +114,55 @@ takes a lease the firmware switches the setup access point off, and never
 brings it back if Ethernet later dies. That is how a BC04 ends up holding an
 IP address, passing nothing, with no way to reach it.
 
+## Deferring Ethernet left a reboot loop behind it (fixed)
+
+**Status: fixed** in `main/network.c`. Introduced by the fix directly above,
+which is the point of writing it down.
+
+Moving Ethernet after the hashboard fixed the W5500, and broke the case where
+Ethernet is the only network that works. `network_init()` ends in a loop that
+waits for an address from either interface and restarts the miner after five
+minutes without one. Once Ethernet is deferred, that loop cannot ever see an
+Ethernet address: the interface is not started until `main()` gets past the
+call it is blocking inside.
+
+So a BC04 with a good cable in it and an SSID it cannot reach -- an access
+point that moved, a password that changed, a neighbour's network it once
+joined -- waits five minutes, restarts, and does exactly the same thing again.
+For ever, with a working cable plugged into it the whole time. Restarting
+cannot help: the restart runs the identical sequence.
+
+The wait is now short and ends in a `return` rather than a restart whenever
+Ethernet is deferred: twenty seconds, which is long enough for WiFi to finish
+DHCP if it is going to, then on to start the interface that is actually
+connected. WiFi keeps retrying in the background, so an access point that is
+slow or briefly away still joins afterwards. Nothing changes on a board where
+Ethernet was never deferred -- a BC01 takes the same five minutes and the same
+restart it always did.
+
+The restart-on-no-network backstop is therefore gone on Ethernet boards, and
+that is deliberate. It never repaired anything; a miner that cannot reach a
+network does not acquire one by rebooting. What it did do was guarantee the
+loop above. A miner that stays up, holds its setup access point and waits is
+recoverable by hand. One that reboots every five minutes is not.
+
+The same change also finishes the job `network_init()` no longer does.
+**Every** deferred path leaves that function early, so the tidy-up at the end
+of its wait loop -- drop the setup access point, quieten the WiFi log, tell
+the system it is connected -- had stopped running, including on the path
+shipped in 2.0.19. A miner that came up on the cable kept an open access point
+broadcasting for as long as it was powered, and these images ship with a blank
+API password, so that access point was an unauthenticated way in. That tidy-up
+now lives in `network_eth_start()`, where it runs however the deferral ended.
+
+**Not verified on hardware.** The only board here with a W5500 is the BC04,
+and it is out for warranty repair with a shorted I2C bus. A BC01 cannot
+exercise any of this: `network_init()` forces `eth_on` to 0 on that family, so
+`eth_deferred` stays false and every line above is skipped. What a BC01 does
+confirm is the part that protects it -- with `eth_deferred` false the timeout
+constant is the same `5*60*5` it always was and the new branch is unreachable,
+so its behaviour is unchanged. The fix itself needs a BC04 to sign off.
+
 ## Ant Design is handed CSS variables it cannot read
 
 **Where:** `main/http_server/axe-os/src/pages/App.vue`, the `a-config-provider`

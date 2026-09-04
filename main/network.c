@@ -386,6 +386,10 @@ static esp_eth_handle_t s_eth_handle = NULL;
  * is powered; read by network_eth_start(). */
 static bool eth_deferred = false;
 
+/* How long network_eth_start() waits for a DHCP lease before giving up on
+ * tidying away the setup access point. 200 ms a tick. */
+#define ETH_ADDRESS_WAIT_TICKS (15 * 5)
+
 void network_eth_init(void)
 {
 	// Initialize Ethernet driver
@@ -461,6 +465,46 @@ esp_err_t network_eth_start(void)
     ESP_LOGI(TAG, "Starting Ethernet now the hashboard is up");
     network_eth_init();
     network_config_eth_static_ip();
+
+    /*
+     * Finish what network_init() could not. Every deferred path leaves that
+     * function early -- no credentials to wait for, or WiFi did not answer
+     * in time -- so the tidy-up at the end of its wait loop never runs: the
+     * setup access point stays up, the WiFi log stays at its noisy level and
+     * the system is never told it is on the network.
+     *
+     * The access point is the part that matters. A miner that came up on the
+     * cable would otherwise keep an open one broadcasting for as long as it
+     * is powered, and these images ship with a blank API password, so that
+     * access point is an unauthenticated way into the miner.
+     *
+     * Bounded, because this runs on main()'s thread and a board with nothing
+     * plugged into it never gets an address at all.
+     */
+    for (int waited = 0; waited < ETH_ADDRESS_WAIT_TICKS; waited++) {
+        vTaskDelay(pdMS_TO_TICKS(200));
+        if (!netWork_Info.eth_get_ip) {
+            continue;
+        }
+        if (!netWork_Info.wifi_get_ip) {
+            wifi_softap_off();
+            ESP_LOGI(TAG, "eth get ip, wifi ap off");
+            esp_log_level_set("wifi", CONFIG_LOG_DEFAULT_LEVEL_INFO);
+        }
+        SYSTEM_notify_status_change(GLOBAL_STATE, SYSTEM_WIFI_CONNECTED);
+        return ESP_OK;
+    }
+
+    /*
+     * No address yet. Not an error and not something network_eth_recover()
+     * can help with -- that exists for a controller that has stopped
+     * answering, not for a link that is taking its time or a cable that is
+     * not there. The interface stays up and the access point stays up with
+     * it, which is the right state for a miner nobody can reach.
+     */
+    ESP_LOGW(TAG, "Ethernet started but has no address after %d s; "
+                  "leaving the setup access point up",
+             ETH_ADDRESS_WAIT_TICKS / 5);
     return ESP_OK;
 }
 
@@ -584,6 +628,24 @@ void network_init(void * globalState)
 		return;
 	}
 
+	/*
+	 * How long to sit here with no address. Deferring Ethernet made this a
+	 * trap: the loop below waits for an address from either interface, but
+	 * the Ethernet that could supply one has not been started yet and will
+	 * not be until main() gets past this call. A miner with a good cable in
+	 * it and an unreachable SSID therefore waits the full five minutes,
+	 * restarts, and does the same thing again -- for ever, without ever
+	 * trying the cable. Restarting cannot help, because the restart runs the
+	 * identical sequence.
+	 *
+	 * So when Ethernet is deferred the wait is short and ends by returning
+	 * rather than restarting: give WiFi long enough to finish DHCP if it is
+	 * going to, then go and start the interface that is actually plugged in.
+	 * WiFi keeps retrying in the background, so a slow or briefly absent
+	 * access point still joins later.
+	 */
+	const int wait_ticks = eth_deferred ? (20 * 5) : (5 * 60 * 5);
+
 	while(1)
 	{
 		vTaskDelay(pdMS_TO_TICKS(200));
@@ -609,8 +671,15 @@ void network_init(void * globalState)
 
         {
             time_out ++;
-            if(time_out > 5*60*5)
+            if(time_out > wait_ticks)
             {
+                if(eth_deferred)
+                {
+                    ESP_LOGW(TAG, "No address from WiFi after %d s; going on "
+                                  "to start Ethernet after the hashboard",
+                             wait_ticks / 5);
+                    return;
+                }
                 restart_with_reason("Network configuration timeout");
             }
         }
