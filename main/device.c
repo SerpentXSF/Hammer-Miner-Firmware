@@ -114,8 +114,24 @@ bool device_is_bc01_family(DeviceModel model)
     return model == DEVICE_BC01 || model == DEVICE_BC02 || model == DEVICE_BC01_Pro;
 }
 
+/*
+ * Negotiating twice is not harmful but it is not free either: the ladder walks
+ * the adapter down to 5 V and back up, which is a second of reduced supply for
+ * no gain once a contract is already in place. Callers can therefore ask as
+ * often as they like; only the first successful negotiation does any work.
+ *
+ * Only set on success, so a failed attempt is retried by the next caller
+ * rather than being remembered as done.
+ */
+static bool pd_contract_held = false;
+
 esp_err_t bc01_pd_bringup(GlobalState *GLOBAL_STATE)
 {
+    if (pd_contract_held) {
+        ESP_LOGD(TAG, "USB-PD contract already held; nothing to negotiate");
+        return ESP_OK;
+    }
+
 
     // Status Variables
     bool attached = false, sink_ready = false;
@@ -340,6 +356,7 @@ esp_err_t bc01_pd_bringup(GlobalState *GLOBAL_STATE)
 
     if (set_success) {
         GLOBAL_STATE->pd_state = 1;
+        pd_contract_held = true;
         return ESP_OK;
     }
 

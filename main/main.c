@@ -449,6 +449,33 @@ void app_main(void)
 	/*create the health task*/
     xTaskCreate(health_maintenance_task, "health_maintener", 4096, (void*)&GLOBAL_STATE, 12, NULL);
 
+    /*
+     * Secure the supply before switching the radio on.
+     *
+     * WiFi transmit is the largest current step this board makes, and until
+     * this call the BC01 family is running on whatever USB-C offers before a
+     * PD contract exists. network_init() used to bring the radio up around
+     * two seconds and negotiation did not happen until twelve, so for ten
+     * seconds the board took its biggest load on its smallest supply.
+     *
+     * With the display module's own USB-C plugged into a computer that
+     * second 5 V source carries it and nothing shows. On its own -- which is
+     * how a miner actually runs -- a BC01 with a replacement LilyGO module
+     * reset at five to ten seconds and did it again on every boot, forever.
+     * It was reproduced on the bench: loops with the module's USB-C out,
+     * boots with it in, regardless of where the miner is sitting.
+     *
+     * The self test already did this for the same reason -- everything
+     * behind the PD gate is unpowered until the contract exists. The rest of
+     * the boot needs it just as much.
+     */
+    if (device_is_bc01_family(GLOBAL_STATE.device_model) &&
+        bc01_pd_bringup(&GLOBAL_STATE) != ESP_OK) {
+        ESP_LOGW(TAG, "USB-PD not negotiated yet; bringing the network up on "
+                      "the default supply and trying again with the "
+                      "peripherals");
+    }
+
     network_init(&GLOBAL_STATE);
 
     /*sync the locol time.*/
