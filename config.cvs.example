@@ -30,6 +30,14 @@ wifissid,data,string,
 wifipass,data,string,
 
 isStaticIP,data,u16,0
+
+# ── Ethernet ─────────────────────────────────────────────────────────────────
+# A BC01 has no W5500. The firmware works this out from the board and forces
+# this off regardless, but it is set explicitly so the shipped configuration
+# says what the hardware is rather than leaving it to a default of 1.
+eth_on,data,u16,0
+wifi_on,data,u16,1
+
 staticIP,data,string,192.168.1.100
 subnetMask,data,string,255.255.255.0
 gateway,data,string,192.168.1.1

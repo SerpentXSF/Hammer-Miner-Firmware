@@ -511,6 +511,19 @@ void network_init(void * globalState)
 	netWork_Info.wifi_on = (char)nvs_config_get_u16(NVS_CONFIG_WIFI_ON, 1);
 	netWork_Info.eth_on = (char)nvs_config_get_u16(NVS_CONFIG_ETH_ON, 1);
 
+	/*
+	 * The BC01 family has no W5500, so there is nothing to defer and nothing
+	 * to start. Say so from the board rather than trusting eth_on, which
+	 * defaults to 1 and is absent from a published BC01 image -- one of those
+	 * would otherwise take the deferred path, skip the wait for provisioning
+	 * because it has no WiFi credentials either, and reach a code path that
+	 * exists for a board it is not.
+	 */
+	if (netWork_Info.eth_on && device_is_bc01_family(GLOBAL_STATE->device_model)) {
+		ESP_LOGI(TAG, "No Ethernet on this board; using WiFi only");
+		netWork_Info.eth_on = 0;
+	}
+
 	ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     start_rest_server((void *) globalState);

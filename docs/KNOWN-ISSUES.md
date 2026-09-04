@@ -28,11 +28,18 @@ Verified by posting a container straight to the API with no client restart:
 the answer is now `WWW update complete, rebooting now!`, and the miner returns
 on its own at 87 seconds uptime serving the real interface.
 
-**Separately, and not explained:** a large upload to this endpoint over
-*Ethernet* resets mid-transfer on a BC04, repeatably, where the same upload
-over WiFi succeeds. Nothing is damaged -- a partial write fails its checksum
-and is rejected, and mining carries on -- but until it is understood, update
-the web interface over WiFi on this board.
+**Separately, and not explained:** a large upload to either OTA endpoint
+sometimes resets mid-transfer on a BC04. Retrying works.
+
+This was first written up as an Ethernet-specific fault, on the strength of
+two resets over Ethernet and two successes over WiFi. That was too small a
+sample: an application upload over *WiFi* then reset the same way, and
+succeeded on the retry. It is intermittent and not tied to an interface.
+
+Nothing is damaged either way -- a partial write fails its checksum and is
+rejected, and mining carries on -- but a www upload interrupted after the
+erase leaves the miner on the recovery page until a second upload succeeds.
+So: **retry, and check the version afterwards.**
 
 
 ## BC04 Ethernet had to be started after the hashboard (fixed)

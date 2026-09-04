@@ -59,8 +59,13 @@ done
 for path in $staged; do
     git diff --cached -- "$path" 2>/dev/null | grep -q '^+' || continue
 
+    # Stratum passwords are excluded when the value is "x", which is the
+    # conventional placeholder every pool ignores. Flagging it was a false
+    # positive on the shipped templates, and a hook that cries wolf just
+    # teaches people to reach for --no-verify.
     hits=$(git show ":$path" 2>/dev/null |
-           grep -nE '^(apipassword|wifipass|influx_token|stratumpass|fbstratumpass|poolBPass),[^,]*,[^,]*,.+' ||
+           grep -nE '^(apipassword|wifipass|influx_token|stratumpass|fbstratumpass|poolBPass),[^,]*,[^,]*,.+' |
+           grep -vE '^[0-9]+:(stratumpass|fbstratumpass|poolBPass),[^,]*,[^,]*,x$' ||
            true)
     if [ -n "$hits" ]; then
         note "$path -- has a filled-in credential:"
