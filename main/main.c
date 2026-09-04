@@ -64,6 +64,46 @@ void show_mining_screen(void)
     SYSTEM_notify_status_change(&GLOBAL_STATE, SYSTEM_NORMAL_MINING);
 }
 
+/*
+ * How long to let init_all_peripherals() run before deciding it is stuck.
+ *
+ * A healthy BC04 is well clear of this: the hashboard rail comes up at about
+ * 32 s and the ASICs are detected by 37 s, so the flag is set around 35 s.
+ * Ninety seconds leaves room for a slow board without leaving a broken one
+ * unreachable for longer than it has to be.
+ */
+#define ETH_STALL_TIMEOUT_MS (90 * 1000)
+
+static void eth_stall_watchdog(void *arg)
+{
+    GlobalState *state = (GlobalState *)arg;
+    int waited = 0;
+
+    while (waited < ETH_STALL_TIMEOUT_MS) {
+        vTaskDelay(pdMS_TO_TICKS(500));
+        waited += 500;
+
+        if (state->interface_initalized) {
+            /* main() is past it and owns the Ethernet start. */
+            vTaskDelete(NULL);
+        }
+    }
+
+    if (!network_get_info().eth_on) {
+        vTaskDelete(NULL);
+    }
+
+    ESP_LOGE(TAG, "Peripheral init has not finished in %d s -- the hashboard "
+                  "is not coming up. Starting Ethernet anyway so this miner "
+                  "can still be reached.", ETH_STALL_TIMEOUT_MS / 1000);
+
+    if (network_eth_start() != ESP_OK) {
+        ESP_LOGW(TAG, "Ethernet was already started elsewhere");
+    }
+
+    vTaskDelete(NULL);
+}
+
 void restart_with_reason(const char *reason)
 {
     ESP_LOGI(TAG, "Restarting with reason: %s", reason);
@@ -435,6 +475,26 @@ void app_main(void)
         GLOBAL_STATE.SYSTEM_MODULE.is_sleep_mode = true;
         return;
     }
+
+    /*
+     * Ethernet must not be hostage to the hashboard.
+     *
+     * init_all_peripherals() talks to the hashboard over I2C, and on a board
+     * whose bus is dead it does not come back -- observed on a BC04 with a
+     * shorted bus, still sitting inside it after four minutes. Everything
+     * below, including the Ethernet start, is then unreachable. A miner in
+     * that state with no WiFi credentials has no management interface at all:
+     * no API, no web interface, nothing but USB. That is precisely the
+     * situation where being able to reach it matters most.
+     *
+     * So a watchdog starts Ethernet if init has not finished in time. It
+     * cannot simply run on a timer, because the reason Ethernet is deferred
+     * at all is that a W5500 running when the core rail steps up stops
+     * answering for good. Waiting on interface_initalized keeps that
+     * guarantee: Ethernet starts either after the hashboard is up, or after
+     * we know it is never coming up. Never in between.
+     */
+    xTaskCreate(eth_stall_watchdog, "eth-stall", 3072, &GLOBAL_STATE, 3, NULL);
 
     ESP_ERROR_CHECK(init_all_peripherals(&GLOBAL_STATE));
 

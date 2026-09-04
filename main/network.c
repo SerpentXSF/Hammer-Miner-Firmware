@@ -383,8 +383,9 @@ void network_eth_init_test(void)
 static esp_eth_handle_t s_eth_handle = NULL;
 
 /* Set when network_init() chose to leave Ethernet until after the hashboard
- * is powered; read by network_eth_start(). */
+ * is powered; claimed by whichever caller reaches network_eth_start() first. */
 static bool eth_deferred = false;
+static portMUX_TYPE eth_start_lock = portMUX_INITIALIZER_UNLOCKED;
 
 /* How long the settle task waits for an address on either interface before
  * restarting the miner. 200 ms a tick, so five minutes -- the same window
@@ -517,12 +518,29 @@ void network_eth_init(void)
  */
 esp_err_t network_eth_start(void)
 {
-    if (!eth_deferred) {
+    /*
+     * Two tasks can reach here now -- main(), once the hashboard is up, and
+     * the stall watchdog, once it has concluded the hashboard never will be.
+     * Claim the deferral under a lock so only one of them starts the driver;
+     * initialising a W5500 twice adds the netif twice and panics.
+     */
+    bool claimed = false;
+
+    portENTER_CRITICAL(&eth_start_lock);
+    if (eth_deferred) {
+        eth_deferred = false;
+        claimed = true;
+    }
+    portEXIT_CRITICAL(&eth_start_lock);
+
+    if (!claimed) {
         return ESP_ERR_INVALID_STATE;
     }
-    eth_deferred = false;
 
-    ESP_LOGI(TAG, "Starting Ethernet now the hashboard is up");
+    /* Two callers, and only one of them means "the hashboard is up" --
+     * the stall watchdog means the opposite. Say the thing that is true
+     * either way rather than asserting a state we are not checking. */
+    ESP_LOGI(TAG, "Starting the deferred Ethernet controller now");
     network_eth_init();
     network_config_eth_static_ip();
 
