@@ -148,17 +148,43 @@ W hammer-i2c:   GPIO43  pu=0 pd=0  driven low externally
 W hammer-i2c:   GPIO44  pu=0 pd=0  driven low externally
 ```
 
-Read it as: **EXTERNAL PULL-UP** on SDA/SCL means the rail is up and the bus is
-intact, so the devices themselves are dead or absent. **floating** means no
-pull-ups and therefore no rail -- the hashboard supply is missing. **driven
-low** means the bus is shorted down.
+Read it as: **EXTERNAL PULL-UP** on SDA/SCL means the rail feeding those
+pull-ups is up and the lines are free, so the devices themselves are dead or
+absent. **floating** means no pull-ups are present at all. **held low** means
+the line is being pulled below the controller's internal pull-up.
 
-That last case is not hypothetical. One BC04 here failed exactly that way
-after two weeks: all three devices vanished at once, the supply measured 12.3 V
-at the XT-30, and the other nets on the same board still showed working
-pull-ups. Three devices on one bus do not fail together -- the bus was shorted,
-and the survey is what distinguished that from a dead supply in about ninety
-seconds.
+**Do not read "held low" as "the bus is shorted."** An earlier version of this
+section did, and it is not sound. The survey enables the ESP32-S3's internal
+pull-up, which is roughly 45 kohm. An external I2C pull-up of 2.2-10 kohm
+returned to a rail sitting at 0 V forms a divider against it and reads LOW.
+So "held low" is equally what a **dead pull-up rail** looks like. The survey
+narrows the fault to the I2C domain; it does not tell you whether the cause is
+a short or a missing supply, and it cannot.
+
+Distinguishing the two needs a meter, not the firmware:
+
+* measure SDA and SCL to ground with the board powered -- a hard short reads
+  near 0 V, a dead-rail divider reads a few hundred millivolts
+* measure the auxiliary rail that feeds those pull-ups and the I2C devices
+
+One BC04 here reached this state after two weeks: all three devices gone at
+once, 12.3 V present at the XT-30. Neither measurement above was taken before
+it was packed for warranty return, which is the lesson worth carrying -- the
+survey told us *where* to look and we treated it as telling us *what* had
+happened.
+
+Note also what the healthy pull-ups elsewhere in that survey do and do not
+prove. GPIO10/11/13/16 are the W5500's SPI lines on the controller's own 3.3 V
+rail -- the rail that is obviously up, because the ESP32 is running and
+printing the survey. They say nothing about the hashboard-side supply.
+
+**On a socketed controller, check the module before blaming the board.**
+GPIO43 and GPIO44 are the ESP32-S3's UART0 pins, brought out through the
+module header. If the controller is a replacement LilyGO T-Display-S3 rather
+than the vendor's own, a damaged pad on the module is indistinguishable from
+a fault on the base board by this survey alone. Pull the module, power the
+base board, and measure SDA/SCL at the socket: a healthy rail there means the
+base board is fine and the module is the fault.
 
 Check before anything else:
 

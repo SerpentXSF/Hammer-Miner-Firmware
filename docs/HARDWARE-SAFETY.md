@@ -25,25 +25,66 @@ subset in one place.
 | **Unreadable temperature** | `health_maintennance.c` | 3 consecutive failed sensor reads | same |
 | Fan fault | `health_maintennance.c` | `check_fan_ok()` fails 5 times running | same |
 | Core voltage range | `TPS546_set_vout()` | request outside `[VOUT_MIN, VOUT_MAX]` | refused, error returned, nothing written |
-| Core over-voltage | TPS546 hardware | `VOUT_OV_FAULT_LIMIT` | regulator's own fault response |
+| Core over-voltage | TPS546 hardware | vendor NVM `VOUT_OV_FAULT_LIMIT` | regulator's own fault response -- **this firmware never programs or reads it; see below** |
 
 All four software paths converge on `miner_protection_handler()`: cut the core
 rail, fan to 100%, hold 100 seconds, restart.
 
 ### The voltage path is sound
 
-`VCORE_set_voltage()` goes through `TPS546_set_vout()`, which rejects any
-value outside the configured window and returns an error rather than writing
-it. The regulator additionally has `VOUT_OV_FAULT_LIMIT` programmed at init,
-so an over-voltage would have to defeat both a software clamp and a hardware
-limit. **No configuration value, API call or corrupt NVS entry can drive an
-ASIC out of its voltage range.**
+`VCORE_set_voltage()` goes through `TPS546_set_vout()`
+(`components/bc_hal/TPS546.c:1209`), which rejects any value outside
+`[VOUT_MIN, VOUT_MAX]` and returns an error rather than writing it. That part
+holds.
+
+**Correction, 2026-09-04.** An earlier version of this section said the
+regulator "additionally has `VOUT_OV_FAULT_LIMIT` programmed at init, so an
+over-voltage would have to defeat both a software clamp and a hardware
+limit." **That was wrong, and it was wrong in the worst place -- a safety
+document asserting a protection that does not exist.**
+
+The code that writes `VOUT_OV_FAULT_LIMIT` is at `TPS546.c:538`, inside a
+`#if 0` block spanning lines 513-561. `TPS546_write_entire_config()`, which
+also writes it, is called only from inside another `#if 0` at line 510. The
+live init branch begins at line 571 and writes exactly five registers:
+`ON_OFF_CONFIG`, `OPERATION`, `VOUT_SCALE_LOOP`, `VOUT_MAX`, `VOUT_COMMAND`.
+No fault limits.
+
+So whatever over-voltage, over-current and over-temperature limits the TPS546
+enforces are **the vendor's factory NVM values**. They may well be sensible.
+This firmware neither sets them nor reads them back, so nobody here knows what
+they are. `TPS546_show_voltage_settings()` exists and would print them; it is
+commented out at line 613. `VCORE_check_fault()` exists and would poll
+`STATUS_WORD` while mining; it is commented out at
+`health_maintennance.c:164`.
+
+That last point deserves emphasis, because it undercuts a claim made elsewhere
+in this project: **"no log records an over-temperature, over-current or
+brownout event" is true only because nothing is looking.** The regulator's own
+fault status has never been read on any board here.
+
+### What the clamp does and does not bound
 
 `TPS546_VOUT_MAX` is 520 on a BC04 -- 5.20 V across four series domains, or
-1.30 V per chip. That is the vendor's own value from
-`sdkconfig.bc04-reference`, and it sits at the top of the BM1370's stated
-0.65-1.30 V window rather than below it. Worth knowing; not something this
-project chose.
+1.30 V per chip nominal. That is the vendor's own value from
+`sdkconfig.bc04-reference`, and it sits **at** the top of the BM1370's stated
+0.65-1.30 V window rather than below it.
+
+Two caveats that the earlier "no configuration value can drive an ASIC out of
+its voltage range" glossed over:
+
+* **The 480 ceiling is a boot-default clamp, not an API clamp.** Only
+  `asicovervdef` is bounded to 480 (`nvs_device.c:39`). The API accepts
+  `coreVoltage`, `coreNormalVoltage` and `coreOverVoltage` up to
+  `asic_vol_max`, which is `CONFIG_TPS546_VOUT_MAX` = 520 on a BC04
+  (`nvs_device.c:35`, `http_server.c:928`).
+* **1.30 V per chip is nominal only.** In a four-chip series string each
+  chip's share is set by its own current draw, so a weaker or hung die takes
+  more than a quarter of the string voltage. A string-level `VOUT_MAX` cannot
+  protect an individual die.
+
+Treat 480 as the operating ceiling on a BC04. The API will accept more, and
+there is no margin above it.
 
 ---
 
@@ -141,6 +182,45 @@ Fixed by negotiating PD before `network_init()`. Not a damage path: the
 hashboard is not powered until ~14 s and the loop reset before that.
 
 Full write-up in [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
+
+### 2.5 The core rail cannot be switched off once the bus is gone (open)
+
+**Not fixed. Raised by review on 2026-09-04 and worth knowing before it bites
+somebody.**
+
+On a BC04 the TPS546's on/off is PMBus-only -- `ON_OFF_CONFIG 0x1f`
+(`TPS546.c:573`), with no enable GPIO (`bc04.defaults` sets
+`OVERHEATE_CONTROL=255`). Every way this firmware has of de-energising the
+hashboard goes over I2C.
+
+So if the bus dies while the miner is running, the firmware has no way to turn
+the core rail off. The regulator keeps regulating at 4.6-4.8 V from its own
+last command, through resets and reboots, while:
+
+* `ESP_ERROR_CHECK(read_fan_rpm())` (`health_maintennance.c:167`) panics the
+  miner
+* the ASIC reset line floats
+* the EMC2302, if it has lost power, drops its PWM and the fan stops
+* the next boot spends about 200 s in the TPS546 ID retry and aborts on
+  `ESP_ERROR_CHECK(VCORE_init)`, roughly every four minutes, indefinitely
+
+A BM1370 with its PLL locked draws near-full power even when not being fed
+work. The end state is a board dissipating serious power with no fan control
+and no thermal supervision, until a person notices.
+
+This is **not** what happened to the BC04 here -- its last recorded state was
+healthy and it failed while powered down. But it is a credible route to a
+burnt smell on any board whose bus dies mid-run, and it should be closed.
+
+The fix, when it is written: on bus loss while mining, drive ASIC reset low
+while the line still answers, command the fan to 100% before the bus is gone,
+stop feeding work, and log loudly. On a boot that finds an empty bus, assert
+reset low immediately and stay up serving the API rather than reboot-looping,
+so the state is visible.
+
+**Guidance until then: a miner reporting an empty I2C scan, -60 C, or a
+four-minute reboot loop should have its power removed.** The firmware cannot
+shut the hashboard down on its own.
 
 ---
 
