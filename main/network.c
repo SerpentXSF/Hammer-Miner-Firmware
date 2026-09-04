@@ -386,9 +386,69 @@ static esp_eth_handle_t s_eth_handle = NULL;
  * is powered; read by network_eth_start(). */
 static bool eth_deferred = false;
 
-/* How long network_eth_start() waits for a DHCP lease before giving up on
- * tidying away the setup access point. 200 ms a tick. */
-#define ETH_ADDRESS_WAIT_TICKS (15 * 5)
+/* How long the settle task waits for an address on either interface before
+ * restarting the miner. 200 ms a tick, so five minutes -- the same window
+ * network_init() used to enforce, moved to where it can still be satisfied. */
+#define NET_SETTLE_TICKS (5 * 60 * 5)
+
+/*
+ * Runs once Ethernet has been started, and does the two things network_init()
+ * can no longer do for itself now that it returns early on every deferred
+ * path.
+ *
+ * First, the tidy-up from the end of its wait loop: drop the setup access
+ * point, quieten the WiFi log, tell the system it is on the network. That had
+ * simply stopped happening, so a miner that came up on the cable kept an open
+ * access point broadcasting for as long as it was powered -- on images that
+ * ship with a blank API password, which makes it an unauthenticated way in.
+ *
+ * Second, the backstop. network_init() restarted a miner that reached five
+ * minutes with no address, and deferring Ethernet turned that into a loop:
+ * the restart ran the same sequence and never got as far as the cable. The
+ * backstop belongs here instead, after the interface that might supply an
+ * address has actually been given the chance to. A miner that still has
+ * nothing by then has a problem a restart might genuinely clear -- a DHCP
+ * server that was not up yet, a switch port still learning, a driver that
+ * came up wrong.
+ *
+ * A task rather than a loop in network_eth_start(), so main() is not held for
+ * five minutes waiting on a board that may have no cable in it.
+ */
+static void network_settle_task(void *arg)
+{
+    wifi_sta_list_t sta_list;
+    int idle = 0;
+
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(200));
+
+        if (netWork_Info.eth_get_ip || netWork_Info.wifi_get_ip) {
+            if (netWork_Info.eth_get_ip && !netWork_Info.wifi_get_ip) {
+                wifi_softap_off();
+                ESP_LOGI(TAG, "eth get ip, wifi ap off");
+                esp_log_level_set("wifi", CONFIG_LOG_DEFAULT_LEVEL_INFO);
+            }
+            SYSTEM_notify_status_change(GLOBAL_STATE, SYSTEM_WIFI_CONNECTED);
+            ESP_LOGI(TAG, "Network settled after %d s", idle / 5);
+            vTaskDelete(NULL);
+        }
+
+        /*
+         * Somebody is connected to the setup access point, which is where a
+         * miner with no network is configured from. Restarting out from
+         * under them is the one thing this must not do, so the clock is held
+         * at zero for as long as they are there.
+         */
+        if (esp_wifi_ap_get_sta_list(&sta_list) == ESP_OK && sta_list.num > 0) {
+            idle = 0;
+            continue;
+        }
+
+        if (++idle > NET_SETTLE_TICKS) {
+            restart_with_reason("No address on either interface");
+        }
+    }
+}
 
 void network_eth_init(void)
 {
@@ -467,44 +527,16 @@ esp_err_t network_eth_start(void)
     network_config_eth_static_ip();
 
     /*
-     * Finish what network_init() could not. Every deferred path leaves that
-     * function early -- no credentials to wait for, or WiFi did not answer
-     * in time -- so the tidy-up at the end of its wait loop never runs: the
-     * setup access point stays up, the WiFi log stays at its noisy level and
-     * the system is never told it is on the network.
-     *
-     * The access point is the part that matters. A miner that came up on the
-     * cable would otherwise keep an open one broadcasting for as long as it
-     * is powered, and these images ship with a blank API password, so that
-     * access point is an unauthenticated way into the miner.
-     *
-     * Bounded, because this runs on main()'s thread and a board with nothing
-     * plugged into it never gets an address at all.
+     * From here the settle task owns the outcome: it tidies up when an
+     * address arrives, and restarts the miner if none ever does.
      */
-    for (int waited = 0; waited < ETH_ADDRESS_WAIT_TICKS; waited++) {
-        vTaskDelay(pdMS_TO_TICKS(200));
-        if (!netWork_Info.eth_get_ip) {
-            continue;
-        }
-        if (!netWork_Info.wifi_get_ip) {
-            wifi_softap_off();
-            ESP_LOGI(TAG, "eth get ip, wifi ap off");
-            esp_log_level_set("wifi", CONFIG_LOG_DEFAULT_LEVEL_INFO);
-        }
-        SYSTEM_notify_status_change(GLOBAL_STATE, SYSTEM_WIFI_CONNECTED);
-        return ESP_OK;
+    if (pdPASS != xTaskCreate(network_settle_task, "net_settle", 4096, NULL,
+                              3, NULL)) {
+        ESP_LOGE(TAG, "Could not start the network settle task; the setup "
+                      "access point will stay up and nothing will restart "
+                      "this miner if it never gets an address");
     }
 
-    /*
-     * No address yet. Not an error and not something network_eth_recover()
-     * can help with -- that exists for a controller that has stopped
-     * answering, not for a link that is taking its time or a cable that is
-     * not there. The interface stays up and the access point stays up with
-     * it, which is the right state for a miner nobody can reach.
-     */
-    ESP_LOGW(TAG, "Ethernet started but has no address after %d s; "
-                  "leaving the setup access point up",
-             ETH_ADDRESS_WAIT_TICKS / 5);
     return ESP_OK;
 }
 

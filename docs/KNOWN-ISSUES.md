@@ -140,20 +140,31 @@ slow or briefly away still joins afterwards. Nothing changes on a board where
 Ethernet was never deferred -- a BC01 takes the same five minutes and the same
 restart it always did.
 
-The restart-on-no-network backstop is therefore gone on Ethernet boards, and
-that is deliberate. It never repaired anything; a miner that cannot reach a
-network does not acquire one by rebooting. What it did do was guarantee the
-loop above. A miner that stays up, holds its setup access point and waits is
-recoverable by hand. One that reboots every five minutes is not.
+The five-minute backstop is kept, moved to where it can still be satisfied.
+It now runs from `network_settle_task()`, started once Ethernet is up, so the
+window begins *after* the interface that might supply an address has been
+given the chance to. That is the whole difference: the old backstop restarted
+a miner that had never tried its cable, and the restart ran the same sequence
+again. This one restarts a miner that has tried both, which is a state a
+restart might genuinely clear -- a DHCP server that was not up yet, a switch
+port still learning, a driver that came up wrong.
 
-The same change also finishes the job `network_init()` no longer does.
-**Every** deferred path leaves that function early, so the tidy-up at the end
-of its wait loop -- drop the setup access point, quieten the WiFi log, tell
-the system it is connected -- had stopped running, including on the path
-shipped in 2.0.19. A miner that came up on the cable kept an open access point
+It holds its clock at zero for as long as somebody is connected to the setup
+access point. That is where a miner with no network gets configured from, and
+restarting out from under whoever is doing it is the one thing it must not do.
+
+The same task also finishes the job `network_init()` no longer does. **Every**
+deferred path leaves that function early, so the tidy-up at the end of its
+wait loop -- drop the setup access point, quieten the WiFi log, tell the
+system it is connected -- had stopped running, including on the path shipped
+in 2.0.19. A miner that came up on the cable kept an open access point
 broadcasting for as long as it was powered, and these images ship with a blank
-API password, so that access point was an unauthenticated way in. That tidy-up
-now lives in `network_eth_start()`, where it runs however the deferral ended.
+API password, so that access point was an unauthenticated way in. Putting both
+jobs in one task means the tidy-up runs however late the address arrives,
+rather than only if it arrives inside some fixed window.
+
+It is a task rather than a loop inside `network_eth_start()` so that main() is
+not held for five minutes on a board with no cable in it.
 
 **Not verified on hardware.** The only board here with a W5500 is the BC04,
 and it is out for warranty repair with a shorted I2C bus. A BC01 cannot
