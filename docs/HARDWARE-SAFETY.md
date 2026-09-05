@@ -335,6 +335,42 @@ defect was never missing knowledge. It was ordering.
 
 ---
 
+## 5a. Connecting and disconnecting power
+
+**Switch the supply off at its own switch or at the mains before mating or
+unmating the power connector. Do not pull a live connector.**
+
+This is ordinary practice for high-current DC connections and it costs
+nothing, but it is worth saying explicitly for a BC04, which takes 12 V on an
+XT-30 with no pre-charge pin and no make-break sequencing. A board mining at
+around 100 W is drawing over 8 amps; separating a bare bullet connector at
+that current arcs, and mating one onto discharged input capacitance draws a
+large inrush that rings the input rail. Neither is good for the hardware, and
+the mating direction is the harsher of the two.
+
+One BC04 here failed permanently with an electrical smell at the moment its
+XT-30 was disconnected, after two weeks of clean operation at well under its
+rated power. That is one board and a correlation, not a demonstrated
+mechanism -- but the mitigation is free, so there is no reason not to take it.
+
+### An open question for the vendor
+
+**Does the BC04 have input transient protection across the XT-30 -- a TVS
+diode, a clamp, or inrush limiting?**
+
+We cannot answer this from firmware or from logs; it needs the schematic or a
+look at the board, and neither is available to this project. It is recorded
+here because the answer matters and is not ours to give:
+
+* if there **is** protection, an input transient is a poor explanation for
+  that failure and the search should go elsewhere
+* if there is **not**, a board that can be damaged by normal handling of its
+  own power connector has a design vulnerability, and that is a different
+  conversation from user error
+
+The question has been raised with the vendor as part of the warranty claim.
+Nothing here asserts an answer.
+
 ## 6. Reporting
 
 Hardware-safety defects are treated as higher priority than features and are

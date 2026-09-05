@@ -373,6 +373,12 @@ onMounted(async () => {
       </div>
 
       <div class="nw-form-wrap">
+      <!-- Saved settings live in NVS but the miner reports what it booted
+           with, so say plainly that a restart is still owed. Poolsettings has
+           shown this since it was written; Network did not, and "Restart to
+           Apply" on a button is easy to read past. -->
+      <a-alert v-if="appStore.needsRestart" type="warning" show-icon
+               class="nw-pending-alert" :message="t('com.restart_pending_banner')"/>
       <a-form ref="netCfgFormRef" :wrapper-col="{xs:24, sm: 12}" :model="formState" :hideRequiredMark="true" @finish="updateSys">
         
         <div class="nw-section-body" style="margin-bottom: 20px;">
@@ -591,6 +597,10 @@ onMounted(async () => {
 .nw-action-btn {
   margin-right: 10px;
   margin-bottom: 10px;
+}
+
+.nw-pending-alert {
+  margin-bottom: 16px;
 }
 
 .nw-restart-hint {

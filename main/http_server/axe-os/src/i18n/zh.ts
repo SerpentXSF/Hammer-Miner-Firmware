@@ -19,7 +19,7 @@ const lang = {
     com: {
         save: '保存',
         reset: '重置',
-        restart_pending: '等待重启',
+        restart_pending: '重启以应用',
         restart: '重启',
         restart_hint: '保存后必须重启此设备，更改才能生效。',
         restart_pending_banner: '已保存。设置已写入，但矿机仍在使用之前的设置，请重启以生效。',

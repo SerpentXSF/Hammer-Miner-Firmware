@@ -351,6 +351,10 @@ onMounted(async () => {
         <div class="set-edit-title">{{ props.title || sel('gen_settings') || 'General Settings' }}</div>
       </div>
 
+      <!-- Same reason as Network and Poolsettings: what is saved and what is
+           running are two different things until the miner restarts. -->
+      <a-alert v-if="appStore?.needsRestart" type="warning" show-icon
+               class="set-edit-pending-alert" :message="t('com.restart_pending_banner')"/>
       <a-row class="set-edit-form-wrap" :gutter="[40, 20]">
         <a-col :xs="24" :lg="14">
           <a-form ref='settingEditFormRef' :model="formState" hide-required-mark @finish="updateSys" @finishFailed="onFinishFailed">
@@ -790,4 +794,8 @@ onMounted(async () => {
   background-color: #34d0b6 !important;
   border-color: #34d0b6 !important;
 }
+.set-edit-pending-alert {
+  margin-bottom: 16px;
+}
+
 </style>
