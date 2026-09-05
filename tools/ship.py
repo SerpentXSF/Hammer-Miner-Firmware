@@ -99,6 +99,33 @@ def main():
 
     tag = "v" + version
     if github:
+        """
+        The source has to be public before the binaries are.
+
+        2.0.21 shipped with its tag pointing two commits behind the code the
+        images were built from, because the release was cut while those
+        commits were still local. `gh release create` tags whatever the remote
+        HEAD happens to be, so the tag named a tree that did not contain the
+        version string in the binary it was attached to. Anyone rebuilding
+        from that tag would have got different firmware -- which is the exact
+        drift this script exists to prevent, in the one direction it was not
+        checking.
+
+        On a GPL project that is not a tidiness problem. A published binary
+        whose source is not in the public repository is a compliance one.
+        """
+        unpushed = subprocess.run(
+            ["git", "log", "--oneline", "@{upstream}..HEAD"],
+            cwd=ROOT, capture_output=True, text=True)
+        if unpushed.returncode != 0:
+            sys.exit("cannot tell whether this branch is pushed: %s"
+                     % unpushed.stderr.strip())
+        if unpushed.stdout.strip():
+            sys.exit("refusing to cut %s with unpushed commits -- the tag "
+                     "would name a tree that does not contain these:\n%s\n"
+                     "push the branch first."
+                     % (tag, unpushed.stdout.rstrip()))
+
         existing = released_tags()
         if existing is None:
             sys.exit("gh is not available or not logged in; cannot cut a release")
