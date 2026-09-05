@@ -181,10 +181,13 @@ so its behaviour is unchanged. The fix itself needs a BC04 to sign off.
 BC04 directly; the BC01 family had the same defect through the USB-PD gate and
 that half was fixed separately.
 
-`self_test()` calls `test_fan()` at `self_test.c:423`. It calls
+`self_test()` called `test_fan()` at `self_test.c:423`. It called
 `test_power_on()`, which reads the regulator's input voltage, at
-`self_test.c:480`. So the fan is measured and judged **57 lines before**
-anything checks whether the board has its 12 V supply at all.
+`self_test.c:480`. So the fan was measured and judged **57 lines before**
+anything checked whether the board had its 12 V supply at all.
+
+(Line numbers are as of 2.0.20, where the defect shipped. They have moved
+since.)
 
 The threshold already exists and is correct -- `test_power_on()` contains
 `if (*vin < 11) ret = ESP_FAIL;` (`self_test.c:183`). It is simply read too
@@ -273,10 +276,20 @@ reflashing.
 
 ### Recovery on an affected board
 
-The flag lives in NVS as `selftest`. The web flasher writes a blank NVS, so:
-**connect the 12 V supply first**, then reflash from the browser. The self
-test then runs with power present and passes. Reflashing without the supply
-connected reproduces the same false failure.
+The flag lives in NVS as `selftest`. **Connect the 12 V supply first**, then
+reflash from the browser: the published full image carries a provisioning NVS
+with `selftest=0`, so a reflash resets the flag and the test runs again with
+power present. Reflashing without the supply connected reproduces the same
+false failure.
+
+Reflashing is the only way back. Nothing in the HTTP server reads or writes
+`selftest`, so there is no API to clear it -- worth fixing, and not fixed
+here.
+
+(An earlier version of this paragraph said the flasher "writes a blank NVS".
+It does not: `dist/stay-open-bc04-*-full.bin` carries `devicemodel=BC04` and
+`selftest=0` preloaded at `0xe000`. The advice was right for the wrong
+reason.)
 
 ## The radio came up before the supply it runs on (fixed)
 

@@ -55,8 +55,8 @@ static void tests_done(GlobalState * GLOBAL_STATE, bool test_result)
  * test again on the next boot, and since the self test restarts the miner
  * afterwards, an unpowered board would restart every few seconds -- which is
  * exactly what somebody flashing it over USB does not need. Clearing it is a
- * decision for a person: reset selftest to 0 from the API, or reflash, once
- * the supply is connected.
+ * decision for a person: reflash with the supply connected. There is no API
+ * for it -- nothing in the HTTP server reads or writes selftest.
  */
 /* Below this the board has no usable main supply: 12 V on a BC04's XT-30, or
  * a negotiated PD contract on the BC01 family. Used both by the gate at the
@@ -388,8 +388,8 @@ bool should_test(void)
          * repeated -- the self test restarts the miner afterwards, so
          * retrying on every boot would leave an unpowered board cycling. */
         ESP_LOGW(TAG, "Self test was skipped: the board had no main power "
-                      "when it last ran. Connect the supply and reset "
-                      "selftest to 0 to run it.");
+                      "when it last ran. Connect the supply and reflash "
+                      "to run it.");
         ret = false;
     }else{
         ESP_LOGW(TAG, "NVS ERROR: self_test %"PRIu16"", self_test);
@@ -469,8 +469,12 @@ void self_test(GlobalState *global_state)
      * not deserve -- confirmed when the owner connected 12 V and it mined on
      * all four ASICs while still reporting the failure.
      *
-     * The regulator is initialised before the self test runs, so its input
-     * voltage is readable here. Same 11 V threshold as test_power_on(), so
+     * The regulator is not already up here -- the gate brings it up itself,
+     * via test_power(). Do not remove that call believing it redundant: the
+     * self-test path restarts before init_all_peripherals() ever runs, so
+     * nothing else has initialised the TPS546 at this point, and reading VIN
+     * without it returns 0.00 V on every board. That mistake has already been
+     * made once in this function. Same 11 V threshold as test_power_on(), so
      * the two cannot disagree.
      */
     /*
@@ -494,18 +498,29 @@ void self_test(GlobalState *global_state)
      */
     float vin_at_start = 0.0f;
     bool have_main_power;
+    bool power_inited = false;
 
     if (device_is_bc01_family(GLOBAL_STATE->device_model)) {
         have_main_power = (1 == GLOBAL_STATE->pd_state);
     } else {
+        /*
+         * A regulator that does not answer is a fault in its own right, and
+         * must not be reported as "no main power". A BC04 with a dead I2C bus
+         * would otherwise be told to connect a supply it already has -- the
+         * exact failure this gate exists to stop, pointed the other way.
+         */
         if (ESP_OK != test_power(I2C_MASTER_INDEX_OF_POWER)) {
-            ESP_LOGE(TAG, "The core regulator does not answer; cannot "
-                          "establish whether this board has main power");
-            have_main_power = false;
-        } else {
-            vin_at_start = TPS546_get_vin();
-            have_main_power = (vin_at_start >= SELF_TEST_MIN_VIN);
+            ESP_LOGE(TAG, "The core regulator does not answer. That is a "
+                          "fault, not a missing supply.");
+            strcat(GLOBAL_STATE->SELF_TEST_MODULE.message, "Power init fail!\n");
+            logMessage(GLOBAL_STATE->SELF_TEST_MODULE.message);
+            tests_done(GLOBAL_STATE, false);
+            return;
         }
+
+        power_inited = true;
+        vin_at_start = TPS546_get_vin();
+        have_main_power = (vin_at_start >= SELF_TEST_MIN_VIN);
     }
 
     if (!have_main_power) {
@@ -577,7 +592,21 @@ void self_test(GlobalState *global_state)
         logMessage(GLOBAL_STATE->SELF_TEST_MODULE.message);
     }
 
-    if(ESP_OK != (ret = test_power(I2C_MASTER_INDEX_OF_POWER))){
+    /*
+     * Skip when the gate already brought the regulator up. bc_i2c_add_device()
+     * has no duplicate check and neither does IDF's
+     * i2c_master_bus_add_device(), so calling this twice registers the TPS546
+     * on the bus twice: the first handle leaks and a second of the eight
+     * device slots is spent. A BC04 uses about five, so it fits today -- and
+     * on the day it does not, the add fails, test_power() fails, and every
+     * board reports "Power init fail!". Not a risk worth carrying for a call
+     * that has already happened.
+     */
+    if(power_inited){
+        strcat(GLOBAL_STATE->SELF_TEST_MODULE.message, "Power init OK\n");
+        logMessage(GLOBAL_STATE->SELF_TEST_MODULE.message);
+    }
+    else if(ESP_OK != (ret = test_power(I2C_MASTER_INDEX_OF_POWER))){
         ESP_LOGE(TAG, "power test failed, %d, %s", ret, esp_err_to_name(ret));
         strcat(GLOBAL_STATE->SELF_TEST_MODULE.message, "Power init fail!\n");
         logMessage(GLOBAL_STATE->SELF_TEST_MODULE.message);

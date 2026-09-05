@@ -23,12 +23,40 @@ subset in one place.
 | Hashboard over-temperature | `health_maintennance.c` | board temp > `MAX_HASHBOARD_TEMP` (71 C) | power off, fan 100%, wait 100 s, restart |
 | Control-board over-temperature | `health_maintennance.c` | ESP32 temp > `MAX_ENV_TEMP` (55 C) | same |
 | **Unreadable temperature** | `health_maintennance.c` | 3 consecutive failed sensor reads | same |
-| Fan fault | `health_maintennance.c` | `check_fan_ok()` fails 5 times running | same |
+| ~~Fan fault~~ | `health_maintennance.c` | **cannot fire -- see below** | none |
 | Core voltage range | `TPS546_set_vout()` | request outside `[VOUT_MIN, VOUT_MAX]` | refused, error returned, nothing written |
 | Core over-voltage | TPS546 hardware | vendor NVM `VOUT_OV_FAULT_LIMIT` | regulator's own fault response -- **this firmware never programs or reads it; see below** |
 
-All four software paths converge on `miner_protection_handler()`: cut the core
-rail, fan to 100%, hold 100 seconds, restart.
+The working software paths converge on `miner_protection_handler()`: cut the
+core rail, fan to 100%, hold 100 seconds, restart.
+
+### The fan-fault protection does not work
+
+**Correction, 2026-09-04, found by review.** This row previously read like the
+others. It should not have.
+
+The trigger is `if(fan_error_counter ++ > 5 && force_fan_check)`
+(`health_maintennance.c:221`). `force_fan_check` is a local declared `false` at
+line 128 and **never assigned anywhere in the tree** -- those two lines are its
+only references. The condition is therefore permanently false and **a fan fault
+is never acted on.** A miner whose fan has stopped or seized will keep hashing
+until the over-temperature trip catches it, if it catches it.
+
+Two things follow. First: this is the second protection this document has
+claimed that the code does not provide -- the other was `VOUT_OV_FAULT_LIMIT`,
+corrected below. Both were found by review rather than by testing, because
+neither trigger has ever been reached on hardware here, and a protection whose
+trigger is never reached looks identical to one that works.
+
+Second, and worth stating plainly for anyone relying on this firmware: **the
+only thermal protection that is known to work is the over-temperature trip and
+the unreadable-temperature trip.** The fan-fault path is not a backstop for
+them. It is not a backstop for anything.
+
+Left as inherited rather than fixed in this release: making the condition fire
+means deciding what `force_fan_check` was meant to gate, and shipping a fan
+trip that has never run on hardware carries its own risk of shutting down
+working miners. It is recorded here, honestly, rather than quietly enabled.
 
 ### The voltage path is sound
 
@@ -264,7 +292,7 @@ Honest summary. "Verified" means observed on hardware, not merely built.
 | Hardware `VOUT_OV_FAULT_LIMIT` | Set at init; never observed firing |
 | Over-temperature trip at 71 C | **Not verified.** Never reached -- peak observed on a BC04 was 65 C chip / 73 C VR at 106 W |
 | Unreadable-temperature trip (2.1) | **Not verified on hardware.** Needs a working board with an induced sensor failure |
-| Fan-fault trip | **Not verified** |
+| Fan-fault trip | **Cannot fire** -- `force_fan_check` is never set. See section 1 |
 | Ethernet stall watchdog (2.2) | Verified on a BC04 with a dead I2C bus, with and without WiFi |
 | Absent-WiFi-stack tolerance (2.3) | Verified on a BC04, Ethernet only |
 | PD negotiated before the radio (2.4) | Verified on a BC01: cold boot, no USB, no reboots across 30 polls |
