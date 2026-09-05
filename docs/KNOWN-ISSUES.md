@@ -53,6 +53,21 @@ regulator switches on and **70 ms later** every socket command times out, for
 good -- *if the controller was already running at that moment*. That last
 clause is the whole thing, and it took far too long to test.
 
+**Revisited 2026-09-04, and the original framing was too comfortable.** This
+was written up as an ordering problem "and not the hardware fault it looked
+like", on the reasoning that a power cycle always brought the part back. That
+reasoning was wrong. A device that stops answering on a supply transient and
+recovers only on a full power cycle is behaving like a part in latch-up, and
+latch-up recovers on a power cycle right up until the run that destroys it.
+
+That board's W5500 has since failed short across the 3.3 V rail -- which is
+why the TMP75, the EMC2302 and the I2C pull-ups, all on that rail, went with
+it. So the ordering was not merely confusing the software; it may well have
+been stressing the part every time. See
+[HARDWARE-SAFETY.md](HARDWARE-SAFETY.md) section 2.6, and note what is *not*
+established there: no log exists of this board on factory firmware, so the
+correlation is not proven on this unit.
+
 ```
 I (10658) vcore: Set ASIC voltage = 4.80V
 E (10728) w5500.mac: w5500_send_command(210): send command timeout

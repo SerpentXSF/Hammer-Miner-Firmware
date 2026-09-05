@@ -252,6 +252,55 @@ shut the hashboard down on its own.
 
 ---
 
+### 2.6 The stock power-on order runs the W5500 through the core transient
+
+**Not a defect in this firmware -- this firmware fixes it. Recorded because
+it affects every BC04 running factory software.**
+
+In the BC04 source Hammer publishes, `main.c` calls `network_init()` at
+line 293, which initialises the W5500 whenever `eth_on` is set, and calls
+`init_all_peripherals()` at line 320, which powers the hashboard. So the
+Ethernet controller is brought up and **left running while the core rail
+steps from 0 to about 4.8 V across four series ASICs**, on every boot.
+
+On the BC04 here that was not benign. From `eth1.log`:
+
+```
+I (6298)  NETWORK: Ethernet Got IP Address
+I (10658) vcore: Set ASIC voltage = 4.80V
+E (10728) w5500.mac: w5500_send_command(210): send command timeout
+```
+
+**Seventy milliseconds.** Link, lease, serving traffic -- then every SPI
+transaction fails and does not recover for the rest of the session. A full
+power cycle brought it back. Reproducible.
+
+A device that stops responding on a supply transient and recovers only on a
+power cycle is behaving like a part in **latch-up**: the supply sags while its
+inputs are still being driven, current flows through the input protection into
+the rail, a parasitic path fires, and it conducts until power is removed.
+Latch-up is recoverable until it is not. When it is not, the die is left as a
+low impedance from supply to ground.
+
+That board's W5500 is now exactly that -- a short across the 3.3 V rail. Since
+the TMP75, the EMC2302 and every I2C pull-up share that rail, the visible
+symptom was three I2C devices vanishing at once and SDA/SCL reading low.
+
+**What this project changed.** `network_init()` no longer starts Ethernet at
+all; `main()` starts it after the hashboard is up and settled, so the
+controller is initialised *after* the transient rather than run through it.
+That was done to fix a functional bug -- Ethernet stopped passing traffic --
+before anyone considered that the transient might be damaging the part.
+
+**What is not established.** No log exists of this board running factory
+firmware. Every capture is this fork, on a replacement controller module. The
+ordering above is read from Hammer's published source and the failure was
+observed here, but the two have not been connected on the same unit, and a
+correlation on one board is not a mechanism. It is a question worth putting to
+the vendor, which is how the warranty claim words it.
+
+---
+
 ## 3. What a reboot loop does and does not do
 
 Worth stating plainly, because reboot loops look alarming and the question of
@@ -316,6 +365,9 @@ clothes: **doing something before the thing it depends on.**
   checked
 * the self test judging the fan before checking whether the board has any
   main power, then recording a hardware failure that does not exist
+* the stock firmware initialising the W5500 before powering the hashboard, so
+  the controller rides out a transient it should have been started after
+  (section 2.6 -- inherited, and fixed here)
 
 Each was found by testing a configuration nobody had tried: a board with a
 dead bus, a miner with no WiFi credentials, a cold boot with no USB attached.
