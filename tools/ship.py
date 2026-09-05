@@ -114,12 +114,24 @@ def main():
         On a GPL project that is not a tidiness problem. A published binary
         whose source is not in the public repository is a compliance one.
         """
+        branch = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=ROOT, capture_output=True, text=True).stdout.strip()
+
+        # @{upstream} is the right question but it is not always answerable:
+        # this clone tracks nothing, so it errors. Fall back to the remote
+        # branch of the same name, which is what "pushed" means here.
         unpushed = subprocess.run(
             ["git", "log", "--oneline", "@{upstream}..HEAD"],
             cwd=ROOT, capture_output=True, text=True)
         if unpushed.returncode != 0:
-            sys.exit("cannot tell whether this branch is pushed: %s"
-                     % unpushed.stderr.strip())
+            unpushed = subprocess.run(
+                ["git", "log", "--oneline", "origin/%s..HEAD" % branch],
+                cwd=ROOT, capture_output=True, text=True)
+        if unpushed.returncode != 0:
+            sys.exit("cannot tell whether %s is pushed (no upstream and no "
+                     "origin/%s): %s"
+                     % (branch, branch, unpushed.stderr.strip()))
         if unpushed.stdout.strip():
             sys.exit("refusing to cut %s with unpushed commits -- the tag "
                      "would name a tree that does not contain these:\n%s\n"
