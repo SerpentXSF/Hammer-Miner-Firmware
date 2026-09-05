@@ -286,15 +286,24 @@ clothes: **doing something before the thing it depends on.**
 * the WiFi radio brought up before the power contract that has to carry it
 * thermal protection acting on a sensor reading whose success was never
   checked
+* the self test judging the fan before checking whether the board has any
+  main power, then recording a hardware failure that does not exist
+  (KNOWN-ISSUES.md, open)
 
 Each was found by testing a configuration nobody had tried: a board with a
 dead bus, a miner with no WiFi credentials, a cold boot with no USB attached.
 None of them show up on a healthy board on a bench with everything plugged
 in, which is exactly the configuration firmware gets tested in.
 
-The general lesson is worth more than any of the four fixes: **when ordering
-matters, say out loud what depends on what, and test the boot with each
-dependency absent.**
+The general lesson is worth more than any of the individual fixes: **when
+ordering matters, say out loud what depends on what, and test the boot with
+each dependency absent.**
+
+The fifth instance is worth dwelling on, because it was found by a user rather
+than by us, and because the check it needed was already written. `test_power_on()`
+contains `if (*vin < 11) ret = ESP_FAIL;` -- exactly the right test, at exactly
+the right threshold, placed 57 lines after the thing it should have gated. The
+defect was never missing knowledge. It was ordering.
 
 ## 5. If you are running this firmware
 
@@ -311,6 +320,11 @@ dependency absent.**
 * **BC01 family, 2.0.19 or earlier:** if your miner boots only while a USB
   cable is plugged into the display module, that is the PD ordering defect in
   section 2.4, not a faulty board. It is fixed in later builds.
+* **Connect the 12 V supply before flashing a BC04.** Flashing over USB with
+  no power on the XT-30 lets the self test measure an unpowered fan, call it a
+  fan failure, and record that permanently. The display then stays on the
+  splash screen while Ethernet and the web interface work normally. Nothing is
+  broken; see KNOWN-ISSUES.md for how to clear it. This is open, not fixed.
 
 ---
 

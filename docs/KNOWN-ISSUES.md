@@ -174,6 +174,74 @@ confirm is the part that protects it -- with `eth_deferred` false the timeout
 constant is the same `5*60*5` it always was and the new branch is unreachable,
 so its behaviour is unchanged. The fix itself needs a BC04 to sign off.
 
+## The self test judges the fan before it checks for main power (open)
+
+**Status: open.** Present in 2.0.20 and every earlier release. Affects the
+BC04 directly; the BC01 family had the same defect through the USB-PD gate and
+that half was fixed separately.
+
+`self_test()` calls `test_fan()` at `self_test.c:423`. It calls
+`test_power_on()`, which reads the regulator's input voltage, at
+`self_test.c:480`. So the fan is measured and judged **57 lines before**
+anything checks whether the board has its 12 V supply at all.
+
+The threshold already exists and is correct -- `test_power_on()` contains
+`if (*vin < 11) ret = ESP_FAIL;` (`self_test.c:183`). It is simply read too
+late to be useful. A fan test on an unpowered board fails first, the routine
+returns, and the check that would have named the real problem never runs.
+
+`tests_done()` then writes `selftest = 2` to NVS, and `should_test()` refuses
+to run again: *"Self test previously failed; not repeating it"*. **The board
+permanently records a hardware failure it does not have**, and there is no API
+to clear the flag.
+
+### Evidence
+
+A BC04, serial `ALBC04441BF6D262A4`, flashed from the web flasher on
+2026-09-04 and self-tested with no 12 V on the XT-30. Alongside a known-good
+BC04 from the same firmware:
+
+| | Powered (12 V on XT-30) | Unpowered |
+|---|---|---|
+| `READ_VIN` | 12.27 V | **3.93 V** |
+| Fan 50% | 1642 rpm | 575 rpm |
+| Fan 80% | 2292 rpm | 936 rpm |
+| Fan 100% | 2693 rpm | 1135 rpm |
+| Verdict | pass | `Fan test failed, -1, ESP_FAIL` |
+
+The fan turns at roughly 42% of normal rpm at every step, which is what a fan
+on an inadequate rail does. The verdict recorded was "FAN fail". The actual
+fault was no main power.
+
+Downstream symptoms on that board, all consistent and all misleading:
+
+* the display stays on the splash screen, because the hashboard never comes up
+  and the mining screen is never reached
+* Ethernet works and pools can be configured, because the W5500 and the
+  controller run from the logic rail and do not need the hashboard supply
+* the self test never runs again, so connecting 12 V later does not clear it
+
+### What it should do
+
+Validate the supply before testing anything that depends on it -- the same
+correction already applied to Ethernet, to the WiFi radio, and to thermal
+protection. Concretely: read the input voltage first; if it is below
+threshold, report *"no main power -- cannot test"* and do **not** record a
+hardware failure.
+
+The latch itself is right and should stay. It exists because writing the flag
+only on success produced an unrecoverable restart loop on a genuinely faulty
+board, with no web interface to see why. The fix is not to remove it but to
+stop it recording the wrong verdict, and to add a way to clear it without
+reflashing.
+
+### Recovery on an affected board
+
+The flag lives in NVS as `selftest`. The web flasher writes a blank NVS, so:
+**connect the 12 V supply first**, then reflash from the browser. The self
+test then runs with power present and passes. Reflashing without the supply
+connected reproduces the same false failure.
+
 ## The radio came up before the supply it runs on (fixed)
 
 **Status: fixed** in `main/main.c` and `main/device.c`. Affects the **BC01
