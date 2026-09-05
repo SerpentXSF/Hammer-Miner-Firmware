@@ -473,13 +473,60 @@ void self_test(GlobalState *global_state)
      * voltage is readable here. Same 11 V threshold as test_power_on(), so
      * the two cannot disagree.
      */
-    float vin_at_start = TPS546_get_vin();
-    if (vin_at_start < SELF_TEST_MIN_VIN) {
-        ESP_LOGE(TAG, "Input voltage is %.2f V -- this board has no main "
-                      "supply. Not testing the fan or the hashboard, and not "
-                      "recording a fault.", vin_at_start);
+    /*
+     * How "no main power" is detected differs by board, because what is
+     * reachable differs by board.
+     *
+     * On the BC01 family the regulator sits behind the USB-PD gate. With no
+     * contract it has no power, does not answer I2C at all, and cannot be
+     * asked anything -- an attempt to initialise it there just NACKs in a
+     * retry loop. So ask the PD layer, which already knows: pd_state is set
+     * only when a contract was negotiated and VBUS was enabled.
+     *
+     * Elsewhere -- a BC04 takes 12 V on an XT-30 -- the regulator runs from
+     * the logic rail and answers whether or not the main supply is present.
+     * One reported 3.93 V with nothing on its XT-30. There a real measurement
+     * is available, so take it, after bringing the regulator up.
+     *
+     * Not GPIO_PLUG_SENSE, which would be the obvious third option: on a BC04
+     * it is left at its default of GPIO10, which is the W5500 interrupt line.
+     * It reads something, and that something means nothing.
+     */
+    float vin_at_start = 0.0f;
+    bool have_main_power;
+
+    if (device_is_bc01_family(GLOBAL_STATE->device_model)) {
+        have_main_power = (1 == GLOBAL_STATE->pd_state);
+    } else {
+        if (ESP_OK != test_power(I2C_MASTER_INDEX_OF_POWER)) {
+            ESP_LOGE(TAG, "The core regulator does not answer; cannot "
+                          "establish whether this board has main power");
+            have_main_power = false;
+        } else {
+            vin_at_start = TPS546_get_vin();
+            have_main_power = (vin_at_start >= SELF_TEST_MIN_VIN);
+        }
+    }
+
+    if (!have_main_power) {
+        /* Say which of the two checks failed, and do not quote a voltage
+         * that was never measured -- on the BC01 family nothing read the
+         * regulator, because it has no power to answer with. */
+        if (device_is_bc01_family(GLOBAL_STATE->device_model)) {
+            ESP_LOGE(TAG, "No USB-PD contract, so this board has no main "
+                          "supply. Not testing the fan or the hashboard, and "
+                          "not recording a fault.");
+        } else {
+            ESP_LOGE(TAG, "Input voltage is %.2f V -- this board has no main "
+                          "supply. Not testing the fan or the hashboard, and "
+                          "not recording a fault.", vin_at_start);
+        }
         ESP_LOGE(TAG, "Connect the main supply and run the self test again.");
-        sprintf(test_item_str, "no main power (%.2fV)\n", vin_at_start);
+        if (device_is_bc01_family(GLOBAL_STATE->device_model)) {
+            sprintf(test_item_str, "no main power (no PD)\n");
+        } else {
+            sprintf(test_item_str, "no main power (%.2fV)\n", vin_at_start);
+        }
         strcat(GLOBAL_STATE->SELF_TEST_MODULE.message, test_item_str);
         logMessage(GLOBAL_STATE->SELF_TEST_MODULE.message);
         tests_unpowered(GLOBAL_STATE);
