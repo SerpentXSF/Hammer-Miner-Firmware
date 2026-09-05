@@ -46,6 +46,32 @@ static void tests_done(GlobalState * GLOBAL_STATE, bool test_result)
     }
 }
 
+/*
+ * Ran, but could not: the board has no main supply, so nothing downstream of
+ * it can be measured. Recorded as 3 rather than 2 so it is not mistaken for a
+ * hardware fault, and so the reason survives the restart and can be reported.
+ *
+ * Deliberately still recorded rather than left at 0. Leaving it unset would
+ * test again on the next boot, and since the self test restarts the miner
+ * afterwards, an unpowered board would restart every few seconds -- which is
+ * exactly what somebody flashing it over USB does not need. Clearing it is a
+ * decision for a person: reset selftest to 0 from the API, or reflash, once
+ * the supply is connected.
+ */
+/* Below this the board has no usable main supply: 12 V on a BC04's XT-30, or
+ * a negotiated PD contract on the BC01 family. Used both by the gate at the
+ * top of the self test and by test_power_on(), so the two cannot disagree
+ * about what "powered" means. */
+#define SELF_TEST_MIN_VIN 11.0f
+
+void tests_unpowered(GlobalState * GLOBAL_STATE)
+{
+    GLOBAL_STATE->SELF_TEST_MODULE.result = false;
+    GLOBAL_STATE->SELF_TEST_MODULE.active = false;
+    ESP_LOGW(TAG, "SELF TEST NOT RUN -- no main power");
+    nvs_config_set_u16(NVS_CONFIG_SELF_TEST, 3);
+}
+
 esp_err_t test_temperature_sensor(float *temperature)
 {
     esp_err_t ret = ESP_FAIL;
@@ -180,7 +206,7 @@ esp_err_t test_power_on(float *vin, float *vout)
     *vin = TPS546_get_vin();
     *vout = TPS546_get_vout();
     ESP_LOGI(TAG, "Power in %.2fv, out %.2fv",*vin, *vout);
-    if(*vin < 11)
+    if(*vin < SELF_TEST_MIN_VIN)
     {
         ret = ESP_FAIL;
     }
@@ -357,6 +383,14 @@ bool should_test(void)
          * is what produced the loop this value exists to break. */
         ESP_LOGW(TAG, "Self test previously failed; not repeating it");
         ret = false;
+    }else if(3 == self_test){
+        /* Could not be run for lack of main power. Not a fault, and not
+         * repeated -- the self test restarts the miner afterwards, so
+         * retrying on every boot would leave an unpowered board cycling. */
+        ESP_LOGW(TAG, "Self test was skipped: the board had no main power "
+                      "when it last ran. Connect the supply and reset "
+                      "selftest to 0 to run it.");
+        ret = false;
     }else{
         ESP_LOGW(TAG, "NVS ERROR: self_test %"PRIu16"", self_test);
         ret = false;
@@ -417,6 +451,39 @@ void self_test(GlobalState *global_state)
         }
         strcat(GLOBAL_STATE->SELF_TEST_MODULE.message, test_item_str);
         logMessage(GLOBAL_STATE->SELF_TEST_MODULE.message);
+    }
+
+    /*
+     * Check the supply before judging anything that runs on it.
+     *
+     * The fan test used to run here with nothing having established that the
+     * board has main power at all. test_power_on() does check -- it holds
+     * `if (*vin < 11) ret = ESP_FAIL;` -- but it runs afterwards, so on an
+     * unpowered board the fan test failed first and the routine returned
+     * before the check that would have named the real problem.
+     *
+     * What that produced, on a BC04 flashed over USB with nothing on the
+     * XT-30: a fan turning at 1135 rpm instead of 2693 was recorded as "FAN
+     * fail", tests_done() latched it, and should_test() then refused to run
+     * again. The board carried a permanent hardware-failure verdict it did
+     * not deserve -- confirmed when the owner connected 12 V and it mined on
+     * all four ASICs while still reporting the failure.
+     *
+     * The regulator is initialised before the self test runs, so its input
+     * voltage is readable here. Same 11 V threshold as test_power_on(), so
+     * the two cannot disagree.
+     */
+    float vin_at_start = TPS546_get_vin();
+    if (vin_at_start < SELF_TEST_MIN_VIN) {
+        ESP_LOGE(TAG, "Input voltage is %.2f V -- this board has no main "
+                      "supply. Not testing the fan or the hashboard, and not "
+                      "recording a fault.", vin_at_start);
+        ESP_LOGE(TAG, "Connect the main supply and run the self test again.");
+        sprintf(test_item_str, "no main power (%.2fV)\n", vin_at_start);
+        strcat(GLOBAL_STATE->SELF_TEST_MODULE.message, test_item_str);
+        logMessage(GLOBAL_STATE->SELF_TEST_MODULE.message);
+        tests_unpowered(GLOBAL_STATE);
+        return;
     }
 
     uint16_t rpm = 0;
