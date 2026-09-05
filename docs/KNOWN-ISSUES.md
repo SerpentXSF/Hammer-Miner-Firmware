@@ -213,6 +213,28 @@ The fan turns at roughly 42% of normal rpm at every step, which is what a fan
 on an inadequate rail does. The verdict recorded was "FAN fail". The actual
 fault was no main power.
 
+### Confirmed by A/B on the same board
+
+The owner then connected the 12 V supply and restarted. Same board, same
+firmware, one variable changed:
+
+| | 12 V absent | 12 V connected |
+|---|---|---|
+| `READ_VIN` | 3.93 V | **12.22 V** |
+| ASICs detected | -- | **all four: Chip 0, 1, 2, 3** |
+| Mining | no | **yes, 23 accepted shares** |
+| Regulator temp | -- | 57 C, fan PWM 82 |
+| Self test verdict | `Fan test failed` | *still* `Self test previously failed; not repeating it` |
+
+**The board reports a permanent hardware failure while mining correctly with
+all four ASICs.** That is the defect stated as plainly as it can be: the
+verdict is wrong, it is sticky, and nothing the board does afterwards can
+clear it.
+
+It also settles what the fan reading meant. A fan that turns at 1135 rpm on an
+inadequate rail and passes on a good one is not a faulty fan, and the self
+test had no way to say so because it never looked at the supply.
+
 Downstream symptoms on that board, all consistent and all misleading:
 
 * the display stays on the splash screen, because the hashboard never comes up
