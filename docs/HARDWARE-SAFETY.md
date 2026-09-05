@@ -288,7 +288,6 @@ clothes: **doing something before the thing it depends on.**
   checked
 * the self test judging the fan before checking whether the board has any
   main power, then recording a hardware failure that does not exist
-  (KNOWN-ISSUES.md, open)
 
 Each was found by testing a configuration nobody had tried: a board with a
 dead bus, a miner with no WiFi credentials, a cold boot with no USB attached.
@@ -320,11 +319,19 @@ defect was never missing knowledge. It was ordering.
 * **BC01 family, 2.0.19 or earlier:** if your miner boots only while a USB
   cable is plugged into the display module, that is the PD ordering defect in
   section 2.4, not a faulty board. It is fixed in later builds.
-* **Connect the 12 V supply before flashing a BC04.** Flashing over USB with
-  no power on the XT-30 lets the self test measure an unpowered fan, call it a
-  fan failure, and record that permanently. The display then stays on the
-  splash screen while Ethernet and the web interface work normally. Nothing is
-  broken; see KNOWN-ISSUES.md for how to clear it. This is open, not fixed.
+* **Connect the main supply before flashing.** On 2.0.20 and earlier,
+  flashing a BC04 over USB with no power on the XT-30 lets the self test
+  measure an unpowered fan, call it a fan failure, and record that
+  permanently. The display then stays on the splash screen while Ethernet and
+  the web interface work normally. Nothing is broken; see KNOWN-ISSUES.md for
+  how to clear it. Fixed after 2.0.20 -- later builds say "no main power" and
+  record no fault -- but connecting power first is still the right habit,
+  since an unpowered board cannot be tested either way.
+* **A freshly flashed board sits on its own access point.** The web flasher
+  writes a blank NVS, so the miner has no WiFi credentials, waits at
+  `192.168.4.1` to be configured, and never reaches the mining screen. A
+  display stuck on the splash after a browser flash usually means this, not a
+  fault. Restoring an NVS backup puts the previous configuration back.
 
 ---
 

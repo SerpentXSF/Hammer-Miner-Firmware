@@ -174,9 +174,10 @@ confirm is the part that protects it -- with `eth_deferred` false the timeout
 constant is the same `5*60*5` it always was and the new branch is unreachable,
 so its behaviour is unchanged. The fix itself needs a BC04 to sign off.
 
-## The self test judges the fan before it checks for main power (open)
+## The self test judges the fan before it checks for main power (fixed)
 
-**Status: open.** Present in 2.0.20 and every earlier release. Affects the
+**Status: fixed** in `main/self_test/self_test.c`, after 2.0.20. Present in
+2.0.20 and every earlier release. Affects the
 BC04 directly; the BC01 family had the same defect through the USB-PD gate and
 that half was fixed separately.
 
@@ -243,13 +244,26 @@ Downstream symptoms on that board, all consistent and all misleading:
   controller run from the logic rail and do not need the hashboard supply
 * the self test never runs again, so connecting 12 V later does not clear it
 
-### What it should do
+### The fix
 
-Validate the supply before testing anything that depends on it -- the same
-correction already applied to Ethernet, to the WiFi radio, and to thermal
-protection. Concretely: read the input voltage first; if it is below
-threshold, report *"no main power -- cannot test"* and do **not** record a
-hardware failure.
+The supply is read before the fan test. Below `SELF_TEST_MIN_VIN` the self
+test reports *"no main power"*, records `selftest = 3` and stops. Three rather
+than two, because "could not be tested" and "failed" are different states and
+only one of them describes a broken board. `should_test()` reports 3 by saying
+what to do rather than announcing a fault that is not there.
+
+Both the gate and `test_power_on()` now use `SELF_TEST_MIN_VIN`, so they
+cannot drift apart about what "powered" means.
+
+The result is still recorded rather than left at zero. The self test restarts
+the miner afterwards, so retrying on every boot would leave an unpowered board
+cycling every few seconds -- exactly what somebody flashing over USB does not
+need. Clearing it stays a person's decision.
+
+**Not verified on hardware.** Exercising it means booting a board with its
+main supply disconnected, and the only working board here is mining. The
+negative case -- that a powered board still self-tests normally -- is equally
+untested.
 
 The latch itself is right and should stay. It exists because writing the flag
 only on success produced an unrecoverable restart loop on a genuinely faulty
